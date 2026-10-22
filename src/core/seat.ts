@@ -1,5 +1,5 @@
 import { SeatViewError } from "./errors";
-import { DEG, normalAwayFrom } from "./geometry";
+import { DEG, normalAwayFrom, normalizeDeg } from "./geometry";
 import type { Section, Vec3, Venue } from "./schema";
 
 /** 坐姿眼高（m），從座位地面算起。 */
@@ -43,34 +43,7 @@ export function seatPosition(venue: Venue, sectionId: string, row: number, seat:
   if (!Number.isInteger(seat) || seat < 1 || seat > count) {
     throw new SeatViewError("SEAT_OUT_OF_RANGE", `${section.id} 區第 ${row} 排只有 1–${count} 號，收到 ${seat}`);
   }
-
-  // from/to 是區塊邊緣，座位中心落在每格中間
-  const t = (seat - 0.5) / count;
-  const back = (row - 1) * section.rowDepth;
-  const y = section.baseHeight + (row - 1) * section.rowRise;
-
-  switch (section.type) {
-    case "arc": {
-      const radius = section.innerRadius + back;
-      const angle = (section.fromDeg + t * (section.toDeg - section.fromDeg)) / DEG;
-      return {
-        x: section.center.x + radius * Math.cos(angle),
-        y,
-        z: section.center.z + radius * Math.sin(angle),
-      };
-    }
-    case "linear": {
-      const normal = normalAwayFrom(section.from, section.to, section.facing);
-      if (!normal) {
-        throw new Error(`${section.id} 區的 from/to/facing 無法決定後方，請先用 parseVenue 驗證`);
-      }
-      return {
-        x: section.from.x + t * (section.to.x - section.from.x) + back * normal.x,
-        y,
-        z: section.from.z + t * (section.to.z - section.from.z) + back * normal.z,
-      };
-    }
-  }
+  return placeSeat(section, row, seat, count).position;
 }
 
 export interface SeatPlacement {
@@ -84,7 +57,57 @@ export interface SeatPlacement {
 
 /** 整區所有座位，依排、號排序。 */
 export function sectionSeats(venue: Venue, sectionId: string): SeatPlacement[] {
-  throw new Error("not implemented: sectionSeats");
+  const section = findSection(venue, sectionId);
+  const seats: SeatPlacement[] = [];
+  for (let row = 1; row <= section.rows; row++) {
+    const count = seatsInRow(section, row);
+    for (let seat = 1; seat <= count; seat++) seats.push(placeSeat(section, row, seat, count));
+  }
+  return seats;
+}
+
+/** 位置與朝向的實際算式；呼叫前 row、seat 必須已檢查過範圍。 */
+function placeSeat(section: Section, row: number, seat: number, count: number): SeatPlacement {
+  // from/to 是區塊邊緣，座位中心落在每格中間
+  const t = (seat - 0.5) / count;
+  const back = (row - 1) * section.rowDepth;
+  const y = section.baseHeight + (row - 1) * section.rowRise;
+
+  switch (section.type) {
+    case "arc": {
+      const radius = section.innerRadius + back;
+      const angleDeg = section.fromDeg + t * (section.toDeg - section.fromDeg);
+      const angle = angleDeg / DEG;
+      return {
+        row,
+        seat,
+        position: {
+          x: section.center.x + radius * Math.cos(angle),
+          y,
+          z: section.center.z + radius * Math.sin(angle),
+        },
+        // 面向圓心 = 座位所在角度轉半圈
+        yawDeg: normalizeDeg(angleDeg + 180),
+      };
+    }
+    case "linear": {
+      const normal = normalAwayFrom(section.from, section.to, section.facing);
+      if (!normal) {
+        throw new Error(`${section.id} 區的 from/to/facing 無法決定後方，請先用 parseVenue 驗證`);
+      }
+      return {
+        row,
+        seat,
+        position: {
+          x: section.from.x + t * (section.to.x - section.from.x) + back * normal.x,
+          y,
+          z: section.from.z + t * (section.to.z - section.from.z) + back * normal.z,
+        },
+        // normal 指向後方，座位面向它的反方向
+        yawDeg: normalizeDeg(Math.atan2(-normal.z, -normal.x) * DEG),
+      };
+    }
+  }
 }
 
 export function cameraPose(
