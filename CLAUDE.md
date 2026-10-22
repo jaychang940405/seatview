@@ -36,7 +36,9 @@
 - 回覆用繁體中文，直接講重點並給具體範例
 - 報告驗證或實驗結果時，不只給結果，要說明原因與驗證方式
 
-## 指令（scaffold 完成後補上）
+## 指令
 - 開發：`npm run dev`
-- 測試：`npm test`
+- 測試：`npm test`（監看模式：`npm run test:watch`）
 - 型別檢查：`npm run typecheck`
+- 建置：`npm run build`
+- 版本：TypeScript 7、Vite 8、Vitest 5（Node 22）
