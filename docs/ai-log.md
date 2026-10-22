@@ -217,10 +217,16 @@
    - 為了目視檢查大巨蛋（指令沒列，屬於附帶的變更）。只改 `src/ui/query.ts` 和 `main.ts`，不動 core 和 render。
    - 資訊列會顯示 layout 名稱（含「暫定假設」）和免責聲明。
 
+9. **敏感度分析**（作業指令第 7 步）
+   - 先把產生器拆成 `taipei-dome-model.ts`（`buildTaipeiDome(params)`）和只負責寫檔的 `gen-taipei-dome.ts`。重新產生的 JSON 跟拆分前**完全相同**。
+   - `npm run sensitivity` 把 11 個 C 級參數擾動 1,000 次，固定隨機種子，兩次輸出的 md5 相同。core 透過專案已有的 Vite 載入，沒有新增依賴。
+   - 結論：距離誤差主要來自看台半徑和本壘位置。本壘後方第 1 排的距離約 ±6 m（相對 31%），中外野只有 ±4.5 m（3.2%）。俯角和水平偏角的誤差都會被距離稀釋。
+   - 自動產生的解釋第一版有一句錯誤：「半徑誤差除在分母上、影響比較小」。實際上前排的半徑擺幅（5.56°）跟高度擺幅（5.82°）相當。已經改成用數字說明「影響大小要看距離」。
+
 **結果**
 - 157 個測試全部通過，其中大巨蛋的不變量有 22 個；typecheck 和 build 都正常。
 - 大巨蛋人工檢查 11 項，記錄在 `docs/manual-checks.md`。
-- 文件：`docs/venue-taipei-dome.md`。
+- 文件：`docs/venue-taipei-dome.md`、`docs/sensitivity.md`。
 
 **我的取捨**
 - 第 1–5 點是我在作業指令中訂的。
