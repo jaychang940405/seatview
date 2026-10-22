@@ -4,9 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SeatView</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1b1d23;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      #info {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #f0f0f0;
+        font: 14px/1.5 system-ui, sans-serif;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="info"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
