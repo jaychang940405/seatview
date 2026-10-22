@@ -1,5 +1,299 @@
 {
   "schemaVersion": 1,
   "id": "taipei-dome",
-  "name": "臺北大巨蛋（近似模型）"
+  "name": "臺北大巨蛋（近似模型）",
+  "meta": {
+    "disclaimer": "本模型為依公開報導與棒球規則推算的近似模型，非官方圖面；區、排、號為模型內部編號，不對應實際票面，不應作為購票依據。",
+    "provenance": [
+      { "key": "centerField", "value": "本壘到中外野牆：121.92 m", "grade": "B", "source": "https://www.nownews.com/news/6860709（400 呎）" },
+      { "key": "foulPole", "value": "本壘到左右外野牆（界外桿）：102.11 m", "grade": "B", "source": "https://www.nownews.com/news/6860709（335 呎；報導數字，非官方圖面）" },
+      { "key": "seatsLowerDecks", "value": "內野一層＋外野一層席數：17000 席", "grade": "B", "source": "推算：https://www.taiwannews.com.tw/zh/news/5054311 約 22,000 人 − 內野二層約 4,700 ≈ 17,300；https://www.taiwannews.com.tw/zh/news/5046938 首波 1.3 萬＋外野約 4,000 ≈ 17,000" },
+      { "key": "seatsInfieldUpper", "value": "內野二層席數：4700 席", "grade": "B", "source": "https://www.taiwannews.com.tw/zh/news/5054311" },
+      { "key": "seatsTotal", "value": "總席位（不建模，只說明範圍）：40000 席", "grade": "B", "source": "https://www.taiwannews.com.tw/zh/news/5089544" },
+      { "key": "tierNames", "value": "層名：內野一層、內野二層、外野一層", "grade": "B", "source": "https://news.tvbs.com.tw/sports/2429115 等報導" },
+      { "key": "plateZ", "value": "本壘板 z 座標：60.95 m", "grade": "B", "source": "由本壘到中外野距離推算（121.92 ÷ 2，因原點取在連線中點）" },
+      { "key": "basePath", "value": "壘間距離：27.43 m", "grade": "A", "source": "棒球規則（90 呎）" },
+      { "key": "plateToPitcher", "value": "本壘到投手板：18.44 m", "grade": "A", "source": "棒球規則（60 呎 6 吋）" },
+      { "key": "plateToSecond", "value": "本壘到二壘：38.8 m", "grade": "A", "source": "棒球規則" },
+      { "key": "moundDiameter", "value": "投手丘直徑：5.49 m", "grade": "A", "source": "棒球規則（18 呎）" },
+      { "key": "moundHeight", "value": "投手丘高度：0.254 m", "grade": "A", "source": "棒球規則（10 吋）" },
+      { "key": "origin", "value": "原點：本壘到中外野牆連線的中點", "grade": "C", "source": "為了方便而選，視為看台中心的近似" },
+      { "key": "strikeZoneY", "value": "baseball focus 高度（好球帶中心）：0.8 m", "grade": "C", "source": "本專案估算（非量測）" },
+      { "key": "rowDepth", "value": "看台排距：0.85 m", "grade": "C", "source": "本專案估算（非量測）" },
+      { "key": "infieldLower", "value": "內野一層 I1（每區）：{\"innerRadius\":80,\"rows\":16,\"rowRise\":0.35,\"baseHeight\":3,\"seats\":3150}", "grade": "C", "source": "本專案估算（非量測）；每區席數由 B 級總數分配" },
+      { "key": "infieldUpper", "value": "內野二層 I2（每區）：{\"innerRadius\":100,\"rows\":7,\"rowRise\":0.5,\"baseHeight\":14,\"seats\":1570}", "grade": "C", "source": "本專案估算（非量測）；每區席數由 B 級總數分配" },
+      { "key": "outfieldLower", "value": "外野一層 O1（每區）：{\"innerRadius\":78,\"rows\":16,\"rowRise\":0.35,\"baseHeight\":3,\"seats\":2500}", "grade": "C", "source": "本專案估算（非量測）；每區席數由 B 級總數分配" },
+      { "key": "infieldSplitDeg", "value": "內野分區角度（一壘側→本壘後方→三壘側）：[-9,57,123,189] °", "grade": "C", "source": "本專案估算（非量測）；兩端約在界外桿方向，198° 三等分" },
+      { "key": "outfieldSplitDeg", "value": "外野分區角度（右→中→左）：[-9,-63,-117,-171] °", "grade": "C", "source": "本專案估算（非量測）；162° 三等分" },
+      { "key": "wallSampleDeg", "value": "外野牆圓弧取樣間隔：5 °", "grade": "C", "source": "建模選擇" },
+      { "key": "floorBlocks", "value": "搖滾區 F1–F3：{\"fromX\":-25,\"toX\":25,\"frontZ\":[-38,-18,2],\"rows\":20,\"rowDepth\":0.9,\"seatsPerRow\":100}", "grade": "C", "source": "演唱會暫定假設（每場演出不同，非場館屬性）" },
+      { "key": "stage", "value": "舞台：{\"center\":{\"x\":0,\"y\":1,\"z\":-50},\"size\":{\"x\":40,\"y\":2,\"z\":16}}", "grade": "C", "source": "演唱會暫定假設（每場演出不同，非場館屬性）" },
+      { "key": "concertFocus", "value": "concert focus：{\"x\":0,\"y\":3.5,\"z\":-50}", "grade": "C", "source": "演唱會暫定假設（每場演出不同，非場館屬性）；舞台高 2 m＋表演者視線約 1.5 m" }
+    ]
+  },
+  "sections": [
+    {
+      "id": "I1-1B",
+      "name": "內野一層・一壘側（模型分區）",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 80,
+      "fromDeg": -9,
+      "toDeg": 57,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [182, 184, 186, 188, 190, 192, 194, 196, 198, 200, 202, 204, 206, 208, 209, 211]
+    },
+    {
+      "id": "I1-HP",
+      "name": "內野一層・本壘後方",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 80,
+      "fromDeg": 57,
+      "toDeg": 123,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [182, 184, 186, 188, 190, 192, 194, 196, 198, 200, 202, 204, 206, 208, 209, 211]
+    },
+    {
+      "id": "I1-3B",
+      "name": "內野一層・三壘側",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 80,
+      "fromDeg": 123,
+      "toDeg": 189,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [182, 184, 186, 188, 190, 192, 194, 196, 198, 200, 202, 204, 206, 208, 209, 211]
+    },
+    {
+      "id": "I2-1B",
+      "name": "內野二層・一壘側",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 100,
+      "fromDeg": -9,
+      "toDeg": 57,
+      "rows": 7,
+      "rowDepth": 0.85,
+      "rowRise": 0.5,
+      "baseHeight": 14,
+      "seatsPerRow": [219, 221, 222, 224, 226, 228, 230]
+    },
+    {
+      "id": "I2-HP",
+      "name": "內野二層・本壘後方",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 100,
+      "fromDeg": 57,
+      "toDeg": 123,
+      "rows": 7,
+      "rowDepth": 0.85,
+      "rowRise": 0.5,
+      "baseHeight": 14,
+      "seatsPerRow": [219, 221, 222, 224, 226, 228, 230]
+    },
+    {
+      "id": "I2-3B",
+      "name": "內野二層・三壘側",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 100,
+      "fromDeg": 123,
+      "toDeg": 189,
+      "rows": 7,
+      "rowDepth": 0.85,
+      "rowRise": 0.5,
+      "baseHeight": 14,
+      "seatsPerRow": [219, 221, 222, 224, 226, 228, 230]
+    },
+    {
+      "id": "O1-RF",
+      "name": "外野一層・右外野",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 78,
+      "fromDeg": -9,
+      "toDeg": -63,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [144, 146, 148, 149, 151, 152, 154, 155, 157, 159, 160, 162, 163, 165, 166, 169]
+    },
+    {
+      "id": "O1-CF",
+      "name": "外野一層・中外野",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 78,
+      "fromDeg": -63,
+      "toDeg": -117,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [144, 146, 148, 149, 151, 152, 154, 155, 157, 159, 160, 162, 163, 165, 166, 169],
+      "layouts": ["baseball"]
+    },
+    {
+      "id": "O1-LF",
+      "name": "外野一層・左外野",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 78,
+      "fromDeg": -117,
+      "toDeg": -171,
+      "rows": 16,
+      "rowDepth": 0.85,
+      "rowRise": 0.35,
+      "baseHeight": 3,
+      "seatsPerRow": [144, 146, 148, 149, 151, 152, 154, 155, 157, 159, 160, 162, 163, 165, 166, 169]
+    },
+    {
+      "id": "F1",
+      "name": "搖滾區 1（模型分區）",
+      "type": "linear",
+      "from": { "x": -25, "z": -38 },
+      "to": { "x": 25, "z": -38 },
+      "facing": { "x": 0, "z": -50 },
+      "rows": 20,
+      "rowDepth": 0.9,
+      "rowRise": 0,
+      "baseHeight": 0,
+      "seatsPerRow": 100,
+      "layouts": ["concert"]
+    },
+    {
+      "id": "F2",
+      "name": "搖滾區 2",
+      "type": "linear",
+      "from": { "x": -25, "z": -18 },
+      "to": { "x": 25, "z": -18 },
+      "facing": { "x": 0, "z": -50 },
+      "rows": 20,
+      "rowDepth": 0.9,
+      "rowRise": 0,
+      "baseHeight": 0,
+      "seatsPerRow": 100,
+      "layouts": ["concert"]
+    },
+    {
+      "id": "F3",
+      "name": "搖滾區 3",
+      "type": "linear",
+      "from": { "x": -25, "z": 2 },
+      "to": { "x": 25, "z": 2 },
+      "facing": { "x": 0, "z": -50 },
+      "rows": 20,
+      "rowDepth": 0.9,
+      "rowRise": 0,
+      "baseHeight": 0,
+      "seatsPerRow": 100,
+      "layouts": ["concert"]
+    }
+  ],
+  "layouts": {
+    "baseball": {
+      "name": "棒球",
+      "focus": {
+        "position": { "x": 0, "y": 0.8, "z": 60.95 },
+        "facingDeg": 90
+      },
+      "overlays": [
+        {
+          "type": "polyline",
+          "id": "foul-line-left",
+          "points": [
+            { "x": 0, "z": 60.95 },
+            { "x": -72.203, "z": -11.253 }
+          ]
+        },
+        {
+          "type": "polyline",
+          "id": "foul-line-right",
+          "points": [
+            { "x": 0, "z": 60.95 },
+            { "x": 72.203, "z": -11.253 }
+          ]
+        },
+        {
+          "type": "polyline",
+          "id": "outfield-wall",
+          "points": [
+            { "x": -72.203, "z": -11.253 },
+            { "x": -70.047, "z": -16.345 },
+            { "x": -66.933, "z": -22.326 },
+            { "x": -63.311, "z": -28.013 },
+            { "x": -59.206, "z": -33.362 },
+            { "x": -54.651, "z": -38.333 },
+            { "x": -49.68, "z": -42.888 },
+            { "x": -44.331, "z": -46.993 },
+            { "x": -38.644, "z": -50.615 },
+            { "x": -32.663, "z": -53.729 },
+            { "x": -26.434, "z": -56.309 },
+            { "x": -20.004, "z": -58.336 },
+            { "x": -13.421, "z": -59.796 },
+            { "x": -6.736, "z": -60.676 },
+            { "x": 0, "z": -60.97 },
+            { "x": 6.736, "z": -60.676 },
+            { "x": 13.421, "z": -59.796 },
+            { "x": 20.004, "z": -58.336 },
+            { "x": 26.434, "z": -56.309 },
+            { "x": 32.663, "z": -53.729 },
+            { "x": 38.644, "z": -50.615 },
+            { "x": 44.331, "z": -46.993 },
+            { "x": 49.68, "z": -42.888 },
+            { "x": 54.651, "z": -38.333 },
+            { "x": 59.206, "z": -33.362 },
+            { "x": 63.311, "z": -28.013 },
+            { "x": 66.933, "z": -22.326 },
+            { "x": 70.047, "z": -16.345 },
+            { "x": 72.203, "z": -11.253 }
+          ]
+        },
+        {
+          "type": "polyline",
+          "id": "infield",
+          "closed": true,
+          "points": [
+            { "x": 0, "z": 60.95 },
+            { "x": 19.396, "z": 41.554 },
+            { "x": 0, "z": 22.15 },
+            { "x": -19.396, "z": 41.554 }
+          ]
+        },
+        {
+          "type": "box",
+          "id": "mound",
+          "center": { "x": 0, "y": 0.127, "z": 42.51 },
+          "size": { "x": 5.49, "y": 0.254, "z": 5.49 }
+        }
+      ]
+    },
+    "concert": {
+      "name": "演唱會（暫定假設：外野端台）",
+      "focus": {
+        "position": { "x": 0, "y": 3.5, "z": -50 },
+        "facingDeg": 90
+      },
+      "overlays": [
+        {
+          "type": "box",
+          "id": "stage",
+          "center": { "x": 0, "y": 1, "z": -50 },
+          "size": { "x": 40, "y": 2, "z": 16 }
+        }
+      ]
+    }
+  }
 }
