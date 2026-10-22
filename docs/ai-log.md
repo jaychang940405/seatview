@@ -45,3 +45,34 @@
 - 要求 `demo-arena.json` 加一個最小的 baseball layout（只有 name 和 focus），讓 `SECTION_NOT_IN_LAYOUT` 的測試成立。
 - 真實場館先用 demo-arena 把 core 做完，之後再做台北大巨蛋。台北大巨蛋同時有演唱會和棒球兩種 layout，剛好能驗證架構。
 - 開發順序：建專案 → 先寫 core 測試並確認全部失敗 → 實作；每完成一步就 commit。
+
+---
+
+## 2026-10-23｜core 實作（測試先行）
+
+**問題**：照上面的設計實作 `src/core/`，並用測試證明是測試先行。
+
+**AI 建議**
+
+1. **紅燈階段放「有型別的空殼」**
+   - 不直接讓測試 import 不存在的模組，而是每個函式都先寫成 `throw new Error("not implemented")`。
+   - 這樣 typecheck 會過，64 個測試也會各自失敗；不會整個檔案因為 import 錯誤一起掛掉，看不出哪些案例還沒做。
+2. **避免空殼「假通過」**
+   - 錯誤路徑的測試會斷言丟出的是 `SeatViewError`、而且 `code` 正確；schema 測試只接受 `ZodError`。
+   - 所以空殼丟一般 `Error` 時，這些測試不會意外變綠燈。
+   - 驗證方式：用 Vitest 的 JSON reporter 把 64 個失敗依第一行錯誤訊息分組，確認全部都來自空殼。
+3. **layout 查詢用 `Object.hasOwn`**
+   - `venue.layouts["toString"]` 會拿到原型上的函式，而 MCP 的輸入來自 LLM，什麼字串都可能出現。
+   - 測試涵蓋 `"toString"` 和 `"__proto__"`，兩者都要回 `UNKNOWN_LAYOUT`。
+4. **`horizontalAngle` 把 −179.999… 統一成 180**：浮點誤差會讓「舞台正後方」偶爾算成接近 −180，範圍約定是 (−180, 180]。
+5. **`normalAwayFrom` 共用**：linear 區「往哪邊退」的計算，和 schema 檢查「facing 不能在前緣線上」用的是同一個函式，兩邊的判斷不會不一致。
+6. **版本**：npm 裝到的是 TypeScript 7、Vite 8、Vitest 5、zod 4；scaffold 後 typecheck 和 build 都正常。
+
+**結果**
+- 實作分 4 個 commit：geometry → seat → schema 驗證 → view。
+- 最終 64 個測試全部通過，typecheck 和 build 都正常。
+- `src/core/` 沒有任何 three.js 或 DOM 依賴。
+
+**流程備註**：測試的 commit 一度把 VS Code Local History 產生的 `.history/` 一起加進去。那時還沒推送，所以直接修正那個 commit，並把 `.history/` 加進 `.gitignore`；之後 `git add` 都指定路徑。
+
+**我的取捨**：（待補）
