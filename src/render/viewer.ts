@@ -4,7 +4,7 @@ import type { Venue } from "../core/schema";
 import type { SeatView } from "../core/view";
 import { applyCameraPose, createSeatCamera, DEFAULT_FOV, resizeSeatCamera } from "./camera";
 import { toVector3 } from "./convert";
-import { buildVenueScene, type VenueScene } from "./scene";
+import { buildVenueScene, MARKER_LAYER, type VenueScene } from "./scene";
 
 // 唯一碰 DOM 與 WebGL 的模組；其餘 render 模組都能在 Node 裡測試。
 
@@ -27,6 +27,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
 
   const seatCamera = createSeatCamera(1, baseFov);
   const overviewCamera = new THREE.PerspectiveCamera(45, 1, 0.5, 2000);
+  overviewCamera.layers.enable(MARKER_LAYER); // 只有鳥瞰看得到選位標記
   const controls = new OrbitControls(overviewCamera, renderer.domElement);
   controls.enabled = false;
 

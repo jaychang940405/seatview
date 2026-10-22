@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import type { Vec3, Venue } from "../core/schema";
+import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
 import { buildOverlay } from "./overlays";
-import { buildSectionMesh, type SectionMesh } from "./seats";
+import { buildSectionMesh, SEAT_SIZE, type SectionMesh } from "./seats";
 
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
 export const SECTION_COLORS = ["#4477aa", "#66ccee", "#228833", "#ccbb44", "#aa3377", "#bbbbbb"];
@@ -12,6 +13,8 @@ export const MARKER_LAYER = 1;
 
 /** 地板比所有座位與 overlay 的範圍再往外多幾公尺。 */
 const FLOOR_MARGIN = 10;
+/** 選位標記：倒立的錐，尖端浮在座位上方。尺寸以鳥瞰距離（約 100–200 m）看得到為準。 */
+const MARKER = { radius: 1.5, height: 4, hover: 1 } as const;
 
 export interface SeatRef {
   sectionId: string;
@@ -55,6 +58,9 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
 
   scene.add(buildFloor(new THREE.Box3().setFromObject(sections).union(new THREE.Box3().setFromObject(overlays))));
 
+  const marker = buildSeatMarker();
+  scene.add(marker);
+
   let highlighted: { sectionMesh: SectionMesh; index: number } | null = null;
 
   return {
@@ -65,12 +71,17 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
         setSeatColor(highlighted.sectionMesh, highlighted.index, highlighted.sectionMesh.baseColor);
         highlighted = null;
       }
+      marker.visible = false;
       if (!ref) return;
       const sectionMesh = sectionMeshes.get(ref.sectionId);
       const index = sectionMesh?.indexOf(ref.row, ref.seat);
       if (!sectionMesh || index === undefined) return;
       setSeatColor(sectionMesh, index, HIGHLIGHT_COLOR);
       highlighted = { sectionMesh, index };
+
+      const seat = seatPosition(venue, ref.sectionId, ref.row, ref.seat);
+      marker.position.set(seat.x, seat.y + SEAT_SIZE.height + MARKER.hover + MARKER.height / 2, seat.z);
+      marker.visible = true;
     },
     dispose() {
       scene.traverse((object) => {
@@ -88,6 +99,16 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
 function setSeatColor(sectionMesh: SectionMesh, index: number, color: THREE.Color): void {
   sectionMesh.mesh.setColorAt(index, color);
   if (sectionMesh.mesh.instanceColor) sectionMesh.mesh.instanceColor.needsUpdate = true;
+}
+
+function buildSeatMarker(): THREE.Mesh {
+  const geometry = new THREE.ConeGeometry(MARKER.radius, MARKER.height, 16);
+  geometry.rotateX(Math.PI); // ConeGeometry 尖端朝上，轉成朝下指向座位
+  const marker = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: HIGHLIGHT_COLOR }));
+  marker.name = "seat-marker";
+  marker.layers.set(MARKER_LAYER);
+  marker.visible = false;
+  return marker;
 }
 
 /** y = 0 的地板，蓋住 bounds 的平面範圍。 */

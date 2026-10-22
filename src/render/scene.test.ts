@@ -93,8 +93,8 @@ describe("dispose", () => {
         spies.push(vi.spyOn(object.material as THREE.Material, "dispose"));
       }
     });
-    // 3 區 × (InstancedMesh + geometry + material) + 舞台 + 地板
-    expect(spies).toHaveLength(3 * 3 + 2 + 2);
+    // 3 區 × (InstancedMesh + geometry + material) + 舞台、地板、選位標記各 (geometry + material)
+    expect(spies).toHaveLength(3 * 3 + 3 * 2);
 
     venueScene.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalled();
