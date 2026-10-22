@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc",
-    "gen:dome": "node scripts/gen-taipei-dome.ts"
+    "gen:dome": "node scripts/gen-taipei-dome.ts",
+    "sensitivity": "node scripts/sensitivity.ts"
   },
   "devDependencies": {
     "@types/three": "^0.186.0",
