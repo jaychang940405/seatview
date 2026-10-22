@@ -23,10 +23,12 @@ render 有改動時重新跑一次，在「結果」欄記錄日期。
 | 6 | `layout=baseball&section=F1&row=1&seat=1` | 顯示錯誤而不是白畫面 | ✅ `SECTION_NOT_IN_LAYOUT：F1 區在 baseball layout 沒有開放` | — |
 | 7 | 手機 375×812，預設座位 | 舞台沒被左右切掉：寬度約佔畫面 45%（水平 FOV 50°） | ✅ 約 47%；canvas 750×1624（HiDPI 2×） | [06](screenshots/06-mobile-375x812.jpg) |
 | 8 | `mode=overview`，拖曳 | 視角跟著旋轉，放開後畫面停在新角度 | ✅ | [07](screenshots/07-overview-orbit.jpg) |
+| 9 | `section=B1&row=8&seat=18`，`mode=overview` 和 `mode=seat` 各一次 | 鳥瞰時座位上方有紅色倒錐；座位視角看不到它，畫面跟 #2 一樣 | ✅ | [鳥瞰](screenshots/08-marker-overview.jpg)／[座位](screenshots/09-marker-hidden-in-seat-view.jpg) |
 
 ### 發現並修正的問題
 
 - **#4 鳥瞰取景**：原本相機繞 focus（舞台）轉，端台的舞台在場館一端，最靠近相機的 A1 大半被切出畫面下緣。改成繞「所有座位與 overlay」的中心轉，相機距離依 bounding sphere 半徑計算。
+- **#9 dev server 全黑**：分兩次 Edit 改 viewer.ts（先加用法、再加 import）時，瀏覽器快取了 HMR 的中間版本，出現 `MARKER_LAYER is not defined`。typecheck、測試、build 都正常，server 提供的檔案也是新版；重啟 dev server 後就好了。這不是程式錯誤；畫面出問題時，先用 typecheck 和 build 排除程式本身的問題。
 
 ### 還沒檢查
 
