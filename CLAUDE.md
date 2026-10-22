@@ -24,6 +24,7 @@
   - `distance`、`elevationAngle`、`horizontalAngle`
 - `src/venues/*.json`：場館資料。一個場館有多個 `layouts`（concert / baseball），
   每個 layout 定義自己的 `focus`（舞台中心、本壘板等）與可選的 `overlays`
+  - 場館數字必須標 A/B/C 等級；未建模的區回 UNKNOWN_SECTION，不編資料
 - `src/render/`：three.js 場景，只負責畫，不含計算邏輯
   - render 不讀 section 幾何欄位，座標與朝向一律來自 core
 - `src/ui/`：區／排／號輸入、layout 切換

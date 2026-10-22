@@ -32,6 +32,30 @@ render 有改動時重新跑一次，在「結果」欄記錄日期。
 
 ### 還沒檢查
 
-- **效能**：等台北大巨蛋（約 4 萬席）完成後，用 DevTools Performance 量 FPS。
-- **整體比例感**（看台斜度、舞台大小）：demo-arena 的尺寸是編出來的，等真實場館再對照照片判斷。
+- **效能**：用 DevTools Performance 量 FPS。大巨蛋模型只建了約 2.2–2.5 萬席（不是 4 萬），目視操作沒有卡頓，但還沒量化。
+- **整體比例感**（看台斜度、舞台大小）：demo-arena 的尺寸是編出來的。大巨蛋的比例請見下面「還沒檢查」那一段。
 - **build 警告**：bundle 超過 500 kB，主要是 three.js 本身；之後可以用動態 import 拆開。
+
+## 2026-10-23（taipei-dome 近似模型，桌面 Browser pane 800×726）
+
+預期值來自 `docs/venue-taipei-dome.md` 第 4 節（Layouts）。網址都要加上 `?venue=taipei-dome&`。
+截圖只用本專案自己的 render 畫面，不放別人的照片。
+
+| # | 網址參數 | 預期 | 結果 | 截圖 |
+|---|---|---|---|---|
+| D1 | `layout=baseball&section=I1-HP&row=1&seat=91&mode=overview` | 本壘在下、中外野在上；一壘側（+x）在右；看得到界外線、外野牆圓弧、內野、投手丘；二層在外圈 | ✅ | [D1](screenshots/dome-01-baseball-overview.jpg) |
+| D2 | `layout=baseball&section=I1-HP&row=1&seat=91` | 本壘後方：本壘在畫面中央；水平偏角 ≈ 0 | ✅ 距離 19.4 m、俯角 10.1°、偏角 0.8° | [D2](screenshots/dome-02-baseball-i1hp-r1-s91.jpg) |
+| D3 | `layout=baseball&section=I1-1B&row=8&seat=100` | 一壘側：水平偏角 > 0，內野往畫面右側延伸 | ✅ 偏角 +107.9°、距離 82.4 m | [D3](screenshots/dome-03-baseball-i11b-r8-s100.jpg) |
+| D4 | `layout=baseball&section=O1-CF&row=1&seat=72` | 中外野：水平偏角 ≈ ±180 | ✅ 偏角 179.9°、距離 139.0 m | [D4](screenshots/dome-04-baseball-o1cf-r1-s72.jpg) |
+| D5 | `layout=concert&section=F1&row=1&seat=50&mode=overview` | 舞台在外野端；F1–F3 在舞台前；舞台後方沒有 O1-CF | ✅ | [D5](screenshots/dome-05-concert-overview.jpg) |
+| D6 | `layout=concert&section=F1&row=1&seat=50` | 比舞台低：俯角為負；水平偏角 ≈ 0 | ✅ 俯角 −10.8°、偏角 −1.2°（舞台正面擋住大半畫面） | [D6](screenshots/dome-06-concert-f1-r1-s50.jpg) |
+| D7 | `layout=concert&section=I2-HP&row=7&seat=115` | 最遠的內野二層：舞台在遠方正中央 | ✅ 距離 155.8 m、偏角 0.1° | [D7](screenshots/dome-07-concert-i2hp-r7-s115.jpg) |
+| D8 | `layout=concert&section=O1-CF&row=1&seat=1` | 不開放 | ✅ `SECTION_NOT_IN_LAYOUT`，下面附免責聲明 | — |
+| D9 | `layout=baseball&section=F1&row=1&seat=1` | 搖滾區只在演唱會 | ✅ `SECTION_NOT_IN_LAYOUT` | — |
+| D10 | `layout=baseball&section=O2-RF&row=1&seat=1` | 沒有建模的區（外野二層） | ✅ `UNKNOWN_SECTION`，不編資料 | — |
+| D11 | 以上任一頁 | 資訊列顯示免責聲明；concert 顯示「暫定假設」 | ✅ | — |
+
+### 還沒檢查
+
+- **比例感**：OSM 外框顯示模型在短向太寬（見 `docs/venue-taipei-dome.md` 的「OpenStreetMap 外框檢查」）。等修正方向決定後再目視。
+- **效能**：同上，還沒量化。
