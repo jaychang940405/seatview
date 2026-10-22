@@ -75,4 +75,14 @@
 
 **流程備註**：測試的 commit 一度把 VS Code Local History 產生的 `.history/` 一起加進去。那時還沒推送，所以直接修正那個 commit，並把 `.history/` 加進 `.gitignore`；之後 `git add` 都指定路徑。
 
-**我的取捨**：（待補）
+**我的取捨**：
+- 我發現測試案例要求 SECTION_NOT_IN_LAYOUT，但示範資料沒有 baseball layout。
+- 我要求補上，原因是不補的話測試會得到 UNKNOWN_LAYOUT，驗證不到想測的情境。
+
+---
+
+## 2026-10-23 誤提交 .history/
+
+- **問題：** Claude Code 在提交第一批測試時，誤把 VS Code Local History 產生的 `.history/` 一起 commit。
+- **處理：** 在尚未 push 的情況下修正該 commit，並把 `.history/` 加進 `.gitignore`；之後 `git add` 一律指定路徑。
+- **我的觀察：** AI 自己發現並回報了這個問題，但如果我沒檢查 git log，也可能漏掉。
