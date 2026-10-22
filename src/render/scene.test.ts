@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseVenue } from "../core/schema";
 import demoArenaJson from "../venues/demo-arena.json";
 import { expectColorClose, expectSeatError } from "../test/helpers";
@@ -40,6 +40,25 @@ describe("buildVenueScene：場景內容", () => {
 
   it("不存在的 layout → UNKNOWN_LAYOUT", () => {
     expectSeatError(() => buildVenueScene(demo(), "opera"), "UNKNOWN_LAYOUT");
+  });
+});
+
+describe("dispose", () => {
+  it("釋放場景裡每個 geometry、material 與 InstancedMesh 的資源", () => {
+    const venueScene = buildVenueScene(demo(), "concert");
+    const spies: ReturnType<typeof vi.spyOn>[] = [];
+    venueScene.scene.traverse((object) => {
+      if (object instanceof THREE.InstancedMesh) spies.push(vi.spyOn(object, "dispose"));
+      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+        spies.push(vi.spyOn(object.geometry, "dispose"));
+        spies.push(vi.spyOn(object.material as THREE.Material, "dispose"));
+      }
+    });
+    // 3 區 × (InstancedMesh + geometry + material) + 舞台 + 地板
+    expect(spies).toHaveLength(3 * 3 + 2 + 2);
+
+    venueScene.dispose();
+    for (const spy of spies) expect(spy).toHaveBeenCalled();
   });
 });
 
