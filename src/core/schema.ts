@@ -56,6 +56,19 @@ const OverlaySchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+/** 數字的可信度：A = 規則或官方定義、B = 新聞報導、C = 本專案估算。 */
+const ProvenanceSchema = z.object({
+  key: z.string().min(1),
+  value: z.string(),
+  grade: z.enum(["A", "B", "C"]),
+  source: z.string().min(1),
+});
+
+const MetaSchema = z.object({
+  disclaimer: z.string().min(1),
+  provenance: z.array(ProvenanceSchema),
+});
+
 const LayoutSchema = z.object({
   name: z.string(),
   focus: FocusSchema,
@@ -69,6 +82,7 @@ export const VenueSchema = z
     name: z.string(),
     sections: z.array(SectionSchema).min(1),
     layouts: z.record(z.string(), LayoutSchema),
+    meta: MetaSchema.optional(),
   })
   .superRefine((venue, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -115,6 +129,8 @@ export type Section = z.infer<typeof SectionSchema>;
 export type Focus = z.infer<typeof FocusSchema>;
 export type Overlay = z.infer<typeof OverlaySchema>;
 export type Layout = z.infer<typeof LayoutSchema>;
+export type Provenance = z.infer<typeof ProvenanceSchema>;
+export type VenueMeta = z.infer<typeof MetaSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
 
 /** 驗證場館 JSON；格式錯誤時丟 ZodError。 */

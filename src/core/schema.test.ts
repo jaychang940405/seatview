@@ -91,3 +91,33 @@ describe("parseVenue", () => {
     expect(issuePaths(json).length).toBeGreaterThan(0);
   });
 });
+
+describe("parseVenue：選填的 meta", () => {
+  const meta = {
+    disclaimer: "近似模型，非官方圖面。",
+    provenance: [
+      { key: "baseDistance", value: "27.43 m", grade: "A", source: "棒球規則（90 呎）" },
+      { key: "innerRadius", value: "80 m", grade: "C", source: "本專案估算" },
+    ],
+  };
+
+  it("沒有 meta 也能 parse", () => {
+    expect(parseVenue(demoArenaJson).meta).toBeUndefined();
+  });
+
+  it("有 meta 時完整保留 disclaimer 與 provenance", () => {
+    const venue = parseVenue({ ...demoCopy(), meta });
+    expect(venue.meta?.disclaimer).toBe(meta.disclaimer);
+    expect(venue.meta?.provenance).toEqual(meta.provenance);
+  });
+
+  it("grade 只能是 A、B、C", () => {
+    const json = { ...demoCopy(), meta: structuredClone(meta) };
+    json.meta.provenance[1].grade = "D";
+    expect(issuePaths(json)).toContain("meta.provenance.1.grade");
+  });
+
+  it("disclaimer 不能是空字串", () => {
+    expect(issuePaths({ ...demoCopy(), meta: { ...meta, disclaimer: "" } })).toContain("meta.disclaimer");
+  });
+});
