@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { expectSeatError, expectVec3Close } from "../test/helpers";
 import type { ArcSection, LinearSection, Venue } from "./schema";
-import { cameraPose, seatPosition } from "./seat";
+import { cameraPose, seatPosition, sectionSeats } from "./seat";
 
 // 數字刻意挑好算的，方便手算預期值
 const arc: ArcSection = {
@@ -116,6 +116,56 @@ describe("seatPosition — 錯誤", () => {
 
   it.each([0, 32, 1.5])("seat = %s → SEAT_OUT_OF_RANGE", (seat) => {
     expectSeatError(() => seatPosition(venue, "ARC", 1, seat), "SEAT_OUT_OF_RANGE");
+  });
+});
+
+describe("sectionSeats", () => {
+  it("依排、號排序，總數 = 各排座位數加總", () => {
+    const seats = sectionSeats(venue, "ARC");
+    expect(seats).toHaveLength(10 * 31);
+    expect(seats[0]).toMatchObject({ row: 1, seat: 1 });
+    expect(seats[30]).toMatchObject({ row: 1, seat: 31 });
+    expect(seats[31]).toMatchObject({ row: 2, seat: 1 });
+    expect(seats.at(-1)).toMatchObject({ row: 10, seat: 31 });
+    expect(sectionSeats(venue, "VARIED")).toHaveLength(10 + 12 + 14);
+  });
+
+  it("每個座位的位置都等於 seatPosition", () => {
+    for (const id of ["ARC", "LINE", "VARIED"]) {
+      for (const placement of sectionSeats(venue, id)) {
+        expectVec3Close(placement.position, seatPosition(venue, id, placement.row, placement.seat));
+      }
+    }
+  });
+
+  it("arc：90° 方向的座位面向圓心（-z）→ -90°", () => {
+    const middle = sectionSeats(venue, "ARC").find((p) => p.row === 1 && p.seat === 16);
+    expect(middle?.yawDeg).toBeCloseTo(-90);
+  });
+
+  it("arc：每個座位都面向圓心", () => {
+    for (const { position, yawDeg } of sectionSeats(venue, "ARC")) {
+      const rad = (yawDeg * Math.PI) / 180;
+      const toCenter = Math.atan2(arc.center.z - position.z, arc.center.x - position.x);
+      expect(Math.cos(rad - toCenter)).toBeCloseTo(1);
+    }
+  });
+
+  it("linear：面向 facing 那一側", () => {
+    // LINE 的 facing 在 -z 側，LINE_BACK 在 +z 側
+    for (const p of sectionSeats(venue, "LINE")) expect(p.yawDeg).toBeCloseTo(-90);
+    for (const p of sectionSeats(venue, "LINE_BACK")) expect(p.yawDeg).toBeCloseTo(90);
+  });
+
+  it("yawDeg 落在 (-180, 180]", () => {
+    for (const p of sectionSeats(venue, "ARC_REV")) {
+      expect(p.yawDeg).toBeGreaterThan(-180);
+      expect(p.yawDeg).toBeLessThanOrEqual(180);
+    }
+  });
+
+  it("不存在的區 → UNKNOWN_SECTION", () => {
+    expectSeatError(() => sectionSeats(venue, "NOPE"), "UNKNOWN_SECTION");
   });
 });
 

@@ -73,6 +73,20 @@ export function seatPosition(venue: Venue, sectionId: string, row: number, seat:
   }
 }
 
+export interface SeatPlacement {
+  row: number;
+  seat: number;
+  /** 等於 seatPosition(...) */
+  position: Vec3;
+  /** 座位面向的方向（平面角度，範圍 (-180, 180]）：arc 面向圓心，linear 面向 facing 那側 */
+  yawDeg: number;
+}
+
+/** 整區所有座位，依排、號排序。 */
+export function sectionSeats(venue: Venue, sectionId: string): SeatPlacement[] {
+  throw new Error("not implemented: sectionSeats");
+}
+
 export function cameraPose(
   seatPos: Vec3,
   focusPoint: Vec3,
