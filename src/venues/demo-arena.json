@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-arena",
+  "name": "示範體育館",
+  "sections": [
+    {
+      "id": "A1",
+      "name": "A1 區",
+      "type": "arc",
+      "center": { "x": 0, "z": 0 },
+      "innerRadius": 30,
+      "fromDeg": 60,
+      "toDeg": 120,
+      "rows": 20,
+      "seatsPerRow": 31,
+      "rowDepth": 0.85,
+      "rowRise": 0.45,
+      "baseHeight": 3
+    },
+    {
+      "id": "B1",
+      "name": "B1 區",
+      "type": "linear",
+      "from": { "x": 36, "z": -18 },
+      "to": { "x": 36, "z": 18 },
+      "facing": { "x": 0, "z": 0 },
+      "rows": 15,
+      "seatsPerRow": 36,
+      "rowDepth": 0.85,
+      "rowRise": 0.45,
+      "baseHeight": 3
+    },
+    {
+      "id": "F1",
+      "name": "搖滾 A",
+      "type": "linear",
+      "from": { "x": -10, "z": -20 },
+      "to": { "x": 10, "z": -20 },
+      "facing": { "x": 0, "z": -30 },
+      "rows": 20,
+      "seatsPerRow": 40,
+      "rowDepth": 0.9,
+      "rowRise": 0,
+      "baseHeight": 0,
+      "layouts": ["concert"]
+    }
+  ],
+  "layouts": {
+    "concert": {
+      "name": "演唱會（端台）",
+      "focus": { "position": { "x": 0, "y": 3, "z": -30 }, "facingDeg": 90 },
+      "overlays": [
+        {
+          "type": "box",
+          "id": "stage",
+          "center": { "x": 0, "y": 0.9, "z": -30 },
+          "size": { "x": 24, "y": 1.8, "z": 12 }
+        }
+      ]
+    },
+    "baseball": {
+      "name": "棒球",
+      "focus": { "position": { "x": 0, "y": 1, "z": -25 }, "facingDeg": 90 }
+    }
+  }
+}
