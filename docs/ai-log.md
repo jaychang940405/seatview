@@ -120,3 +120,46 @@
 - **窄螢幕（畫面比例 < 1）改用水平 FOV 當基準**，避免直式手機把舞台左右切掉，並補測試。
 - 優先順序：sectionSeats → seats → camera → convert → 鏡像測試 → viewer 的網址參數入口；overlay 測試、dispose 測試、選位錐形標記放最後，時間不夠就略過。
 - CLAUDE.md 架構原則補上：「render 不讀 section 幾何欄位，座標與朝向一律來自 core」。
+
+---
+
+## 2026-10-23｜src/render/ 實作
+
+**問題**：照上面的設計和優先順序實作 render，每一步都先看到紅燈再實作。
+
+**AI 建議與過程**
+
+1. **convert 提前到 seats 之前**
+   - seats 要用 convert 的 `planYawToRotationY` 擺方塊朝向。
+   - 照原本的順序，convert 得跟著 seats 先實作，等輪到它時測試會一寫下去就是綠燈，違反先紅燈。convert 只有兩個小函式，提前做不影響其他優先順序。
+2. **`sectionSeats` 和 `seatPosition` 共用內部的 `placeSeat`**：render 畫的每個座位，跟 `getSeatView` 回報的座位是同一段算式算出來的。
+3. **測試的容許誤差配合 float32**
+   - seats 測試第一次跑紅燈的原因不是實作錯誤：`InstancedMesh` 把矩陣和顏色存成 Float32Array，數十公尺的座標只有約 1e-6 的精度。
+   - 修正：位置改成比到 0.1 mm，顏色改成逐通道比較。測試的意圖不變，這個修正獨立成一個 commit。
+4. **窄螢幕 FOV**
+   - 比例 < 1 時，50° 改當水平 FOV；比例 = 1 時兩條規則重合，縮放視窗不會跳。
+   - 測試加了對照組：9:16 時，「固定垂直 50°」的相機會把偏 24° 的點切到畫面外，新規則不會。
+   - 目視：手機 375×812 上，舞台約佔畫面寬度 47%。
+5. **鏡像測試用突變驗證**
+   - 這個測試檢查的是 core 加 camera 串起來的結果，兩者都已實作，沒辦法先紅燈，所以改成故意放錯、確認測試會失敗。
+   - 第一個突變 `camera.scale.x = -1` **無效**：three.js r186 的 `Camera.updateMatrixWorld` 為了符合 glTF 規範，會把 scale 排除在 view matrix 外，畫面根本沒有鏡像。學到的是：突變本身也要確認真的放進了錯誤。
+   - 改用投影矩陣 x 反向（真正的鏡像），2 個測試失敗；把 core `horizontalAngle` 的正負號反過來，1 個測試失敗。
+6. **鳥瞰取景改成繞場館中心**（目視發現）
+   - 原設計是繞 focus 轉，但端台的舞台在場館一端，最靠近相機的 A1 大半被切出畫面。
+   - 改成繞「所有座位和 overlay」的中心轉，相機距離依 bounding sphere 計算。
+7. **overlay 和 dispose 是先實作、後補測試**
+   - 照優先順序，這兩項的測試排在最後；但 viewer 要畫出舞台、切換 layout 要釋放資源，所以實作先做了。
+   - 補上的測試用突變驗證都抓得到錯：拿掉 box 旋轉、closed 改用 Line、不釋放 material、不呼叫 InstancedMesh.dispose。
+   - 跟設計不同的一處：closed polyline 用 `LineLoop`（N 個點），不是 N+1 個點。
+8. **選位標記放在獨立 layer**：座位相機就在那個座位的眼睛位置，標記如果在座位模式下看得到，會擋住視線。只有鳥瞰相機啟用 `MARKER_LAYER`；測試確認座位相機看不到它。
+9. **dev server 全黑的誤判**
+   - 分兩次 Edit 改 viewer.ts（先加用法、再加 import）時，瀏覽器快取了 HMR 的中間版本，出現 `MARKER_LAYER is not defined`。
+   - 先確認 typecheck、測試、build 都正常，server 提供的檔案也是新版，判定不是程式錯誤；重啟 dev server 後就正常了。
+
+**結果**
+- 131 個測試全部通過，typecheck 和 build 都正常。
+- build 有一個 chunk 超過 500 kB 的警告，主要是 three.js 本身。
+- 人工檢查 9 項，記錄在 `docs/manual-checks.md`，附截圖。
+- 還沒做：效能（等大巨蛋）、座位模式拖曳轉頭（設計上先不做）。
+
+**我的取捨**：（待補）
