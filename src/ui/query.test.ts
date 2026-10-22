@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_QUERY, parseSeatQuery } from "./query";
 
 describe("parseSeatQuery", () => {
-  it("沒有參數 → 預設值（演唱會 A1 第 1 排 16 號、座位視角）", () => {
+  it("沒有參數 → 預設值（demo-arena 演唱會 A1 第 1 排 16 號、座位視角）", () => {
     expect(parseSeatQuery("")).toEqual(DEFAULT_QUERY);
+    expect(DEFAULT_QUERY.venueId).toBe("demo-arena");
   });
 
   it("全部參數都有", () => {
-    expect(parseSeatQuery("?layout=baseball&section=B1&row=3&seat=7&mode=overview")).toEqual({
+    expect(parseSeatQuery("?venue=taipei-dome&layout=baseball&section=B1&row=3&seat=7&mode=overview")).toEqual({
+      venueId: "taipei-dome",
       layoutId: "baseball",
       sectionId: "B1",
       row: 3,
