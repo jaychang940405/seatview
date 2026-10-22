@@ -86,3 +86,37 @@
 - **問題：** Claude Code 在提交第一批測試時，誤把 VS Code Local History 產生的 `.history/` 一起 commit。
 - **處理：** 在尚未 push 的情況下修正該 commit，並把 `.history/` 加進 `.gitignore`；之後 `git add` 一律指定路徑。
 - **我的觀察：** AI 自己發現並回報了這個問題，但如果我沒檢查 git log，也可能漏掉。
+
+---
+
+## 2026-10-23｜src/render/ 設計
+
+**問題**：three.js 場景怎麼切模組、座位怎麼畫、相機怎麼接 `getSeatView`，以及哪些能測、哪些只能目視。
+
+**AI 建議**
+
+1. **「render 只畫」的界線**
+   - render 可以把 core 的結果轉成 three.js 物件（Matrix4、顏色、旋轉），也可以為了取景算 bounding box。
+   - render 不讀 section 的幾何欄位，也不自己算座位位置、朝向、距離。
+   - 因此 core 新增 `sectionSeats(venue, sectionId)`，回傳每個座位的 `position` 和 `yawDeg`（座位面向的方向）。之後 MCP 也能用它算「要轉頭幾度」。
+2. **模組切分**
+   - `convert`、`camera`、`seats`、`overlays`、`scene`、`viewer`。
+   - 只有 `viewer` 碰 DOM 和 WebGL（WebGLRenderer、OrbitControls）；其他模組只操作 three.js 的場景物件，可以在 Node 裡用 Vitest 測。
+3. **座位的畫法**：每個座位一個小方塊、每區一個 `InstancedMesh`。
+   - 跟點雲成本差不多，但有遮擋效果和看台的層次感。
+   - 台北大巨蛋約 4 萬席，也只是幾十次 draw call。
+4. **相機**
+   - core 的座標系（Y 向上、平面 z 向下）就是 three.js 的世界座標，position 和 target 直接複製。
+   - 唯一要轉換的是 `rotation.y = −yawDeg`：three.js 的正旋轉會把 +x 轉向 −z，跟平面角度方向相反。
+   - FOV 預設 50°，約等於手機主鏡頭。
+   - 兩種模式：`seat`（固定看向 focus）和 `overview`（OrbitControls）。
+   - 只在需要時重畫，不一直跑 render loop。
+5. **測試範圍**
+   - unit test：`sectionSeats`、yaw 轉換、`applyCameraPose`（focus 投影到 NDC 中心）、**左右鏡像**、場景內容、instance 位置等於 core 座標、highlight、dispose。
+   - 只能目視：比例感、光影、手感、效能 → 寫成 `docs/manual-checks.md`。
+
+**我的取捨**
+- 五個確認點都同意：core 新增 `sectionSeats`、方塊加 InstancedMesh、FOV 50°、座位模式先不做拖曳轉頭、先不加 Playwright。
+- **窄螢幕（畫面比例 < 1）改用水平 FOV 當基準**，避免直式手機把舞台左右切掉，並補測試。
+- 優先順序：sectionSeats → seats → camera → convert → 鏡像測試 → viewer 的網址參數入口；overlay 測試、dispose 測試、選位錐形標記放最後，時間不夠就略過。
+- CLAUDE.md 架構原則補上：「render 不讀 section 幾何欄位，座標與朝向一律來自 core」。

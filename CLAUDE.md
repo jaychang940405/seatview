@@ -25,6 +25,7 @@
 - `src/venues/*.json`：場館資料。一個場館有多個 `layouts`（concert / baseball），
   每個 layout 定義自己的 `focus`（舞台中心、本壘板等）與可選的 `overlays`
 - `src/render/`：three.js 場景，只負責畫，不含計算邏輯
+  - render 不讀 section 幾何欄位，座標與朝向一律來自 core
 - `src/ui/`：區／排／號輸入、layout 切換
 - 新增棒球版時，只新增 layout 與 overlay，不應改動 core 函式簽名
 
