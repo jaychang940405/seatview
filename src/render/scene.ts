@@ -7,6 +7,8 @@ import { buildSectionMesh, type SectionMesh } from "./seats";
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
 export const SECTION_COLORS = ["#4477aa", "#66ccee", "#228833", "#ccbb44", "#aa3377", "#bbbbbb"];
 export const HIGHLIGHT_COLOR = new THREE.Color("#ee6677");
+/** 選位標記所在的 layer；只有鳥瞰相機啟用它，座位相機看不到，才不會擋住座位視角。 */
+export const MARKER_LAYER = 1;
 
 /** 地板比所有座位與 overlay 的範圍再往外多幾公尺。 */
 const FLOOR_MARGIN = 10;

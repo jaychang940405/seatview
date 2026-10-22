@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { parseVenue } from "../core/schema";
 import demoArenaJson from "../venues/demo-arena.json";
 import { expectColorClose, expectSeatError } from "../test/helpers";
-import { buildVenueScene, HIGHLIGHT_COLOR } from "./scene";
+import { createSeatCamera } from "./camera";
+import { buildVenueScene, HIGHLIGHT_COLOR, MARKER_LAYER } from "./scene";
+import { SEAT_SIZE } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
 
@@ -40,6 +42,43 @@ describe("buildVenueScene：場景內容", () => {
 
   it("不存在的 layout → UNKNOWN_LAYOUT", () => {
     expectSeatError(() => buildVenueScene(demo(), "opera"), "UNKNOWN_LAYOUT");
+  });
+});
+
+describe("選位標記", () => {
+  const markerOf = (scene: THREE.Scene) => scene.getObjectByName("seat-marker");
+
+  it("還沒選座位時隱藏", () => {
+    expect(markerOf(buildVenueScene(demo(), "concert").scene)?.visible).toBe(false);
+  });
+
+  it("選了座位：出現在那個座位正上方", () => {
+    const venueScene = buildVenueScene(demo(), "concert");
+    venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 16 });
+    const marker = markerOf(venueScene.scene);
+    expect(marker?.visible).toBe(true);
+    // A1 第 1 排 16 號的座位地面在 (0, 3, 30)
+    expect(marker?.position.x).toBeCloseTo(0);
+    expect(marker?.position.z).toBeCloseTo(30);
+    expect(marker?.position.y).toBeGreaterThan(3 + SEAT_SIZE.height);
+  });
+
+  it("清除選取，或選到這個 layout 沒有的座位 → 隱藏", () => {
+    const venueScene = buildVenueScene(demo(), "concert");
+    venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 16 });
+    venueScene.highlightSeat(null);
+    expect(markerOf(venueScene.scene)?.visible).toBe(false);
+
+    venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 16 });
+    venueScene.highlightSeat({ sectionId: "A1", row: 99, seat: 1 });
+    expect(markerOf(venueScene.scene)?.visible).toBe(false);
+  });
+
+  it("只放在 MARKER_LAYER：座位相機看不到，不會擋住座位視角", () => {
+    const marker = markerOf(buildVenueScene(demo(), "concert").scene);
+    expect(marker?.layers.isEnabled(MARKER_LAYER)).toBe(true);
+    expect(marker?.layers.isEnabled(0)).toBe(false);
+    expect(marker && createSeatCamera(16 / 9).layers.test(marker.layers)).toBe(false);
   });
 });
 
