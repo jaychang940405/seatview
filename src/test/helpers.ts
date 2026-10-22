@@ -14,6 +14,15 @@ export function expectSeatError(fn: () => unknown, code: SeatViewErrorCode): voi
   expect((caught as SeatViewError).code).toBe(code);
 }
 
+export function expectColorClose(
+  actual: { r: number; g: number; b: number },
+  expected: { r: number; g: number; b: number },
+): void {
+  expect(actual.r).toBeCloseTo(expected.r, 5);
+  expect(actual.g).toBeCloseTo(expected.g, 5);
+  expect(actual.b).toBeCloseTo(expected.b, 5);
+}
+
 export function expectVec3Close(actual: Vec3, expected: Vec3, digits = 6): void {
   expect(actual.x).toBeCloseTo(expected.x, digits);
   expect(actual.y).toBeCloseTo(expected.y, digits);

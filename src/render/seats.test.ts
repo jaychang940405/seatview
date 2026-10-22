@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseVenue } from "../core/schema";
 import { sectionSeats } from "../core/seat";
 import demoArenaJson from "../venues/demo-arena.json";
-import { expectSeatError, expectVec3Close } from "../test/helpers";
+import { expectColorClose, expectSeatError, expectVec3Close } from "../test/helpers";
 import { buildSectionMesh, SEAT_SIZE } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
@@ -27,7 +27,8 @@ describe("buildSectionMesh", () => {
       const { mesh } = buildSectionMesh(venue, id, "#4477aa");
       sectionSeats(venue, id).forEach((placement, i) => {
         const p = new THREE.Vector3().setFromMatrixPosition(instanceMatrix(mesh, i));
-        expectVec3Close(p, { ...placement.position, y: placement.position.y + SEAT_SIZE.height / 2 });
+        // instance 矩陣存成 Float32Array，數十公尺的座標只有 ~1e-6 精度；比到 0.1 mm 已足夠
+        expectVec3Close(p, { ...placement.position, y: placement.position.y + SEAT_SIZE.height / 2 }, 4);
       });
     }
   });
@@ -66,7 +67,8 @@ describe("buildSectionMesh", () => {
     const color = new THREE.Color();
     for (const i of [0, mesh.count - 1]) {
       mesh.getColorAt(i, color);
-      expect(color.equals(baseColor)).toBe(true);
+      // instance color 也是 Float32Array，不能用 equals 比完全相等
+      expectColorClose(color, baseColor);
     }
   });
 
