@@ -4,6 +4,8 @@ import { parseVenue } from "../core/schema";
 import { sectionSeats, seatPosition } from "../core/seat";
 import { getSeatView, listSections } from "../core/view";
 import { expectSeatError } from "../test/helpers";
+import { signedDistance, superellipsePolygon } from "../../scripts/outline.ts";
+import { K } from "../../scripts/taipei-dome-model.ts";
 import taipeiDomeJson from "./taipei-dome.json";
 
 /*
@@ -30,6 +32,10 @@ const WALL_CLEARANCE = 3;
 const HEADROOM = 2.5; // 上下兩層座位之間的垂直淨空門檻（C）
 const ROOF_HEIGHT = 74.5; // 球場面到屋頂外側：地面以上 64 m（OSM）＋地下 10.5 m（B，TVBS）；室內淨高 72 m
 const MAX_LOWER_ROWS = 30; // 一層排數的經驗上限（C，不是量測值）
+// 外框摘要：OSM 圓頂分件（way 1304278778）兩種本壘方位交集的內接超橢圓，最大內縮差距 0.95 m。
+// 資料 © OpenStreetMap contributors（ODbL）；C 級。形狀寫死在這裡，擺放位置是建模選擇，讀 K.outlinePlacement。
+const OUTLINE_SHAPE = { semiAxisX: 79.84, semiAxisZ: 102.52, exponent: 2.5, rotationDeg: 6.25 };
+const OUTLINE_MARGIN = 3;
 // 席數錨點（B 級推算）：不超過 +10%（不誇大容量）；寬鬆下限只當回歸保護
 const SEAT_ANCHORS = {
   lower: { anchor: 17000, min: 17000 * 0.75, max: 17000 * 1.1 },
@@ -261,6 +267,23 @@ describe("taipei-dome：座位排列", () => {
     const venue = dome();
     const highest = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((p) => p.position.y)));
     expect(highest).toBeLessThan(ROOF_HEIGHT - HEADROOM);
+  });
+
+  it("產生器用的外框形狀 = 這裡寫死的 OSM 摘要", () => {
+    expect(K.outline.value).toEqual(OUTLINE_SHAPE);
+  });
+
+  it("所有座位都在外框摘要內，且離外框 ≥ 3 m（外圈留空）", () => {
+    const venue = dome();
+    const outline = superellipsePolygon({ center: K.outlinePlacement.value, ...OUTLINE_SHAPE }, 1);
+    let tightest = { clearance: Infinity, id: "" };
+    for (const { id } of venue.sections) {
+      for (const { position } of sectionSeats(venue, id)) {
+        const clearance = signedDistance(outline, position);
+        if (clearance < tightest.clearance) tightest = { clearance, id };
+      }
+    }
+    expect(tightest.clearance, `最貼近外框的是 ${tightest.id}`).toBeGreaterThanOrEqual(OUTLINE_MARGIN);
   });
 
   it("一層每區不超過 30 排（C 級經驗上限）", () => {

@@ -7,7 +7,8 @@
  */
 import { writeFileSync } from "node:fs";
 import { createServer } from "vite";
-import { buildTaipeiDome, DEFAULT_PARAMS, type ModelParams, type Tier } from "./taipei-dome-model.ts";
+import type { LayoutParams } from "./dome-layout.ts";
+import { buildTaipeiDome, DEFAULT_PARAMS, type ModelParams } from "./taipei-dome-model.ts";
 
 type Core = typeof import("../src/core/index.ts");
 
@@ -22,48 +23,42 @@ interface Param {
   apply: (params: ModelParams, value: number) => ModelParams;
 }
 
-type TierKey = "infieldLower" | "infieldUpper" | "outfieldLower";
-const tierParam = (tier: TierKey, field: keyof Tier, label: string, range: [number, number]): Param => ({
+const base = DEFAULT_PARAMS.layout;
+/** 擾動看台幾何的一個 C 級參數；看台的排數、長度（擬合結果）固定不動。 */
+const layoutParam = (label: string, baseValue: number, range: [number, number], set: (l: LayoutParams, v: number) => LayoutParams): Param => ({
   label,
-  base: DEFAULT_PARAMS[tier][field],
+  base: baseValue,
   range,
   unit: "m",
-  apply: (params, value) => ({ ...params, [tier]: { ...params[tier], [field]: value } }),
+  apply: (params, value) => ({ ...params, layout: set(params.layout, value) }),
 });
 
 // 擾動範圍本身也是 C 級假設（「估算可能差多少」），不是量測誤差
 const PARAMS: Param[] = [
-  tierParam("infieldLower", "innerRadius", "I1 innerRadius", [75, 85]),
-  tierParam("infieldLower", "baseHeight", "I1 baseHeight", [2, 4]),
-  tierParam("infieldLower", "rowRise", "I1 rowRise", [0.3, 0.4]),
-  tierParam("infieldUpper", "innerRadius", "I2 innerRadius", [95, 105]),
-  tierParam("infieldUpper", "baseHeight", "I2 baseHeight", [12, 16]),
-  tierParam("infieldUpper", "rowRise", "I2 rowRise", [0.45, 0.55]),
-  tierParam("outfieldLower", "innerRadius", "O1 innerRadius", [75, 81]),
-  tierParam("outfieldLower", "baseHeight", "O1 baseHeight", [2, 4]),
-  tierParam("outfieldLower", "rowRise", "O1 rowRise", [0.3, 0.4]),
+  layoutParam("一層前緣距離", base.foulOffset, [15, 21.5], (l, v) => ({ ...l, foulOffset: v })),
+  layoutParam("排距", base.rowDepth, [0.8, 0.9], (l, v) => ({ ...l, rowDepth: v })),
+  layoutParam("一層 baseHeight", base.lower.baseHeight, [2, 4], (l, v) => ({ ...l, lower: { ...l.lower, baseHeight: v } })),
+  layoutParam("一層 rowRise", base.lower.rowRise, [0.3, 0.4], (l, v) => ({ ...l, lower: { ...l.lower, rowRise: v } })),
+  layoutParam("二層淨空", base.upper.headroom, [2.5, 3.5], (l, v) => ({ ...l, upper: { ...l.upper, headroom: v } })),
+  layoutParam("二層 rowRise", base.upper.rowRise, [0.45, 0.55], (l, v) => ({ ...l, upper: { ...l.upper, rowRise: v } })),
+  layoutParam("外野淨空", base.outfield.clearance, [2, 5], (l, v) => ({ ...l, outfield: { ...l.outfield, clearance: v } })),
+  layoutParam("外野 baseHeight", base.outfield.baseHeight, [2, 4], (l, v) => ({ ...l, outfield: { ...l.outfield, baseHeight: v } })),
+  layoutParam("外野 rowRise", base.outfield.rowRise, [0.3, 0.4], (l, v) => ({ ...l, outfield: { ...l.outfield, rowRise: v } })),
   {
-    label: "本壘 x 偏移",
-    base: 0,
-    range: [-1, 1],
+    label: "棒球 focus 高度",
+    base: DEFAULT_PARAMS.strikeZoneY,
+    range: [0.6, 1.0],
     unit: "m",
-    apply: (params, value) => ({ ...params, plateOffset: { ...params.plateOffset, x: value } }),
-  },
-  {
-    label: "本壘 z 偏移",
-    base: 0,
-    range: [-3, 3],
-    unit: "m",
-    apply: (params, value) => ({ ...params, plateOffset: { ...params.plateOffset, z: value } }),
+    apply: (params, value) => ({ ...params, strikeZoneY: value }),
   },
 ];
 
-/** 座位用「該排的比例位置」指定，半徑改變、每排席數重新分配後仍是同一個位置。 */
+/** 座位用「該排的比例位置」指定，參數改變、每排席數重新分配後仍是同一個位置。 */
 const SEATS = [
   { label: "本壘後方・一層第 1 排中央", sectionId: "I1-HP", row: 1, t: 0.5 },
-  { label: "一壘側・一層第 8 排中段", sectionId: "I1-1B", row: 8, t: 0.5 },
-  { label: "本壘後方・二層第 7 排（最後一排）中央", sectionId: "I2-HP", row: 7, t: 0.5 },
-  { label: "右外野・一層第 8 排中段", sectionId: "O1-RF", row: 8, t: 0.5 },
+  { label: "一壘側・一層第 15 排中段", sectionId: "I1-1B", row: 15, t: 0.5 },
+  { label: "本壘後方・二層最後一排中央", sectionId: "I2-HP", row: base.upper.rows, t: 0.5 },
+  { label: "右外野・一層中段排的中段", sectionId: "O1-RF", row: Math.ceil(base.outfield.sideRows / 2), t: 0.5 },
   { label: "中外野・一層第 1 排中央", sectionId: "O1-CF", row: 1, t: 0.5 },
 ];
 
