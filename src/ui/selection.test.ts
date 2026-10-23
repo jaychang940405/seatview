@@ -46,6 +46,15 @@ describe("panelOptions：面板的選項來自 core 的 listSections", () => {
     expect(options.sections[1]).toEqual({ id: "I1-HP", label: "I1-HP 內野一層・本壘後方" });
   });
 
+  it("名稱已經以代號開頭時不重複代號：demo-arena 的 A1 區 → 「A1 區」，不是「A1 A1 區」", () => {
+    const start: Selection = { venueId: "demo-arena", layoutId: "concert", sectionId: "A1", row: 1, seat: 16, mode: "seat" };
+    expect(panelOptions(VENUES, start).sections).toEqual([
+      { id: "A1", label: "A1 區" },
+      { id: "B1", label: "B1 區" },
+      { id: "F1", label: "F1 搖滾 A" },
+    ]);
+  });
+
   it("演唱會 layout 有 F1–F3、沒有 O1-CF（共 11 區）", () => {
     const ids = panelOptions(VENUES, dome("concert", "I1-HP", 1, 29)).sections.map((s) => s.id);
     expect(ids).toHaveLength(11);
