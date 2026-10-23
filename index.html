@@ -25,14 +25,78 @@
         background: rgba(0, 0, 0, 0.6);
         color: #f0f0f0;
         font: 14px/1.5 system-ui, sans-serif;
-        white-space: pre-line;
         pointer-events: none;
+      }
+      #info .notice {
+        color: #ffd166;
+      }
+      #info .error {
+        color: #ff9b9b;
+      }
+      #info .disclaimer {
+        color: #b8bcc6;
+        font-size: 12px;
+      }
+      #panel {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        max-width: 380px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #f0f0f0;
+        font: 14px/1.5 system-ui, sans-serif;
+      }
+      #panel select,
+      #panel input {
+        font: inherit;
+      }
+      #panel select {
+        width: 100%;
+      }
+      #panel input[type="number"] {
+        width: 5em;
+      }
+      #panel input:invalid {
+        outline: 2px solid #ff6b6b;
+      }
+      #panel .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 14px;
+      }
+      #panel .hint {
+        margin-left: 8px;
+        color: #b8bcc6;
+      }
+      @media (max-width: 600px) {
+        #panel {
+          left: 8px;
+          right: 8px;
+          top: 8px;
+          max-width: none;
+          gap: 4px 8px;
+          padding: 8px 10px;
+          font-size: 13px;
+        }
+        #info {
+          left: 8px;
+          right: 8px;
+          bottom: 8px;
+          font-size: 13px;
+        }
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <div id="info"></div>
+    <form id="panel" aria-label="選擇座位"></form>
+    <div id="info" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
