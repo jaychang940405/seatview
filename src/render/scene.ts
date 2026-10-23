@@ -3,7 +3,7 @@ import type { Vec3, Venue } from "../core/schema";
 import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
 import { buildOverlay } from "./overlays";
-import { buildSectionMesh, SEAT_SIZE, type ColorMode, type SectionMesh } from "./seats";
+import { buildSectionMesh, CHAIR, type ColorMode, type SectionMesh } from "./seats";
 
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
 export const SECTION_COLORS = ["#4477aa", "#66ccee", "#228833", "#ccbb44", "#aa3377", "#bbbbbb"];
@@ -64,13 +64,14 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   scene.add(marker);
 
   let highlighted: { sectionMesh: SectionMesh; index: number } | null = null;
+  let colorMode: ColorMode = "seat";
 
   return {
     scene,
     focus: { ...layout.focus.position },
     highlightSeat(ref) {
       if (highlighted) {
-        setSeatColor(highlighted.sectionMesh, highlighted.index, highlighted.sectionMesh.baseColor);
+        setSeatColor(highlighted.sectionMesh, highlighted.index, highlighted.sectionMesh.colors[colorMode]);
         highlighted = null;
       }
       marker.visible = false;
@@ -82,11 +83,13 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
       highlighted = { sectionMesh, index };
 
       const seat = seatPosition(venue, ref.sectionId, ref.row, ref.seat);
-      marker.position.set(seat.x, seat.y + SEAT_SIZE.height + MARKER.hover + MARKER.height / 2, seat.z);
+      marker.position.set(seat.x, seat.y + CHAIR.backTop + MARKER.hover + MARKER.height / 2, seat.z);
       marker.visible = true;
     },
-    setColorMode() {
-      throw new Error("not implemented");
+    setColorMode(mode) {
+      colorMode = mode;
+      for (const sectionMesh of sectionMeshes.values()) sectionMesh.paint(mode);
+      if (highlighted) setSeatColor(highlighted.sectionMesh, highlighted.index, HIGHLIGHT_COLOR);
     },
     dispose() {
       scene.traverse((object) => {

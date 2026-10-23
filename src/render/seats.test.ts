@@ -16,6 +16,7 @@ function instanceMatrix(mesh: THREE.InstancedMesh, index: number): THREE.Matrix4
   return matrix;
 }
 
+// geometry 的頂點存成 Float32Array，只有 ~1e-8 精度；尺寸比到 1 µm（toBeCloseTo 第 6 位）
 function chairBounds(): THREE.Box3 {
   const geometry = chairGeometry();
   geometry.computeBoundingBox();
@@ -44,7 +45,7 @@ describe("chairGeometry：座椅模型（C 級一般規格；本地 +x 是面向
   it("椅寬 0.44 m，比兩個場館最小的座距少至少 5 cm：相鄰椅子之間看得到縫", () => {
     const box = chairBounds();
     const width = box.max.z - box.min.z;
-    expect(width).toBeCloseTo(CHAIR.width, 9);
+    expect(width).toBeCloseTo(CHAIR.width, 6);
     expect(minSeatPitch() - width).toBeGreaterThanOrEqual(0.05);
   });
 
@@ -57,8 +58,8 @@ describe("chairGeometry：座椅模型（C 級一般規格；本地 +x 是面向
 
   it("底部貼齊座位地面；椅背頂 0.82 m，低於坐姿眼高", () => {
     const box = chairBounds();
-    expect(box.min.y).toBeCloseTo(0, 9);
-    expect(box.max.y).toBeCloseTo(CHAIR.backTop, 9);
+    expect(box.min.y).toBeCloseTo(0, 6);
+    expect(box.max.y).toBeCloseTo(CHAIR.backTop, 6);
     expect(box.max.y).toBeLessThan(DEFAULT_EYE_HEIGHT);
   });
 
@@ -80,7 +81,7 @@ describe("chairGeometry：座椅模型（C 級一般規格；本地 +x 是面向
     for (let i = 0; i < position.count; i++) {
       if (Math.abs(position.getX(i) - maxX) < 1e-9) frontTop = Math.max(frontTop, position.getY(i));
     }
-    expect(frontTop).toBeCloseTo(CHAIR.seatHeight, 9);
+    expect(frontTop).toBeCloseTo(CHAIR.seatHeight, 6);
   });
 });
 

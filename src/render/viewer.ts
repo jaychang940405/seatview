@@ -80,6 +80,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
   return {
     showVenue(venue, layoutId) {
       const next = buildVenueScene(venue, layoutId);
+      next.setColorMode(mode);
       venueScene?.dispose();
       venueScene = next;
       frameOverview(next);
@@ -93,6 +94,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
     setMode(next) {
       mode = next;
       controls.enabled = next === "overview";
+      venueScene?.setColorMode(next);
       requestRender();
     },
     dispose() {

@@ -1,10 +1,8 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Venue } from "../core/schema";
 import { sectionSeats } from "../core/seat";
 import { planYawToRotationY, toVector3 } from "./convert";
-
-/** 座位方塊尺寸（m）。本地 +x 是座位面向的方向。 */
-export const SEAT_SIZE = { depth: 0.5, height: 0.45, width: 0.5 } as const;
 
 /**
  * 座椅尺寸（m）。C 級：一般體育場座椅的規格，不是大巨蛋的量測值。
@@ -29,15 +27,41 @@ export const OVERVIEW_TINT = 0.5;
 
 export type ColorMode = "seat" | "overview";
 
+/** 椅面前緣在座位中心前方多少（m）；椅面往後延伸 seatDepth，椅背接在椅面後緣。 */
+const SEAT_FRONT_X = 0.22;
+/** 椅面下方的支柱（m）：只是讓椅面不要看起來浮在空中。 */
+const PEDESTAL = { depth: 0.08, width: 0.1 } as const;
+
+/** 一張椅子：椅面、往後傾的椅背、椅面下的支柱，合成一個 geometry。 */
 export function chairGeometry(): THREE.BufferGeometry {
-  throw new Error("not implemented");
+  const seatRearX = SEAT_FRONT_X - CHAIR.seatDepth;
+
+  const seat = new THREE.BoxGeometry(CHAIR.seatDepth, CHAIR.seatThickness, CHAIR.width);
+  seat.translate(SEAT_FRONT_X - CHAIR.seatDepth / 2, CHAIR.seatHeight - CHAIR.seatThickness / 2, 0);
+
+  // 椅背先立在原點上方，以後下緣為軸往後（−x）傾，再移到椅面後緣。
+  // 傾斜後最高的是「前上角」：高度 = 長度·cos + 厚度·sin，長度要算到這個角剛好到 backTop
+  const tilt = THREE.MathUtils.degToRad(CHAIR.backTiltDeg);
+  const backLength = (CHAIR.backTop - CHAIR.seatHeight - CHAIR.backThickness * Math.sin(tilt)) / Math.cos(tilt);
+  const back = new THREE.BoxGeometry(CHAIR.backThickness, backLength, CHAIR.width);
+  back.translate(CHAIR.backThickness / 2, backLength / 2, 0);
+  back.rotateZ(tilt);
+  back.translate(seatRearX, CHAIR.seatHeight, 0);
+
+  const pedestalHeight = CHAIR.seatHeight - CHAIR.seatThickness;
+  const pedestal = new THREE.BoxGeometry(PEDESTAL.depth, pedestalHeight, PEDESTAL.width);
+  pedestal.translate(seatRearX + CHAIR.seatDepth / 2, pedestalHeight / 2, 0);
+
+  const chair = mergeGeometries([seat, back, pedestal]);
+  for (const part of [seat, back, pedestal]) part.dispose();
+  if (!chair) throw new Error("座椅 geometry 合併失敗");
+  return chair;
 }
 
 export interface SectionMesh {
   sectionId: string;
   /** name = "section:<sectionId>"，一個 instance 一個座位，順序同 sectionSeats */
   mesh: THREE.InstancedMesh;
-  baseColor: THREE.Color;
   /** 各模式下的椅子顏色 */
   colors: Record<ColorMode, THREE.Color>;
   /** 把每個 instance 換成該模式的顏色 */
@@ -53,37 +77,39 @@ export function buildSectionMesh(
   color: THREE.ColorRepresentation,
 ): SectionMesh {
   const placements = sectionSeats(venue, sectionId);
-  const baseColor = new THREE.Color(color);
+  const colors: Record<ColorMode, THREE.Color> = {
+    seat: SEAT_NEUTRAL.clone(),
+    overview: SEAT_NEUTRAL.clone().lerp(new THREE.Color(color), OVERVIEW_TINT),
+  };
   // 顏色放在 instance color，材質用白色，這樣 highlight 時換的就是實際顏色
-  const geometry = new THREE.BoxGeometry(SEAT_SIZE.depth, SEAT_SIZE.height, SEAT_SIZE.width);
   const material = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const mesh = new THREE.InstancedMesh(geometry, material, placements.length);
+  const mesh = new THREE.InstancedMesh(chairGeometry(), material, placements.length);
   mesh.name = `section:${sectionId}`;
 
   const indexByKey = new Map<string, number>();
   const transform = new THREE.Object3D();
   placements.forEach(({ row, seat, position, yawDeg }, i) => {
     transform.position.copy(toVector3(position));
-    transform.position.y += SEAT_SIZE.height / 2; // 方塊底部貼齊座位地面
     transform.rotation.set(0, planYawToRotationY(yawDeg), 0);
     transform.updateMatrix();
     mesh.setMatrixAt(i, transform.matrix);
-    mesh.setColorAt(i, baseColor);
     indexByKey.set(`${row}:${seat}`, i);
   });
   mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+  const paint = (mode: ColorMode) => {
+    for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colors[mode]);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  };
+  paint("seat");
   mesh.computeBoundingBox();
   mesh.computeBoundingSphere();
 
   return {
     sectionId,
     mesh,
-    baseColor,
-    colors: { seat: baseColor, overview: baseColor },
-    paint() {
-      throw new Error("not implemented");
-    },
+    colors,
+    paint,
     indexOf: (row, seat) => indexByKey.get(`${row}:${seat}`),
   };
 }
