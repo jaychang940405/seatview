@@ -14,6 +14,9 @@ import taipeiDomeJson from "./venues/taipei-dome.json";
 // 入口：面板選位，網址參數同步（例如 ?venue=taipei-dome&layout=baseball&section=I1-HP&row=1&seat=29）。
 // 只有座位視角；鳥瞰是隱藏的除錯模式 ?debug=overview。
 
+/** 每個場館都顯示：3D 畫面只是示意（放在 UI，不放進場館資料；MCP 沒有畫面，不需要這句）。 */
+const RENDER_NOTE = "畫面為示意，不代表尺寸準確。";
+
 // 順序就是場館下拉選單的順序
 const VENUES = [parseVenue(demoArenaJson), parseVenue(taipeiDomeJson)];
 
@@ -103,6 +106,7 @@ function show({ selection: next, notices }: ChangeResult): void {
   }
   // 近似模型一定要讓使用者看到免責聲明，避免把 C 級估算當成事實
   if (venue.meta) lines.push(line(venue.meta.disclaimer, "disclaimer"));
+  lines.push(line(RENDER_NOTE, "disclaimer"));
   info.replaceChildren(...lines);
   updateViewTools();
 }
