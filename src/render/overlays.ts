@@ -5,8 +5,14 @@ import { planYawToRotationY, toVector3 } from "./convert";
 /** polyline 沒給 y 時稍微抬離地板，避免和地板重疊閃爍。 */
 const LINE_DEFAULT_Y = 0.01;
 
-/** overlay 本來就是世界座標，這裡只負責轉成 three.js 物件。name = "overlay:<id>"。 */
-export function buildOverlay(overlay: Overlay, _layer = 0): THREE.Object3D {
+/** 地面（地板與平面 polygon）的 renderOrder 起點：比其他所有東西都早畫。地板用這個值，polygon 依 layer 往上加。 */
+export const GROUND_RENDER_ORDER = -100;
+
+/**
+ * overlay 本來就是世界座標，這裡只負責轉成 three.js 物件。name = "overlay:<id>"。
+ * layer：平面 polygon 由下往上的順序（1 起算），決定 renderOrder。
+ */
+export function buildOverlay(overlay: Overlay, layer = 0): THREE.Object3D {
   switch (overlay.type) {
     case "box": {
       const { size } = overlay;
@@ -29,7 +35,24 @@ export function buildOverlay(overlay: Overlay, _layer = 0): THREE.Object3D {
       line.name = `overlay:${overlay.id}`;
       return line;
     }
-    case "polygon":
-      throw new Error("not implemented");
+    case "polygon": {
+      const y = overlay.y ?? 0;
+      // Shape 在 XY 平面；繞 x 轉 −90° 後 (x, y, z) → (x, z, −y)，所以點用 (x, −z) 才會落回平面上的 (x, z)
+      const shape = new THREE.Shape(overlay.points.map((p) => new THREE.Vector2(p.x, -p.z)));
+      const geometry =
+        overlay.height === undefined
+          ? new THREE.ShapeGeometry(shape)
+          : new THREE.ExtrudeGeometry(shape, { depth: overlay.height, bevelEnabled: false });
+      geometry.rotateX(-Math.PI / 2);
+      geometry.translate(0, y - (overlay.height ?? 0), 0);
+      const flat = overlay.height === undefined;
+      // 平面地面圖層幾乎同高，遠處深度精度不夠會閃爍：改成不寫深度、依 layer 由下往上畫。
+      // 場景裡沒有東西在地面以下，所以線條、看台、投手丘之後畫時一定蓋在地面上。
+      const material = new THREE.MeshStandardMaterial({ color: overlay.color ?? "#8a8a8a", roughness: 0.95, depthWrite: !flat });
+      const mesh = new THREE.Mesh(geometry, material);
+      if (flat) mesh.renderOrder = GROUND_RENDER_ORDER + layer;
+      mesh.name = `overlay:${overlay.id}`;
+      return mesh;
+    }
   }
 }

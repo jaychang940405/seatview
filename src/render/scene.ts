@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Vec3, Venue } from "../core/schema";
 import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
-import { buildOverlay } from "./overlays";
+import { buildOverlay, GROUND_RENDER_ORDER } from "./overlays";
 import { buildSectionMesh, CHAIR, type ColorMode, type SectionMesh } from "./seats";
 import { buildStands } from "./stands";
 
@@ -58,7 +58,9 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
 
   const overlays = new THREE.Group();
   overlays.name = "overlays";
-  for (const overlay of layout.overlays ?? []) overlays.add(buildOverlay(overlay));
+  // polygon 的 layer 從 1 起算：最底層也要比地板（layer 0）優先
+  let layer = 1;
+  for (const overlay of layout.overlays ?? []) overlays.add(buildOverlay(overlay, overlay.type === "polygon" ? layer++ : 0));
   scene.add(overlays);
 
   scene.add(buildFloor(new THREE.Box3().setFromObject(sections).union(new THREE.Box3().setFromObject(overlays))));
@@ -128,10 +130,12 @@ function buildFloor(bounds: THREE.Box3): THREE.Mesh {
   const center = bounds.getCenter(new THREE.Vector3());
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(size.x + 2 * FLOOR_MARGIN, size.z + 2 * FLOOR_MARGIN),
-    new THREE.MeshStandardMaterial({ color: "#2c2f38", roughness: 0.95 }),
+    // 地板跟球場地面圖層一樣：最先畫、不寫深度（場景裡沒有東西在地面以下）
+    new THREE.MeshStandardMaterial({ color: "#2c2f38", roughness: 0.95, depthWrite: false }),
   );
   floor.rotation.x = -Math.PI / 2; // PlaneGeometry 預設在 XY 平面，轉成躺在地上
   floor.position.set(center.x, 0, center.z);
+  floor.renderOrder = GROUND_RENDER_ORDER;
   floor.name = "floor";
   return floor;
 }

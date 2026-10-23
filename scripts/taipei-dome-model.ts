@@ -12,7 +12,7 @@
  * 原點 = 本壘到中外野牆連線的中點；本壘在 +z 側，中外野在 −z 側。
  */
 import { buildStands, circleThrough, fieldGeometry, type LayoutParams, type StandSection } from "./dome-layout.ts";
-import type { PlanPoint, Superellipse } from "./outline.ts";
+import { superellipsePolygon, type PlanPoint, type Superellipse } from "./outline.ts";
 
 type Grade = "A" | "B" | "C";
 interface Sourced {
@@ -34,6 +34,7 @@ const OSM = "© OpenStreetMap contributors（ODbL），圓頂分件 way 13042787
 const ESTIMATE = "本專案估算（非量測）";
 const FIT = "npm run fit:dome 擬合結果（超橢圓外框摘要、外圈留空 3 m）";
 const CONCERT = "演唱會暫定假設（每場演出不同，非場館屬性）";
+const PHOTO = "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）";
 
 export const K = {
   // ── B：新聞報導 ──
@@ -76,6 +77,8 @@ export const K = {
   plateToSecond: { label: "本壘到二壘", value: 38.8, unit: "m", grade: "A", source: "棒球規則" },
   moundDiameter: { label: "投手丘直徑", value: 5.49, unit: "m", grade: "A", source: "棒球規則（18 呎）" },
   moundHeight: { label: "投手丘高度", value: 0.254, unit: "m", grade: "A", source: "棒球規則（10 吋）" },
+  infieldArc: { label: "內野紅土弧半徑（以投手板為圓心）", value: 28.96, unit: "m", grade: "A", source: "棒球規則（95 呎）；畫面外觀用" },
+  homeCircle: { label: "本壘圓半徑", value: 3.96, unit: "m", grade: "A", source: "棒球規則（13 呎）" },
 
   // ── C：本專案估算 ──
   origin: {
@@ -123,6 +126,21 @@ export const K = {
     source: FIT,
   },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
+  warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
+  infieldGrassInset: { label: "內野草皮離壘線內縮", value: 1.2, unit: "m", grade: "C", source: "畫面外觀用" },
+  fieldColors: {
+    label: "球場地面與線條顏色",
+    value: { grass: "#5f9a3c", dirt: "#b5663b", track: "#9e5934", line: "#f2f2f2" },
+    grade: "C",
+    source: PHOTO,
+  },
+  groundLayers: {
+    label: "地面圖層高度",
+    value: { step: 0.01, lineY: 0.08 },
+    unit: "m",
+    grade: "C",
+    source: "建模選擇：地面圖層每層高 1 cm 避免重疊閃爍，線條畫在所有平面圖層之上",
+  },
   floorBlocks: {
     label: "搖滾區 F1–F3",
     value: { fromX: -25, toX: 25, frontZ: [-38, -18, 2], rows: 20, rowDepth: 0.9, seatsPerRow: 100 },
@@ -208,6 +226,78 @@ function arcThrough(left: PlanPoint, middle: PlanPoint, right: PlanPoint, stepDe
   return [left, ...leftSide, middle, ...rightSide, right];
 }
 
+/** 以 center 為圓心、半徑 r 的圓弧：角度從 fromDeg 線性走到 toDeg（含兩端），每段不超過 stepDeg。 */
+function arc(center: PlanPoint, r: number, fromDeg: number, toDeg: number, stepDeg: number): PlanPoint[] {
+  const segments = Math.max(1, Math.ceil(Math.abs(toDeg - fromDeg) / stepDeg));
+  return Array.from({ length: segments + 1 }, (_, i) => {
+    const deg = fromDeg + ((toDeg - fromDeg) * i) / segments;
+    return point(center.x + r * Math.cos(deg * DEG), center.z + r * Math.sin(deg * DEG));
+  });
+}
+
+/** 正多邊形近似的圓（不重複起點）。 */
+function circle(center: PlanPoint, r: number, count = 48): PlanPoint[] {
+  return Array.from({ length: count }, (_, i) => point(center.x + r * Math.cos((2 * Math.PI * i) / count), center.z + r * Math.sin((2 * Math.PI * i) / count)));
+}
+
+const angleAt = (center: PlanPoint, p: PlanPoint) => Math.atan2(p.z - center.z, p.x - center.x) / DEG;
+
+/** 從圓內的 origin 沿 offsetDeg 方向（同 fromPlate 的角度慣例）走到圓周上的那一點。 */
+function toCircle(origin: PlanPoint, offsetDeg: number, center: PlanPoint, r: number): PlanPoint {
+  const dir = { x: Math.sin(offsetDeg * DEG), z: -Math.cos(offsetDeg * DEG) };
+  const [ox, oz] = [origin.x - center.x, origin.z - center.z];
+  const b = ox * dir.x + oz * dir.z;
+  const t = -b + Math.sqrt(b * b - (ox * ox + oz * oz - r * r));
+  return point(origin.x + t * dir.x, origin.z + t * dir.z);
+}
+
+/**
+ * 球場地面（由下往上）：界外地紅土、界內草皮、警戒區、內野紅土、內野草皮、本壘圓、投手丘。
+ * 尺寸：內野弧、本壘圓、投手丘是規則值（A）；警戒區寬、內野草皮內縮、顏色是 C。
+ */
+function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
+  const colors = K.fieldColors.value;
+  const step = K.groundLayers.value.step;
+  const flat = (id: string, layer: number, color: string, points: PlanPoint[]) => ({ type: "polygon" as const, id, points, y: mm(step * layer), color });
+
+  const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
+  const infieldRight = toCircle(plate, 45, pitcher, K.infieldArc.value);
+  const infieldLeft = toCircle(plate, -45, pitcher, K.infieldArc.value);
+
+  const { wallCenter, wallRadius } = FIELD;
+  const trackRadius = wallRadius - K.warningTrack.value;
+  const trackRight = toCircle(plate, 45, wallCenter, trackRadius);
+  const trackLeft = toCircle(plate, -45, wallCenter, trackRadius);
+
+  const diamondCenter = point(plate.x, plate.z - K.plateToSecond.value / 2);
+  const grassHalf = K.basePath.value / Math.SQRT2 - K.infieldGrassInset.value * Math.SQRT2;
+
+  return [
+    flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z))),
+    flat("fair-grass", 2, colors.grass, [plate, ...wallArc]),
+    flat("warning-track", 3, colors.track, [
+      ...wallArc,
+      ...arc(wallCenter, trackRadius, angleAt(wallCenter, trackRight), angleAt(wallCenter, trackLeft), K.wallSampleDeg.value),
+    ]),
+    flat("infield-dirt", 4, colors.dirt, [plate, ...arc(pitcher, K.infieldArc.value, angleAt(pitcher, infieldRight), angleAt(pitcher, infieldLeft), 3)]),
+    flat("infield-grass", 5, colors.grass, [
+      point(diamondCenter.x, diamondCenter.z + grassHalf),
+      point(diamondCenter.x + grassHalf, diamondCenter.z),
+      point(diamondCenter.x, diamondCenter.z - grassHalf),
+      point(diamondCenter.x - grassHalf, diamondCenter.z),
+    ]),
+    flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value)),
+    {
+      type: "polygon" as const,
+      id: "mound",
+      points: circle(pitcher, K.moundDiameter.value / 2),
+      y: K.moundHeight.value,
+      height: K.moundHeight.value,
+      color: colors.dirt,
+    },
+  ];
+}
+
 /** 每排的隱含座位間距（排長 ÷ 席數）必須合理，否則報錯。 */
 function checkSpacing(section: StandSection | ReturnType<typeof floorSection>): void {
   const rowLength = (row: number) => {
@@ -257,6 +347,8 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
   const rightPole = fromPlate(plate, K.foulPole.value, 45);
   const leftPole = fromPlate(plate, K.foulPole.value, -45);
   const centerFieldWall = point(plate.x, plate.z - K.centerField.value);
+  const wallArc = arcThrough(leftPole, centerFieldWall, rightPole, K.wallSampleDeg.value);
+  const lineY = K.groundLayers.value.lineY;
   const [f1z, f2z, f3z] = K.floorBlocks.value.frontZ;
   const sections = [
     ...buildStands(FIELD, params.layout),
@@ -286,29 +378,21 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
         // 本壘板；facingDeg 90 = 朝本壘後方，所以水平偏角 0° = 本壘正後方、一壘側為正
         focus: { position: { x: plate.x, y: params.strikeZoneY, z: plate.z }, facingDeg: 90 },
         overlays: [
-          { type: "polyline", id: "foul-line-left", points: [plate, leftPole] },
-          { type: "polyline", id: "foul-line-right", points: [plate, rightPole] },
-          {
-            type: "polyline",
-            id: "outfield-wall",
-            points: arcThrough(leftPole, centerFieldWall, rightPole, K.wallSampleDeg.value),
-          },
+          ...fieldSurfaces(plate, wallArc),
+          { type: "polyline", id: "foul-line-left", points: [plate, leftPole], y: lineY },
+          { type: "polyline", id: "foul-line-right", points: [plate, rightPole], y: lineY },
+          { type: "polyline", id: "outfield-wall", points: wallArc, y: lineY },
           {
             type: "polyline",
             id: "infield",
             closed: true,
+            y: lineY,
             points: [
               plate,
               fromPlate(plate, K.basePath.value, 45),
               point(plate.x, plate.z - K.plateToSecond.value),
               fromPlate(plate, K.basePath.value, -45),
             ],
-          },
-          {
-            type: "box",
-            id: "mound",
-            center: { x: plate.x, y: mm(K.moundHeight.value / 2), z: mm(plate.z - K.plateToPitcher.value) },
-            size: { x: K.moundDiameter.value, y: K.moundHeight.value, z: K.moundDiameter.value },
           },
         ],
       },

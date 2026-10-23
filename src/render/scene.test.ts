@@ -5,6 +5,7 @@ import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { expectColorClose, expectSeatError } from "../test/helpers";
 import { createSeatCamera } from "./camera";
+import { GROUND_RENDER_ORDER } from "./overlays";
 import { buildVenueScene, HIGHLIGHT_COLOR, MARKER_LAYER } from "./scene";
 import { CHAIR, SEAT_NEUTRAL } from "./seats";
 
@@ -146,6 +147,19 @@ describe("highlightSeat", () => {
   it("這個 layout 沒有的座位：不報錯、什麼都不標", () => {
     const venueScene = buildVenueScene(demo(), "baseball");
     expect(() => venueScene.highlightSeat({ sectionId: "F1", row: 1, seat: 1 })).not.toThrow();
+  });
+});
+
+describe("地面的畫法", () => {
+  it("地板最先畫、不寫深度；球場地面圖層接著依序畫在它上面", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
+    const floor = scene.getObjectByName("floor") as THREE.Mesh;
+    expect(floor.renderOrder).toBe(GROUND_RENDER_ORDER);
+    expect((floor.material as THREE.Material).depthWrite).toBe(false);
+    const grass = scene.getObjectByName("overlay:fair-grass") as THREE.Mesh;
+    const dirt = scene.getObjectByName("overlay:field-dirt") as THREE.Mesh;
+    expect(dirt.renderOrder).toBeGreaterThan(floor.renderOrder);
+    expect(grass.renderOrder).toBeGreaterThan(dirt.renderOrder);
   });
 });
 

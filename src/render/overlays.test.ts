@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import type { Overlay } from "../core/schema";
 import { expectColorClose, expectVec3Close } from "../test/helpers";
-import { buildOverlay } from "./overlays";
+import { buildOverlay, GROUND_RENDER_ORDER } from "./overlays";
 
 const stage: Overlay = {
   type: "box",
@@ -115,11 +115,17 @@ describe("buildOverlay：polygon（球場地面、投手丘）", () => {
     expect(box.max.y).toBeCloseTo(0.254, 6);
   });
 
-  it("疊放的平面圖層：layer 越大越往前畫（polygonOffset 越負），避免同高度閃爍", () => {
-    const material = (layer: number) =>
-      asMesh(buildOverlay({ type: "polygon", id: `p${layer}`, points: triangle }, layer)).material as THREE.Material;
-    expect(material(0).polygonOffset).toBe(true);
-    expect(material(3).polygonOffsetFactor).toBeLessThan(material(1).polygonOffsetFactor);
-    expect(material(3).polygonOffsetUnits).toBeLessThan(material(1).polygonOffsetUnits);
+  it("疊放的平面圖層：不寫深度、依 layer 由下往上畫，而且都在一般物件（renderOrder 0）之前", () => {
+    const flat = (layer: number) => asMesh(buildOverlay({ type: "polygon", id: `p${layer}`, points: triangle }, layer));
+    expect(flat(1).material.depthWrite).toBe(false);
+    expect(flat(3).renderOrder).toBeGreaterThan(flat(1).renderOrder);
+    expect(flat(6).renderOrder).toBeLessThan(0);
+    expect(flat(1).renderOrder).toBeGreaterThan(GROUND_RENDER_ORDER);
+  });
+
+  it("有 height 的實體（投手丘）照常寫深度、照一般順序畫", () => {
+    const mound = asMesh(buildOverlay({ type: "polygon", id: "mound", points: triangle, y: 0.254, height: 0.254 }, 7));
+    expect(mound.material.depthWrite).toBe(true);
+    expect(mound.renderOrder).toBe(0);
   });
 });
