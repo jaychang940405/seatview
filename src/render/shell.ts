@@ -23,7 +23,7 @@ const LIGHT_SIZE = { length: 1.6, height: 0.6, depth: 0.6 } as const;
 /** 燈離牆往內多少（m）：放在深色屋頂前面才看得出來。 */
 const LIGHT_INSET = 2.5;
 
-export function buildShell(shell: Shell): THREE.Group {
+export function buildShell(shell: Shell, _layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "shell";
   group.add(buildWall(shell), buildSeams(shell), buildRoof(shell), buildLattice(shell), buildLights(shell));

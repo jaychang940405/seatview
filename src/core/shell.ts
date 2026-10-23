@@ -1,4 +1,4 @@
-import type { PlanPoint, Shell, Vec3 } from "./schema.ts";
+import type { PlanPoint, Screen, Shell, Vec3 } from "./schema.ts";
 
 /*
  * 穹頂外殼的幾何（純函式）：屋頂高度與格柵線。render 只負責把它畫出來。
@@ -94,4 +94,19 @@ export function roofLattice(shell: Shell, spacing: number): Vec3[][] {
     }
   }
   return lines;
+}
+
+/** 螢幕正面的方向（平面單位向量）。 */
+export function screenNormal(_screen: Screen): PlanPoint {
+  throw new Error("not implemented");
+}
+
+/** 螢幕的四個角：從正面看依序是左下、右下、右上、左上。 */
+export function screenCorners(_screen: Screen): Vec3[] {
+  throw new Error("not implemented");
+}
+
+/** 螢幕在這個 layout 亮不亮：沒寫 onLayouts 就每個 layout 都亮。 */
+export function isScreenOn(_screen: Screen, _layoutId: string): boolean {
+  throw new Error("not implemented");
 }

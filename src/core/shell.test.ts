@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { pointInPolygon } from "../../scripts/outline.ts";
 import taipeiDomeJson from "../venues/taipei-dome.json";
-import type { PlanPoint, Shell } from "./schema";
+import type { PlanPoint, Screen, Shell, Vec3 } from "./schema";
 import { parseVenue } from "./schema";
-import { roofHeightAt, roofLattice, shellCenter } from "./shell";
+import { isScreenOn, roofHeightAt, roofLattice, screenCorners, screenNormal, shellCenter } from "./shell";
 
 /** 半徑 r 的正 n 邊形（近似圓）。 */
 const circle = (r: number, n = 360): PlanPoint[] =>
@@ -71,5 +71,41 @@ describe("roofLattice：屋頂的菱形格柵線", () => {
       // 位置先四捨五入到 mm 才去重，所以比到 cm
       for (let i = 1; i < list.length; i++) expect((list[i] ?? 0) - (list[i - 1] ?? 0)).toBeCloseTo(6 * Math.SQRT2, 2);
     }
+  });
+});
+
+describe("螢幕：screenCorners / screenNormal / isScreenOn", () => {
+  const screen: Screen = { id: "s", center: { x: 0, y: 24.5, z: -90 }, width: 28, height: 9, facingYawDeg: 90 };
+  const sub = (a: Vec3, b: Vec3) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const length = (v: Vec3) => Math.hypot(v.x, v.y, v.z);
+
+  it("四個角依序是左下、右下、右上、左上（從正面看）：寬 28 m、高 9 m、中心不變", () => {
+    const [bl, br, tr, tl] = screenCorners(screen);
+    if (!bl || !br || !tr || !tl) throw new Error("角不足 4 個");
+    expect(length(sub(br, bl))).toBeCloseTo(28, 9);
+    expect(length(sub(tl, bl))).toBeCloseTo(9, 9);
+    expect(bl.y).toBeCloseTo(20, 9);
+    expect(tl.y).toBeCloseTo(29, 9);
+    expect((bl.x + tr.x) / 2).toBeCloseTo(0, 9);
+    expect((bl.z + tr.z) / 2).toBeCloseTo(-90, 9);
+  });
+
+  it("法向量 = facingYawDeg 的方向（90° → +z），而且垂直於螢幕面；從正面看右下角在左下角的右手邊", () => {
+    const n = screenNormal(screen);
+    expect(n.x).toBeCloseTo(0, 9);
+    expect(n.z).toBeCloseTo(1, 9);
+    const [bl, br, , tl] = screenCorners(screen);
+    if (!bl || !br || !tl) throw new Error("角不足");
+    const across = sub(br, bl);
+    expect(across.x * n.x + across.z * n.z).toBeCloseTo(0, 9);
+    expect(sub(tl, bl).x * n.x + sub(tl, bl).z * n.z).toBeCloseTo(0, 9);
+    // 面向 +z 的螢幕，觀眾面向 −z，觀眾的右手邊是 −x：右下角的 x 比較小
+    expect(br.x).toBeLessThan(bl.x);
+  });
+
+  it("isScreenOn：沒寫 onLayouts 就每個 layout 都亮；有寫只在列出的 layout 亮", () => {
+    expect(isScreenOn(screen, "concert")).toBe(true);
+    expect(isScreenOn({ ...screen, onLayouts: ["baseball"] }, "baseball")).toBe(true);
+    expect(isScreenOn({ ...screen, onLayouts: ["baseball"] }, "concert")).toBe(false);
   });
 });

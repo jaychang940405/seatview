@@ -58,7 +58,7 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   });
   scene.add(sections);
   scene.add(buildStands(venue, layoutId));
-  const shell = venue.shell ? buildShell(venue.shell) : null;
+  const shell = venue.shell ? buildShell(venue.shell, layoutId) : null;
   if (shell) scene.add(shell);
 
   const overlays = new THREE.Group();
