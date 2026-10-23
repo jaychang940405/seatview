@@ -56,6 +56,16 @@ const OverlaySchema = z.discriminatedUnion("type", [
     closed: z.boolean().optional(),
     color: z.string().optional(),
   }),
+  z.object({
+    type: z.literal("polygon"),
+    id: z.string(),
+    points: z.array(PlanPointSchema).min(3),
+    /** 頂面高度（m），預設貼著地面 */
+    y: z.number().optional(),
+    /** 有給就從頂面往下長出這麼厚的柱體（例如投手丘）；沒給就是一片平面 */
+    height: z.number().positive().optional(),
+    color: z.string().optional(),
+  }),
 ]);
 
 /** 數字的可信度：A = 規則或官方定義、B = 新聞報導、C = 本專案估算。 */

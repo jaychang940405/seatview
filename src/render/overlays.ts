@@ -29,5 +29,7 @@ export function buildOverlay(overlay: Overlay): THREE.Object3D {
       line.name = `overlay:${overlay.id}`;
       return line;
     }
+    case "polygon":
+      throw new Error("not implemented");
   }
 }
