@@ -13,7 +13,8 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
   },
   "include": ["src", "scripts", "vite.config.ts"]
 }
