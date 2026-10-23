@@ -158,6 +158,12 @@ describe("applyChange：換排、換號（自己輸入的值不修正）", () =>
     expect(notices).toEqual([]);
   });
 
+  it("pick（小地圖點選）：一次設定區、排、號，不修正、沒有提示", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "I1-HP", 1, 29), { kind: "pick", sectionId: "I2-HP", row: 7, seat: 60 });
+    expect(selection).toEqual(dome("baseball", "I2-HP", 7, 60));
+    expect(notices).toEqual([]);
+  });
+
   it("切換視角只改 mode", () => {
     const { selection, notices } = applyChange(VENUES, dome("baseball", "I1-HP", 1, 29), { kind: "mode", mode: "overview" });
     expect(selection).toEqual(dome("baseball", "I1-HP", 1, 29, "overview"));

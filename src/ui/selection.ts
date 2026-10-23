@@ -19,6 +19,8 @@ export type Change =
   | { kind: "section"; sectionId: string }
   | { kind: "row"; row: number }
   | { kind: "seat"; seat: number }
+  /** 小地圖點選：一次設定區、排、號 */
+  | { kind: "pick"; sectionId: string; row: number; seat: number }
   | { kind: "mode"; mode: CameraMode };
 
 export interface Option {
@@ -99,6 +101,8 @@ export function applyChange(venues: readonly Venue[], selection: Selection, chan
     }
     case "seat":
       return { selection: { ...selection, seat: change.seat }, notices: [] };
+    case "pick":
+      throw new Error("not implemented");
     case "mode":
       return { selection: { ...selection, mode: change.mode }, notices: [] };
   }

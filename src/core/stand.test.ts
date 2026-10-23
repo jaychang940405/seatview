@@ -6,7 +6,7 @@ import taipeiDomeJson from "../venues/taipei-dome.json";
 import type { PlanPoint, Section, Venue } from "./schema";
 import { parseVenue } from "./schema";
 import { sectionSeats } from "./seat";
-import { ARC_STEP_DEG, sectionTreads, TIER_SLAB_THICKNESS } from "./stand";
+import { ARC_STEP_DEG, sectionOutline, sectionTreads, TIER_SLAB_THICKNESS } from "./stand";
 
 const VENUES = [parseVenue(demoArenaJson), parseVenue(taipeiDomeJson)];
 const ALL_SECTIONS: [Venue, Section][] = VENUES.flatMap((venue) => venue.sections.map((section): [Venue, Section] => [venue, section]));
@@ -77,6 +77,41 @@ describe("sectionTreads：每一排的踏面", () => {
       const mid = (points: PlanPoint[]) => ({ x: (points[0]!.x + points.at(-1)!.x) / 2, z: (points[0]!.z + points.at(-1)!.z) / 2 });
       expect(planDistance(mid(first.front), plate), id).toBeLessThan(planDistance(mid(first.back), plate));
     }
+  });
+});
+
+describe("sectionOutline：區的平面輪廓（給小地圖用）", () => {
+  const area = (points: PlanPoint[]) =>
+    Math.abs(points.reduce((sum, p, i) => {
+      const q = points[(i + 1) % points.length] as PlanPoint;
+      return sum + p.x * q.z - q.x * p.z;
+    }, 0)) / 2;
+
+  it("= 第 1 排前緣接最後一排後緣（反向）；不重複起點", () => {
+    const venue = dome();
+    for (const id of ["I1-HP", "I1-1B", "I2-HP", "F1"]) {
+      const treads = sectionTreads(venue, id);
+      const outline = sectionOutline(venue, id);
+      const first = treads[0];
+      const last = treads.at(-1);
+      if (!first || !last) throw new Error(`${id} 沒有踏面`);
+      expect(outline, id).toEqual([...first.front, ...[...last.back].reverse()]);
+    }
+  });
+
+  it("每一區的輪廓都包住該區所有座位，而且面積 > 0", () => {
+    for (const entry of ALL_SECTIONS) {
+      const [venue, section] = entry;
+      const outline = sectionOutline(venue, section.id);
+      expect(outline.length, label(entry)).toBeGreaterThanOrEqual(4);
+      expect(area(outline), label(entry)).toBeGreaterThan(1);
+      const outside = sectionSeats(venue, section.id).filter((seat) => !pointInPolygon(outline, seat.position));
+      expect(outside.length, label(entry)).toBe(0);
+    }
+  });
+
+  it("不存在的區 → UNKNOWN_SECTION", () => {
+    expectSeatError(() => sectionOutline(dome(), "O2-RF"), "UNKNOWN_SECTION");
   });
 });
 
