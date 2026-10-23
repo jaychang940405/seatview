@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CameraPose } from "../core/seat";
+import { verticalFovFor } from "./camera";
 
 /** 從座位轉頭的範圍與倍數。 */
 export const LOOK_LIMITS = { yawDeg: 120, minPitchDeg: -45, maxPitchDeg: 60, minZoom: 0.5, maxZoom: 4 } as const;
@@ -14,28 +15,29 @@ export const ZOOM_PRESETS = [
   { label: "人眼", zoom: HUMAN_EYE_ZOOM },
 ] as const;
 
-export function isFacingFocus(_look: Look): boolean {
-  throw new Error("not implemented");
+export function isFacingFocus(look: Look): boolean {
+  return look.yawDeg === 0 && look.pitchDeg === 0;
 }
 
 /** 回正：方向轉回正視焦點，倍數不變。 */
-export function faceFocus(_look: Look): Look {
-  throw new Error("not implemented");
+export function faceFocus(look: Look): Look {
+  return { ...look, yawDeg: 0, pitchDeg: 0 };
 }
 
 /** 座位相機的垂直 FOV：直式窄螢幕以水平 FOV 為基準（verticalFovFor），再套倍數。 */
-export function seatFov(_aspect: number, _zoom: number, _baseFov: number): number {
-  throw new Error("not implemented");
+export function seatFov(aspect: number, zoom: number, baseFov: number): number {
+  return zoomedFov(verticalFovFor(aspect, baseFov), zoom);
 }
 
 /** 倍數的說明，以「人眼」那一檔為基準。 */
-export function zoomNote(_zoom: number): string {
-  throw new Error("not implemented");
+export function zoomNote(zoom: number): string {
+  if (Math.abs(zoom - HUMAN_EYE_ZOOM) < 0.05) return "約等於肉眼";
+  return zoom < HUMAN_EYE_ZOOM ? "比肉眼看起來小、遠" : "比肉眼看起來大、近";
 }
 
 /**
  * 相對於「正視焦點」的轉頭量。
- * yawDeg 正值 = 往右轉（跟 core horizontalAngle「右手邊為正」一致）；pitchDeg 正值 = 往上看；zoom ≥ 1。
+ * yawDeg 正值 = 往右轉（跟 core horizontalAngle「右手邊為正」一致）；pitchDeg 正值 = 往上看；zoom 0.5–4。
  * 距離、角度等數據一律以正視焦點計算，轉頭只改變畫面。
  */
 export interface Look {
@@ -44,11 +46,8 @@ export interface Look {
   zoom: number;
 }
 
-export const LOOK_AHEAD: Look = { yawDeg: 0, pitchDeg: 0, zoom: 1 };
-
-export function isAhead(look: Look): boolean {
-  return look.yawDeg === 0 && look.pitchDeg === 0 && look.zoom === 1;
-}
+/** 正視焦點、預設倍數。 */
+export const LOOK_AHEAD: Look = { yawDeg: 0, pitchDeg: 0, zoom: DEFAULT_ZOOM };
 
 /** 正視焦點的方向：yaw 是平面角度（從 +x 轉向 +z），pitch 是仰角（往上為正），單位度。 */
 function aheadAngles(pose: CameraPose): { yawDeg: number; pitchDeg: number } {
@@ -61,13 +60,13 @@ function aheadAngles(pose: CameraPose): { yawDeg: number; pitchDeg: number } {
   };
 }
 
-/** 套用限制：左右 ±120°；絕對仰角 −45°～+60°（但一定容許正視焦點）；放大 1–4 倍。 */
+/** 套用限制：左右 ±120°；絕對仰角 −45°～+60°（但一定容許正視焦點）；倍數 0.5–4×。 */
 export function clampLook(pose: CameraPose, look: Look): Look {
   const ahead = aheadAngles(pose).pitchDeg;
   return {
     yawDeg: THREE.MathUtils.clamp(look.yawDeg, -LOOK_LIMITS.yawDeg, LOOK_LIMITS.yawDeg),
     pitchDeg: THREE.MathUtils.clamp(look.pitchDeg, Math.min(0, LOOK_LIMITS.minPitchDeg - ahead), Math.max(0, LOOK_LIMITS.maxPitchDeg - ahead)),
-    zoom: THREE.MathUtils.clamp(look.zoom, 1, LOOK_LIMITS.maxZoom),
+    zoom: THREE.MathUtils.clamp(look.zoom, LOOK_LIMITS.minZoom, LOOK_LIMITS.maxZoom),
   };
 }
 

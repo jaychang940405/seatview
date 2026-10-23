@@ -5,7 +5,7 @@ import type { Venue } from "../core/schema";
 import type { CameraPose } from "../core/seat";
 import type { SeatView } from "../core/view";
 import { createSeatCamera, DEFAULT_FOV, resizeSeatCamera, verticalFovFor } from "./camera";
-import { applyLook, clampLook, dragLook, LOOK_AHEAD, zoomLook, type Look } from "./look";
+import { applyLook, clampLook, dragLook, faceFocus, LOOK_AHEAD, zoomLook, type Look } from "./look";
 import { toVector3 } from "./convert";
 import { buildVenueScene, MARKER_LAYER, type VenueScene } from "./scene";
 
@@ -22,8 +22,10 @@ export interface Viewer {
   /** 相機移到這個座位（正視焦點、轉頭回正），並標記它 */
   showSeat(view: SeatView): void;
   setMode(mode: CameraMode): void;
-  /** 座位視角轉頭回正、取消放大 */
+  /** 座位視角轉頭回正（倍數不變） */
   resetLook(): void;
+  /** 座位視角的倍數（0.5–4×，超出範圍會被限制） */
+  setZoom(zoom: number): void;
   /** 座位視角轉頭或放大時通知（用來顯示倍率與回正按鈕） */
   onLookChange(listener: (look: Look) => void): void;
   dispose(): void;
@@ -160,7 +162,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       if (turn) setLook(clampLook(seatPose, { ...look, yawDeg: look.yawDeg + turn[0], pitchDeg: look.pitchDeg + turn[1] }));
       else if (event.key === "+" || event.key === "=") setLook(zoomLook(seatPose, look, KEY_ZOOM));
       else if (event.key === "-") setLook(zoomLook(seatPose, look, 1 / KEY_ZOOM));
-      else if (event.key === "0") setLook(LOOK_AHEAD);
+      else if (event.key === "0") setLook(faceFocus(look));
       else return;
       event.preventDefault();
     },
@@ -204,7 +206,8 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
     showSeat(view) {
       seatPose = view.camera;
       venueScene?.highlightSeat(view);
-      setLook(LOOK_AHEAD);
+      // 換座位一定回正；倍數是使用者選的偏好，保留
+      setLook(faceFocus(look));
     },
     setMode(next) {
       mode = next;
@@ -213,7 +216,10 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       requestRender();
     },
     resetLook() {
-      setLook(LOOK_AHEAD);
+      setLook(faceFocus(look));
+    },
+    setZoom(zoom) {
+      setLook(seatPose ? clampLook(seatPose, { ...look, zoom }) : { ...look, zoom });
     },
     onLookChange(listener) {
       lookListener = listener;

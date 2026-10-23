@@ -1,7 +1,7 @@
 import { SeatViewError } from "./core/errors";
 import { parseVenue } from "./core/schema";
 import { findLayout, getSeatView } from "./core/view";
-import { isAhead, LOOK_AHEAD, type Look } from "./render/look";
+import { isFacingFocus, LOOK_AHEAD, ZOOM_PRESETS, zoomNote, type Look } from "./render/look";
 import { createViewer } from "./render/viewer";
 import { createPanel } from "./ui/panel";
 import { parseSeatQuery } from "./ui/query";
@@ -28,6 +28,14 @@ const layoutSwitch = required<HTMLDivElement>("#layout-switch");
 const viewTools = required<HTMLDivElement>("#view-tools");
 const viewHint = required<HTMLSpanElement>("#view-hint");
 const resetView = required<HTMLButtonElement>("#reset-view");
+const zoomButtons = ZOOM_PRESETS.map((preset) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = preset.label;
+  button.addEventListener("click", () => viewer.setZoom(preset.zoom));
+  return button;
+});
+required<HTMLDivElement>("#zoom-presets").append(...zoomButtons);
 
 const viewer = createViewer(app);
 const panel = createPanel({ form, layoutSwitch }, (change) => show(applyChange(VENUES, selection, change)));
@@ -44,13 +52,12 @@ viewer.onLookChange((next) => {
   updateViewTools();
 });
 
-/** 座位視角才顯示：正視時給操作提示；轉頭或放大後顯示倍率與「回正」。 */
+/** 座位視角才顯示：倍數按鈕、目前倍數（以人眼為基準的說明）；轉頭後才出現「回正」。 */
 function updateViewTools(): void {
   viewTools.hidden = selection.mode !== "seat" || shownSeat === null;
-  const ahead = isAhead(look);
-  resetView.hidden = ahead;
-  if (ahead) viewHint.textContent = "拖曳轉頭・滾輪或兩指放大";
-  else viewHint.textContent = look.zoom > 1.005 ? `放大 ${look.zoom.toFixed(1)}×（肉眼看起來比這小）` : "已轉頭";
+  resetView.hidden = isFacingFocus(look);
+  ZOOM_PRESETS.forEach((preset, i) => zoomButtons[i]?.setAttribute("aria-pressed", String(Math.abs(look.zoom - preset.zoom) < 0.01)));
+  viewHint.textContent = `${look.zoom.toFixed(1)}×・${zoomNote(look.zoom)}｜拖曳轉頭、滾輪或兩指縮放`;
 }
 
 function show({ selection: next, notices }: ChangeResult): void {

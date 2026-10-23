@@ -140,6 +140,20 @@
         padding: 2px 10px;
         cursor: pointer;
       }
+      #zoom-presets {
+        display: flex;
+        gap: 4px;
+      }
+      #view-tools button[aria-pressed="true"] {
+        background: #f0f0f0;
+        color: #111;
+        font-weight: 600;
+      }
+      #view-hint {
+        flex-basis: 100%;
+        color: #b8bcc6;
+        font-size: 12px;
+      }
       #info {
         padding: 8px 12px;
       }
@@ -190,8 +204,9 @@
     <div id="hud-bottom">
       <div id="hud-row">
         <div id="view-tools" class="hud" hidden>
-          <span id="view-hint"></span>
+          <span id="zoom-presets" role="group" aria-label="倍數"></span>
           <button type="button" id="reset-view" hidden>回正</button>
+          <span id="view-hint"></span>
         </div>
       </div>
       <div id="info" class="hud" aria-live="polite"></div>
