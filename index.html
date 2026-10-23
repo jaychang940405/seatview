@@ -74,7 +74,33 @@
         margin-left: 8px;
         color: #b8bcc6;
       }
+      #view-tools {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #f0f0f0;
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      #view-tools[hidden],
+      #view-tools [hidden] {
+        display: none;
+      }
+      #view-tools button {
+        font: inherit;
+        padding: 2px 10px;
+        cursor: pointer;
+      }
       @media (max-width: 600px) {
+        #view-tools {
+          top: 184px;
+          right: 8px;
+        }
         #panel {
           left: 8px;
           right: 8px;
@@ -96,6 +122,10 @@
   <body>
     <div id="app"></div>
     <form id="panel" aria-label="選擇座位"></form>
+    <div id="view-tools" hidden>
+      <span id="view-hint"></span>
+      <button type="button" id="reset-view" hidden>回正</button>
+    </div>
     <div id="info" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -2,8 +2,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { Venue } from "../core/schema";
+import type { CameraPose } from "../core/seat";
 import type { SeatView } from "../core/view";
-import { applyCameraPose, createSeatCamera, DEFAULT_FOV, resizeSeatCamera } from "./camera";
+import { createSeatCamera, DEFAULT_FOV, resizeSeatCamera, verticalFovFor } from "./camera";
+import { applyLook, clampLook, dragLook, LOOK_AHEAD, zoomLook, type Look } from "./look";
 import { toVector3 } from "./convert";
 import { buildVenueScene, MARKER_LAYER, type VenueScene } from "./scene";
 
@@ -17,11 +19,27 @@ export type CameraMode = "seat" | "overview";
 export interface Viewer {
   /** 切換場館或 layout 時呼叫，會釋放舊場景 */
   showVenue(venue: Venue, layoutId: string): void;
-  /** 相機移到這個座位，並標記它 */
+  /** 相機移到這個座位（正視焦點、轉頭回正），並標記它 */
   showSeat(view: SeatView): void;
   setMode(mode: CameraMode): void;
+  /** 座位視角轉頭回正、取消放大 */
+  resetLook(): void;
+  /** 座位視角轉頭或放大時通知（用來顯示倍率與回正按鈕） */
+  onLookChange(listener: (look: Look) => void): void;
   dispose(): void;
 }
+
+/** 鍵盤轉頭：每按一次轉幾度、放大幾倍。 */
+const KEY_TURN_DEG = 5;
+const KEY_ZOOM = 1.25;
+/** 滾輪放大的靈敏度：deltaY 每 100 約放大 1.2 倍。 */
+const WHEEL_ZOOM_PER_DELTA = 0.002;
+
+type Point = { x: number; y: number };
+const pinchDistanceOf = (points: Iterable<Point>) => {
+  const [a, b] = [...points];
+  return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+};
 
 export function createViewer(container: HTMLElement, opts: { fov?: number } = {}): Viewer {
   const baseFov = opts.fov ?? DEFAULT_FOV;
@@ -44,6 +62,10 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
   let venueScene: VenueScene | null = null;
   let mode: CameraMode = "seat";
   let frame = 0;
+  /** 目前座位的正視姿勢（來自 core）；轉頭只在它上面加偏移 */
+  let seatPose: CameraPose | null = null;
+  let look: Look = LOOK_AHEAD;
+  let lookListener: ((look: Look) => void) | null = null;
 
   // 只在畫面需要更新時畫一次；同一個 frame 內多次呼叫只會畫一次
   function requestRender(): void {
@@ -59,10 +81,91 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
     if (width === 0 || height === 0) return;
     renderer.setSize(width, height);
     resizeSeatCamera(seatCamera, width / height, baseFov);
+    // resizeSeatCamera 會把 FOV 設回沒放大的值，放大倍率要重新套用
+    if (seatPose) applyLook(seatCamera, seatPose, look, verticalFovFor(width / height, baseFov));
     overviewCamera.aspect = width / height;
     overviewCamera.updateProjectionMatrix();
     requestRender();
   }
+
+  function setLook(next: Look): void {
+    look = next;
+    if (seatPose) applyLook(seatCamera, seatPose, look, verticalFovFor(seatCamera.aspect, baseFov));
+    lookListener?.(look);
+    requestRender();
+  }
+
+  // 座位視角的轉頭操作；鳥瞰時交給 OrbitControls。dispose 時一次移除所有 listener
+  const canvas = renderer.domElement;
+  const events = new AbortController();
+  const listen = { signal: events.signal };
+  const pointers = new Map<number, Point>();
+  let pinchDistance = 0;
+  canvas.tabIndex = 0;
+  canvas.setAttribute("aria-label", "3D 畫面。座位視角：拖曳或方向鍵轉頭，滾輪、兩指或 +/− 放大，0 回正");
+
+  canvas.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (mode !== "seat") return;
+      canvas.setPointerCapture(event.pointerId);
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      pinchDistance = pinchDistanceOf(pointers.values());
+    },
+    listen,
+  );
+  canvas.addEventListener(
+    "pointermove",
+    (event) => {
+      const last = pointers.get(event.pointerId);
+      if (mode !== "seat" || !last || !seatPose) return;
+      const current = { x: event.clientX, y: event.clientY };
+      pointers.set(event.pointerId, current);
+      if (pointers.size === 1) {
+        setLook(dragLook(seatPose, look, current.x - last.x, current.y - last.y, canvas.clientHeight, seatCamera.fov));
+      } else if (pointers.size === 2) {
+        const distance = pinchDistanceOf(pointers.values());
+        if (pinchDistance > 0) setLook(zoomLook(seatPose, look, distance / pinchDistance));
+        pinchDistance = distance;
+      }
+    },
+    listen,
+  );
+  const release = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+    pinchDistance = pinchDistanceOf(pointers.values());
+  };
+  canvas.addEventListener("pointerup", release, listen);
+  canvas.addEventListener("pointercancel", release, listen);
+  canvas.addEventListener(
+    "wheel",
+    (event) => {
+      if (mode !== "seat" || !seatPose) return;
+      event.preventDefault();
+      setLook(zoomLook(seatPose, look, Math.exp(-event.deltaY * WHEEL_ZOOM_PER_DELTA)));
+    },
+    { ...listen, passive: false },
+  );
+  canvas.addEventListener(
+    "keydown",
+    (event) => {
+      if (mode !== "seat" || !seatPose) return;
+      const turns: Record<string, [number, number]> = {
+        ArrowLeft: [-KEY_TURN_DEG, 0],
+        ArrowRight: [KEY_TURN_DEG, 0],
+        ArrowUp: [0, KEY_TURN_DEG],
+        ArrowDown: [0, -KEY_TURN_DEG],
+      };
+      const turn = turns[event.key];
+      if (turn) setLook(clampLook(seatPose, { ...look, yawDeg: look.yawDeg + turn[0], pitchDeg: look.pitchDeg + turn[1] }));
+      else if (event.key === "+" || event.key === "=") setLook(zoomLook(seatPose, look, KEY_ZOOM));
+      else if (event.key === "-") setLook(zoomLook(seatPose, look, 1 / KEY_ZOOM));
+      else if (event.key === "0") setLook(LOOK_AHEAD);
+      else return;
+      event.preventDefault();
+    },
+    listen,
+  );
 
   /**
    * 鳥瞰相機繞著「座位 + overlay」的中心轉，距離剛好讓整個 bounding sphere 入鏡。
@@ -99,9 +202,9 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       requestRender();
     },
     showSeat(view) {
-      applyCameraPose(seatCamera, view.camera);
+      seatPose = view.camera;
       venueScene?.highlightSeat(view);
-      requestRender();
+      setLook(LOOK_AHEAD);
     },
     setMode(next) {
       mode = next;
@@ -109,7 +212,14 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       venueScene?.setColorMode(next);
       requestRender();
     },
+    resetLook() {
+      setLook(LOOK_AHEAD);
+    },
+    onLookChange(listener) {
+      lookListener = listener;
+    },
     dispose() {
+      events.abort();
       cancelAnimationFrame(frame);
       observer.disconnect();
       controls.dispose();

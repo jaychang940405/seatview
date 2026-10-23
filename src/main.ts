@@ -1,6 +1,7 @@
 import { SeatViewError } from "./core/errors";
 import { parseVenue } from "./core/schema";
 import { findLayout, getSeatView } from "./core/view";
+import { isAhead, LOOK_AHEAD, type Look } from "./render/look";
 import { createViewer } from "./render/viewer";
 import { createPanel } from "./ui/panel";
 import { parseSeatQuery } from "./ui/query";
@@ -22,6 +23,9 @@ function required<T extends Element>(selector: string): T {
 const app = required<HTMLDivElement>("#app");
 const info = required<HTMLDivElement>("#info");
 const form = required<HTMLFormElement>("#panel");
+const viewTools = required<HTMLDivElement>("#view-tools");
+const viewHint = required<HTMLSpanElement>("#view-hint");
+const resetView = required<HTMLButtonElement>("#reset-view");
 
 const viewer = createViewer(app);
 const panel = createPanel(form, (change) => show(applyChange(VENUES, selection, change)));
@@ -30,6 +34,22 @@ let selection: Selection;
 let sceneKey = "";
 /** 目前場景裡最後一個成功顯示的座位；查詢失敗時相機停在這裡 */
 let shownSeat: string | null = null;
+let look: Look = LOOK_AHEAD;
+
+resetView.addEventListener("click", () => viewer.resetLook());
+viewer.onLookChange((next) => {
+  look = next;
+  updateViewTools();
+});
+
+/** 座位視角才顯示：正視時給操作提示；轉頭或放大後顯示倍率與「回正」。 */
+function updateViewTools(): void {
+  viewTools.hidden = selection.mode !== "seat" || shownSeat === null;
+  const ahead = isAhead(look);
+  resetView.hidden = ahead;
+  if (ahead) viewHint.textContent = "拖曳轉頭・滾輪或兩指放大";
+  else viewHint.textContent = look.zoom > 1.005 ? `放大 ${look.zoom.toFixed(1)}×（肉眼看起來比這小）` : "已轉頭";
+}
 
 function show({ selection: next, notices }: ChangeResult): void {
   selection = next;
@@ -70,6 +90,7 @@ function show({ selection: next, notices }: ChangeResult): void {
   // 近似模型一定要讓使用者看到免責聲明，避免把 C 級估算當成事實
   if (venue.meta) lines.push(line(venue.meta.disclaimer, "disclaimer"));
   info.replaceChildren(...lines);
+  updateViewTools();
 }
 
 function line(text: string, className?: string): HTMLDivElement {
