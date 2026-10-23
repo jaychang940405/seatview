@@ -5,7 +5,7 @@ import { getSeatView } from "../core/view";
 import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { parseSeatQuery } from "./query";
-import { applyChange, normalize, panelOptions, toSearch, type Selection } from "./selection";
+import { applyChange, normalize, panelOptions, stepValue, toSearch, type Selection } from "./selection";
 
 const VENUES = [parseVenue(demoArenaJson), parseVenue(taipeiDomeJson)];
 
@@ -38,9 +38,10 @@ describe("panelOptions：面板的選項來自 core 的 listSections", () => {
       { id: "demo-arena", label: "示範體育館" },
       { id: "taipei-dome", label: "臺北大巨蛋（近似模型）" },
     ]);
+    // short 給右上角的場地切換鈕用：名稱裡全形括號之前的部分
     expect(options.layouts).toEqual([
-      { id: "baseball", label: "棒球" },
-      { id: "concert", label: "演唱會（暫定假設：外野端台）" },
+      { id: "baseball", label: "棒球", short: "棒球" },
+      { id: "concert", label: "演唱會（暫定假設：外野端台）", short: "演唱會" },
     ]);
     expect(options.sections.map((s) => s.id)).toEqual(["I1-1B", "I1-HP", "I1-3B", "I2-1B", "I2-HP", "I2-3B", "O1-RF", "O1-CF", "O1-LF"]);
     expect(options.sections[1]).toEqual({ id: "I1-HP", label: "I1-HP 內野一層・本壘後方" });
@@ -206,7 +207,36 @@ describe("normalize：處理網址參數", () => {
   });
 });
 
+describe("stepValue：排、號的 − / + 按鈕", () => {
+  it("一次加減 1，限制在 1 到上限之間", () => {
+    expect(stepValue(5, 1, 10)).toBe(6);
+    expect(stepValue(5, -1, 10)).toBe(4);
+    expect(stepValue(1, -1, 10)).toBe(1);
+    expect(stepValue(10, 1, 10)).toBe(10);
+  });
+
+  it("目前值超出範圍或不是數字：拉回範圍內（999 號在 57 席的排 → 57；空白 → 1）", () => {
+    expect(stepValue(999, -1, 57)).toBe(57);
+    expect(stepValue(999, 1, 57)).toBe(57);
+    expect(stepValue(Number.NaN, 1, 57)).toBe(1);
+  });
+
+  it("上限未知（排號不合法時席數是 null）：只限制下限", () => {
+    expect(stepValue(3, 1, null)).toBe(4);
+    expect(stepValue(1, -1, null)).toBe(1);
+  });
+});
+
 describe("toSearch：寫回網址，與 parseSeatQuery 互逆", () => {
+  it("網址不再寫 mode=；只有鳥瞰除錯時加上 debug=overview", () => {
+    const seat = toSearch(dome("baseball", "I1-HP", 1, 29));
+    expect(seat).not.toContain("mode=");
+    expect(seat).not.toContain("debug=");
+    const overview = toSearch(dome("baseball", "I1-HP", 1, 29, "overview"));
+    expect(overview).not.toContain("mode=");
+    expect(overview).toContain("debug=overview");
+  });
+
   it.each([
     dome("baseball", "I1-HP", 1, 29),
     dome("concert", "F1", 20, 100, "overview"),

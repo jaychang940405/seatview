@@ -33,4 +33,16 @@ describe("parseSeatQuery", () => {
   it("不認得的 mode → seat", () => {
     expect(parseSeatQuery("?mode=fly").mode).toBe("seat");
   });
+
+  it("debug=overview → 鳥瞰（隱藏的除錯模式，UI 沒有入口）", () => {
+    expect(parseSeatQuery("?debug=overview").mode).toBe("overview");
+  });
+
+  it("舊連結的 mode=overview 仍是 debug=overview 的別名", () => {
+    expect(parseSeatQuery("?mode=overview").mode).toBe("overview");
+  });
+
+  it("其他 debug 值 → 座位視角", () => {
+    expect(parseSeatQuery("?debug=fly").mode).toBe("seat");
+  });
 });

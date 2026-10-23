@@ -24,6 +24,8 @@ export type Change =
 export interface Option {
   id: string;
   label: string;
+  /** 短名稱（layout 才有，給右上角的場地切換鈕用） */
+  short?: string;
 }
 
 export interface PanelOptions {
@@ -100,6 +102,11 @@ export function applyChange(venues: readonly Venue[], selection: Selection, chan
     case "mode":
       return { selection: { ...selection, mode: change.mode }, notices: [] };
   }
+}
+
+/** 排、號的 − / + 按鈕：加減 1，限制在 1 到上限之間（上限未知時只限制下限）。 */
+export function stepValue(_current: number, _delta: 1 | -1, _max: number | null): number {
+  throw new Error("not implemented");
 }
 
 /** 寫回網址用；與 parseSeatQuery 互逆。 */
