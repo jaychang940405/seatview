@@ -139,7 +139,7 @@ export function areaCentroid(polygon: PlanPoint[]): PlanPoint {
 /**
  * 給定中心到真實邊界的距離（每個方向一筆），找出內接（不超出）且最貼近的超橢圓。
  * 回傳參數與最大內縮差距（真實邊界比超橢圓多出來的最大距離）。
- * 做法：網格搜尋半軸比例、指數、旋轉，每組都縮放到剛好內接，取最大差距最小的一組，再細調一次。
+ * 做法：三段網格搜尋（粗 → 中 → 細，每段縮小範圍）半軸比例、指數、旋轉；每組都縮放到剛好內接，取最大差距最小的一組。
  */
 export function fitInscribedSuperellipse(
   radii: { deg: number; r: number }[],
@@ -154,22 +154,29 @@ export function fitInscribedSuperellipse(
     for (const { deg, r } of radii) maxGap = Math.max(maxGap, r - superellipseRadius(shape, deg));
     return { shape, maxGap };
   };
-  const rMax = Math.max(...radii.map((d) => d.r));
-  let best = evaluate(rMax, rMax, 2, 0);
-  for (let ratio = 0.5; ratio <= 2.0001; ratio += 0.05) {
-    for (let exponent = 1.6; exponent <= 5.0001; exponent += 0.2) {
-      for (let rotationDeg = -45; rotationDeg < 45; rotationDeg += 2) {
-        const candidate = evaluate(100, 100 * ratio, exponent, rotationDeg);
-        if (candidate.maxGap < best.maxGap) best = candidate;
-      }
-    }
-  }
-  const coarse = best.shape;
-  for (let dRatio = -0.05; dRatio <= 0.05001; dRatio += 0.005) {
-    for (let dExp = -0.2; dExp <= 0.2001; dExp += 0.02) {
-      for (let dRot = -2; dRot <= 2.0001; dRot += 0.25) {
-        const candidate = evaluate(100, 100 * (coarse.semiAxisZ / coarse.semiAxisX + dRatio), coarse.exponent + dExp, coarse.rotationDeg + dRot);
-        if (candidate.maxGap < best.maxGap) best = candidate;
+  let ratio = 1.25;
+  let exponent = 3.3;
+  let rotationDeg = 0;
+  let best = evaluate(100, 100 * ratio, exponent, rotationDeg);
+  // 每段：比例、指數、旋轉的搜尋半徑與步長
+  const stages = [
+    { ratio: [0.75, 0.1], exponent: [1.7, 0.4], rotation: [45, 5] },
+    { ratio: [0.1, 0.02], exponent: [0.4, 0.1], rotation: [5, 1] },
+    { ratio: [0.02, 0.004], exponent: [0.1, 0.02], rotation: [1, 0.25] },
+  ] as const;
+  for (const stage of stages) {
+    const center = { ratio, exponent, rotationDeg };
+    for (let r = -stage.ratio[0]; r <= stage.ratio[0] + 1e-9; r += stage.ratio[1]) {
+      for (let e = -stage.exponent[0]; e <= stage.exponent[0] + 1e-9; e += stage.exponent[1]) {
+        for (let t = -stage.rotation[0]; t <= stage.rotation[0] + 1e-9; t += stage.rotation[1]) {
+          const candidate = { ratio: center.ratio + r, exponent: center.exponent + e, rotationDeg: center.rotationDeg + t };
+          if (candidate.ratio <= 0.1 || candidate.exponent < 1) continue;
+          const result = evaluate(100, 100 * candidate.ratio, candidate.exponent, candidate.rotationDeg);
+          if (result.maxGap < best.maxGap) {
+            best = result;
+            ({ ratio, exponent, rotationDeg } = candidate);
+          }
+        }
       }
     }
   }
