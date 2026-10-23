@@ -17,36 +17,64 @@ export interface Look {
 
 export const LOOK_AHEAD: Look = { yawDeg: 0, pitchDeg: 0, zoom: 1 };
 
-export function isAhead(_look: Look): boolean {
-  throw new Error("not implemented");
+export function isAhead(look: Look): boolean {
+  return look.yawDeg === 0 && look.pitchDeg === 0 && look.zoom === 1;
+}
+
+/** 正視焦點的方向：yaw 是平面角度（從 +x 轉向 +z），pitch 是仰角（往上為正），單位度。 */
+function aheadAngles(pose: CameraPose): { yawDeg: number; pitchDeg: number } {
+  const dx = pose.target.x - pose.position.x;
+  const dy = pose.target.y - pose.position.y;
+  const dz = pose.target.z - pose.position.z;
+  return {
+    yawDeg: THREE.MathUtils.radToDeg(Math.atan2(dz, dx)),
+    pitchDeg: THREE.MathUtils.radToDeg(Math.atan2(dy, Math.hypot(dx, dz))),
+  };
 }
 
 /** 套用限制：左右 ±120°；絕對仰角 −45°～+60°（但一定容許正視焦點）；放大 1–4 倍。 */
-export function clampLook(_pose: CameraPose, _look: Look): Look {
-  throw new Error("not implemented");
+export function clampLook(pose: CameraPose, look: Look): Look {
+  const ahead = aheadAngles(pose).pitchDeg;
+  return {
+    yawDeg: THREE.MathUtils.clamp(look.yawDeg, -LOOK_LIMITS.yawDeg, LOOK_LIMITS.yawDeg),
+    pitchDeg: THREE.MathUtils.clamp(look.pitchDeg, Math.min(0, LOOK_LIMITS.minPitchDeg - ahead), Math.max(0, LOOK_LIMITS.maxPitchDeg - ahead)),
+    zoom: THREE.MathUtils.clamp(look.zoom, 1, LOOK_LIMITS.maxZoom),
+  };
 }
 
 /** 拖曳 dx、dy 像素，像抓著畫面移動：往右拖 → 看向左邊；往下拖 → 看向上方。每像素的角度 = 目前垂直視野 / 畫面高度。 */
-export function dragLook(_pose: CameraPose, _look: Look, _dxPx: number, _dyPx: number, _viewportHeightPx: number, _verticalFovDeg: number): Look {
-  throw new Error("not implemented");
+export function dragLook(pose: CameraPose, look: Look, dxPx: number, dyPx: number, viewportHeightPx: number, verticalFovDeg: number): Look {
+  const degPerPx = verticalFovDeg / viewportHeightPx;
+  return clampLook(pose, { ...look, yawDeg: look.yawDeg - dxPx * degPerPx, pitchDeg: look.pitchDeg + dyPx * degPerPx });
 }
 
 /** 放大：factor > 1 拉近、< 1 拉遠。 */
-export function zoomLook(_pose: CameraPose, _look: Look, _factor: number): Look {
-  throw new Error("not implemented");
+export function zoomLook(pose: CameraPose, look: Look, factor: number): Look {
+  return clampLook(pose, { ...look, zoom: look.zoom * factor });
 }
 
-/** 視線方向（單位向量）。 */
-export function lookDirection(_pose: CameraPose, _look: Look): THREE.Vector3 {
-  throw new Error("not implemented");
+/** 視線方向（單位向量）。往右轉 = 平面角度增加（面向 +x 時右手邊是 +z）。 */
+export function lookDirection(pose: CameraPose, look: Look): THREE.Vector3 {
+  const ahead = aheadAngles(pose);
+  const yaw = THREE.MathUtils.degToRad(ahead.yawDeg + look.yawDeg);
+  const pitch = THREE.MathUtils.degToRad(ahead.pitchDeg + look.pitchDeg);
+  return new THREE.Vector3(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw));
 }
 
 /** 放大後的垂直視野（度）：tan(fov/2) 縮小 zoom 倍。 */
-export function zoomedFov(_verticalFovDeg: number, _zoom: number): number {
-  throw new Error("not implemented");
+export function zoomedFov(verticalFovDeg: number, zoom: number): number {
+  const half = THREE.MathUtils.degToRad(verticalFovDeg) / 2;
+  return THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(half) / zoom));
 }
 
 /** 相機放在 pose.position、看向 lookDirection、不側傾，FOV 依 zoom 調整。baseVerticalFov 是沒放大時的垂直 FOV。 */
-export function applyLook(_camera: THREE.PerspectiveCamera, _pose: CameraPose, _look: Look, _baseVerticalFov: number): void {
-  throw new Error("not implemented");
+export function applyLook(camera: THREE.PerspectiveCamera, pose: CameraPose, look: Look, baseVerticalFov: number): void {
+  const { position } = pose;
+  const direction = lookDirection(pose, look);
+  camera.position.set(position.x, position.y, position.z);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(position.x + direction.x, position.y + direction.y, position.z + direction.z);
+  camera.fov = zoomedFov(baseVerticalFov, look.zoom);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
 }
