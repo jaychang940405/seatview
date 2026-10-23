@@ -39,7 +39,7 @@ export function sectionsText({ venue, layout, sections }: ListSectionsOutput): s
   const lines = sections.map((s) => {
     const counts = s.seatsPerRow;
     const range = Math.min(...counts) === Math.max(...counts) ? `每排 ${counts[0]} 號` : `每排 ${Math.min(...counts)}–${Math.max(...counts)} 號`;
-    return `- ${s.id}${s.name ? `（${s.name}）` : ""}：${s.rows} 排、${range}、共 ${s.totalSeats} 席`;
+    return `- ${s.id}${s.name ? `（${s.name}）` : ""}${s.level ? `［${s.level}］` : ""}：${s.rows} 排、${range}、共 ${s.totalSeats} 席`;
   });
   return [`${venue.name}｜${layout.name}：${sections.length} 區`, ...lines].join("\n");
 }

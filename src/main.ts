@@ -45,9 +45,15 @@ required<HTMLDivElement>("#zoom-presets").append(...zoomButtons);
 const viewer = createViewer(app);
 const onChange = (change: Change) => show(applyChange(VENUES, selection, change));
 const panel = createPanel({ form, layoutSwitch }, onChange);
-const minimap = createMinimap(required<HTMLDivElement>("#minimap"), onChange);
+const minimap = createMinimap(required<HTMLDivElement>("#minimap"), onChange, (level) => {
+  minimapLevel = level;
+  updateMinimap();
+});
 
 let selection: Selection;
+/** 小地圖畫哪一層：使用者切過就用它；換區、換場館或 layout 時改回跟著選中的區 */
+let minimapLevel: string | null = null;
+let minimapKey = "";
 let sceneKey = "";
 /** 目前場景裡最後一個成功顯示的座位；查詢失敗時相機停在這裡 */
 let shownSeat: string | null = null;
@@ -67,6 +73,11 @@ function updateViewTools(): void {
   viewHint.textContent = `${look.zoom.toFixed(1)}×・${zoomNote(look.zoom)}｜拖曳轉頭、滾輪或兩指縮放`;
 }
 
+function updateMinimap(): void {
+  const venue = VENUES.find((v) => v.id === selection.venueId);
+  if (venue) minimap.update(buildMinimapModel(venue, selection.layoutId, selection, minimapLevel));
+}
+
 function show({ selection: next, notices }: ChangeResult): void {
   selection = next;
   const venue = VENUES.find((v) => v.id === next.venueId);
@@ -79,7 +90,12 @@ function show({ selection: next, notices }: ChangeResult): void {
     shownSeat = null;
   }
   panel.update(panelOptions(VENUES, next), next);
-  minimap.update(buildMinimapModel(venue, next.layoutId, next));
+  const levelKey = `${next.venueId}/${next.layoutId}/${next.sectionId}`;
+  if (levelKey !== minimapKey) {
+    minimapKey = levelKey;
+    minimapLevel = null;
+  }
+  updateMinimap();
   history.replaceState(null, "", toSearch(next));
 
   const lines: HTMLDivElement[] = notices.map((notice) => line(`提示：${notice}`, "notice"));

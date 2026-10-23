@@ -74,6 +74,7 @@ export function createMcpServer(registry: VenueRegistry): McpServer {
           z.object({
             id: z.string(),
             name: z.string().optional(),
+            level: z.string().optional().describe("樓層，例如 B1、L2"),
             rows: z.number().int(),
             totalSeats: z.number().int(),
             seatsPerRow: z.array(z.number().int()).describe("第 1 排到最後一排的席數"),

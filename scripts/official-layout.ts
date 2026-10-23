@@ -132,6 +132,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const sections: Section[] = [];
   const base = (id: string, layer: "b1" | "l2", rows: number) => ({
     id,
+    level: layer === "b1" ? "B1" : "L2",
     rows,
     rowDepth,
     rowRise: layers[layer].rowRise,
@@ -258,6 +259,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
       finish(id, seatsPerRow);
       sections.push({
         id,
+        level: "B1",
         type: "arc",
         center,
         innerRadius,

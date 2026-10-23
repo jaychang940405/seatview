@@ -28,6 +28,8 @@ export interface Option {
   label: string;
   /** 短名稱（layout 才有，給右上角的場地切換鈕用） */
   short?: string;
+  /** 分組（區的樓層，例如 B1、L2）：面板用 optgroup 分開 */
+  group?: string;
 }
 
 export interface PanelOptions {
@@ -53,7 +55,11 @@ export function panelOptions(venues: readonly Venue[], selection: Selection): Pa
   return {
     venues: venues.map((v) => ({ id: v.id, label: v.name })),
     layouts: Object.entries(venue.layouts).map(([id, layout]) => ({ id, label: layout.name, short: layout.name.split("（")[0] })),
-    sections: listSections(venue, selection.layoutId).map((s) => ({ id: s.id, label: sectionLabel(s.id, s.name) })),
+    sections: listSections(venue, selection.layoutId).map((s) => ({
+      id: s.id,
+      label: sectionLabel(s.id, s.name),
+      ...(s.level !== undefined && { group: s.level }),
+    })),
     rows: section.rows,
     seats: rowFits(section, selection.row) ? seatsInRow(section, selection.row) : null,
   };

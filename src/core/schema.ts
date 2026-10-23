@@ -16,6 +16,8 @@ const SectionBaseSchema = z.object({
   rowRise: z.number().nonnegative(),
   baseHeight: z.number(),
   layouts: z.array(z.string()).optional(),
+  /** 樓層（例如 B1、L2）：小地圖依此分圖層、面板依此分組；沒寫的區（例如場地上的搖滾區）不屬於任何樓層 */
+  level: z.string().min(1).optional(),
   /** 看台下方：solid（預設）= 實心到地面；tier = 懸挑的階梯樓板，下方是空的（例如二層） */
   structure: z.enum(["solid", "tier"]).optional(),
   /**

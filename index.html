@@ -81,31 +81,38 @@
         white-space: nowrap;
       }
 
-      /* 右上：場地切換（分段按鈕） */
-      #layout-switch {
-        position: fixed;
-        top: 12px;
-        right: 12px;
+      /* 分段按鈕（radio）：場地切換、小地圖樓層 */
+      .segmented {
         display: flex;
-        padding: 3px;
       }
-      #layout-switch label {
+      .segmented[hidden] {
+        display: none;
+      }
+      .segmented label {
         position: relative;
         padding: 4px 12px;
         border-radius: 4px;
         cursor: pointer;
       }
-      #layout-switch input {
+      .segmented input {
         position: absolute;
         opacity: 0;
         pointer-events: none;
       }
-      #layout-switch label:has(input:checked) {
+      .segmented label:has(input:checked) {
         background: #f0f0f0;
         color: #111;
       }
-      #layout-switch label:has(input:focus-visible) {
+      .segmented label:has(input:focus-visible) {
         outline: 2px solid #8ab4f8;
+      }
+
+      /* 右上：場地切換 */
+      #layout-switch {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        padding: 3px;
       }
 
       /* 下方：小地圖、視角工具、資訊列 */
@@ -128,10 +135,25 @@
         pointer-events: auto;
       }
       #minimap {
+        position: relative;
         width: 180px;
         height: 180px;
         padding: 6px;
         box-sizing: border-box;
+      }
+      /* 小地圖左上角的樓層切換（B1／L2） */
+      #minimap .levels {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        padding: 2px;
+        border-radius: 4px;
+        background: rgba(20, 22, 28, 0.85);
+        font-size: 12px;
+      }
+      #minimap .levels label {
+        padding: 1px 7px;
+        border-radius: 3px;
       }
       #minimap svg {
         display: block;
@@ -240,7 +262,7 @@
   <body>
     <div id="app"></div>
     <form id="panel" class="hud" aria-label="選擇座位"></form>
-    <div id="layout-switch" class="hud"></div>
+    <div id="layout-switch" class="hud segmented"></div>
     <div id="hud-bottom">
       <div id="hud-row">
         <div id="minimap" class="hud"></div>
