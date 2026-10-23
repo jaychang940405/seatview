@@ -127,6 +127,42 @@
       #hud-row > * {
         pointer-events: auto;
       }
+      #minimap {
+        width: 180px;
+        height: 180px;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+      #minimap svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #minimap .lines path {
+        fill: none;
+        stroke: #8fbf8f;
+        stroke-width: 1px;
+      }
+      #minimap .section {
+        fill: rgba(240, 240, 240, 0.22);
+        stroke: #c8ccd4;
+        stroke-width: 1px;
+        cursor: pointer;
+      }
+      #minimap .section:hover,
+      #minimap .section:focus-visible {
+        fill: rgba(240, 240, 240, 0.5);
+        outline: none;
+        stroke: #ffffff;
+      }
+      #minimap .section.current {
+        fill: rgba(238, 102, 119, 0.55);
+      }
+      #minimap .seat-dot {
+        fill: #ff3b4f;
+        stroke: #ffffff;
+        stroke-width: 1.5;
+      }
       #view-tools {
         margin-left: auto;
         display: flex;
@@ -194,6 +230,10 @@
           right: 8px;
           bottom: 8px;
         }
+        #minimap {
+          width: 120px;
+          height: 120px;
+        }
       }
     </style>
   </head>
@@ -203,6 +243,7 @@
     <div id="layout-switch" class="hud"></div>
     <div id="hud-bottom">
       <div id="hud-row">
+        <div id="minimap" class="hud"></div>
         <div id="view-tools" class="hud" hidden>
           <span id="zoom-presets" role="group" aria-label="倍數"></span>
           <button type="button" id="reset-view" hidden>回正</button>

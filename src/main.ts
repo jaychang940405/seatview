@@ -3,9 +3,11 @@ import { parseVenue } from "./core/schema";
 import { findLayout, getSeatView } from "./core/view";
 import { isFacingFocus, LOOK_AHEAD, ZOOM_PRESETS, zoomNote, type Look } from "./render/look";
 import { createViewer } from "./render/viewer";
+import { buildMinimapModel } from "./ui/minimap";
+import { createMinimap } from "./ui/minimapView";
 import { createPanel } from "./ui/panel";
 import { parseSeatQuery } from "./ui/query";
-import { applyChange, normalize, panelOptions, toSearch, type ChangeResult, type Selection } from "./ui/selection";
+import { applyChange, normalize, panelOptions, toSearch, type Change, type ChangeResult, type Selection } from "./ui/selection";
 import demoArenaJson from "./venues/demo-arena.json";
 import taipeiDomeJson from "./venues/taipei-dome.json";
 
@@ -38,7 +40,9 @@ const zoomButtons = ZOOM_PRESETS.map((preset) => {
 required<HTMLDivElement>("#zoom-presets").append(...zoomButtons);
 
 const viewer = createViewer(app);
-const panel = createPanel({ form, layoutSwitch }, (change) => show(applyChange(VENUES, selection, change)));
+const onChange = (change: Change) => show(applyChange(VENUES, selection, change));
+const panel = createPanel({ form, layoutSwitch }, onChange);
+const minimap = createMinimap(required<HTMLDivElement>("#minimap"), onChange);
 
 let selection: Selection;
 let sceneKey = "";
@@ -72,6 +76,7 @@ function show({ selection: next, notices }: ChangeResult): void {
     shownSeat = null;
   }
   panel.update(panelOptions(VENUES, next), next);
+  minimap.update(buildMinimapModel(venue, next.layoutId, next));
   history.replaceState(null, "", toSearch(next));
 
   const lines: HTMLDivElement[] = notices.map((notice) => line(`提示：${notice}`, "notice"));

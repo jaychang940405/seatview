@@ -1,4 +1,9 @@
+import { SeatViewError } from "../core/errors";
 import type { PlanPoint, Venue } from "../core/schema";
+import { seatPosition } from "../core/seat";
+import { sectionOutline } from "../core/stand";
+import { findLayout, listSections } from "../core/view";
+import { sectionLabel } from "./selection";
 
 /*
  * 小地圖的資料（純函式，不碰 DOM）：取代鳥瞰的選位功能。
@@ -25,10 +30,53 @@ export interface MinimapModel {
   selected: { sectionId: string; point: PlanPoint } | null;
 }
 
+/** viewBox 四周留的邊（m）。 */
+const MARGIN = 6;
+
+const round = (n: number) => Math.round(n * 10) / 10;
+const pathOf = (points: PlanPoint[], closed: boolean) =>
+  points.map((p, i) => `${i === 0 ? "M" : "L"} ${round(p.x)} ${round(p.z)}`).join(" ") + (closed ? " Z" : "");
+
 export function buildMinimapModel(
-  _venue: Venue,
-  _layoutId: string,
-  _selected: { sectionId: string; row: number; seat: number } | null,
+  venue: Venue,
+  layoutId: string,
+  selected: { sectionId: string; row: number; seat: number } | null,
 ): MinimapModel {
-  throw new Error("not implemented");
+  const layout = findLayout(venue, layoutId);
+  const sections = listSections(venue, layoutId).map((summary): MinimapSection => {
+    const points = sectionOutline(venue, summary.id);
+    const row = Math.ceil(summary.rows / 2);
+    const seat = Math.ceil((summary.seatsPerRow[row - 1] ?? 1) / 2);
+    return { id: summary.id, label: sectionLabel(summary.id, summary.name), points, path: pathOf(points, true), target: { row, seat } };
+  });
+  const polylines = (layout.overlays ?? []).flatMap((overlay) => (overlay.type === "polyline" ? [overlay] : []));
+
+  const all = [...sections.flatMap((s) => s.points), ...polylines.flatMap((l) => l.points)];
+  const xs = all.map((p) => p.x);
+  const zs = all.map((p) => p.z);
+  const minX = Math.min(...xs) - MARGIN;
+  const minZ = Math.min(...zs) - MARGIN;
+  const viewBox = [minX, minZ, Math.max(...xs) + MARGIN - minX, Math.max(...zs) + MARGIN - minZ].map(round).join(" ");
+
+  return {
+    viewBox,
+    sections,
+    lines: polylines.map((l) => ({ id: l.id, path: pathOf(l.points, l.closed ?? false) })),
+    selected: selectedPoint(venue, sections, selected),
+  };
+}
+
+function selectedPoint(
+  venue: Venue,
+  sections: MinimapSection[],
+  selected: { sectionId: string; row: number; seat: number } | null,
+): MinimapModel["selected"] {
+  if (!selected || !sections.some((s) => s.id === selected.sectionId)) return null;
+  try {
+    const p = seatPosition(venue, selected.sectionId, selected.row, selected.seat);
+    return { sectionId: selected.sectionId, point: { x: p.x, z: p.z } };
+  } catch (error) {
+    if (error instanceof SeatViewError) return null;
+    throw error;
+  }
 }

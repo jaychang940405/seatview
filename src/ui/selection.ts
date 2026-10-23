@@ -101,8 +101,12 @@ export function applyChange(venues: readonly Venue[], selection: Selection, chan
     }
     case "seat":
       return { selection: { ...selection, seat: change.seat }, notices: [] };
-    case "pick":
-      throw new Error("not implemented");
+    case "pick": {
+      // 小地圖給的排號是那一區的中央座位，本來就合法；區若不開放照 resolveSection 的規則改並提示
+      const notices: string[] = [];
+      const section = resolveSection(venueOf(venues, selection.venueId), selection.layoutId, change.sectionId, notices);
+      return { selection: { ...selection, sectionId: section.id, row: change.row, seat: change.seat }, notices };
+    }
     case "mode":
       return { selection: { ...selection, mode: change.mode }, notices: [] };
   }
@@ -135,7 +139,7 @@ function venueOf(venues: readonly Venue[], venueId: string): Venue {
 }
 
 /** 名稱已經以代號開頭（例如「A1 區」）就不再重複代號。 */
-function sectionLabel(id: string, name?: string): string {
+export function sectionLabel(id: string, name?: string): string {
   if (!name) return id;
   return name.startsWith(id) ? name : `${id} ${name}`;
 }

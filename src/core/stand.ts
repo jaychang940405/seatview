@@ -44,8 +44,12 @@ export function sectionTreads(venue: Venue, sectionId: string): RowTread[] {
 }
 
 /** 區的平面輪廓：第 1 排前緣接最後一排後緣（反向），不重複起點。給小地圖用，UI 不自己算幾何。 */
-export function sectionOutline(_venue: Venue, _sectionId: string): PlanPoint[] {
-  throw new Error("not implemented");
+export function sectionOutline(venue: Venue, sectionId: string): PlanPoint[] {
+  const treads = sectionTreads(venue, sectionId);
+  const first = treads[0];
+  const last = treads.at(-1);
+  if (!first || !last) throw new Error(`${sectionId} 區沒有任何一排`);
+  return [...first.front, ...[...last.back].reverse()];
 }
 
 /** 回傳「往後 back 公尺的那條邊」的折線；同一區每一排用同樣的取樣，相鄰排的邊才會完全重合。 */
