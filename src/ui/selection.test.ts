@@ -47,8 +47,15 @@ describe("panelOptions：面板的選項來自 core 的 listSections", () => {
       { id: "concert", label: "演唱會（暫定假設：外野端台）", short: "演唱會" },
     ]);
     expect(options.sections.map((s) => s.id)).toEqual(BASEBALL_IDS);
-    // 官方票區沒有另外的名稱，標籤就是區號
-    expect(options.sections.find((s) => s.id === "113")).toEqual({ id: "113", label: "113" });
+    // 官方票區沒有另外的名稱，標籤就是區號；group 是樓層，面板用來分組（optgroup）
+    expect(options.sections.find((s) => s.id === "113")).toEqual({ id: "113", label: "113", group: "B1" });
+    expect(options.sections.find((s) => s.id === "146")?.group).toBe("B1");
+    expect(options.sections.find((s) => s.id === "201")?.group).toBe("L2");
+  });
+
+  it("沒有樓層的區不分組：演唱會搖滾區、示範場館", () => {
+    const concert = panelOptions(VENUES, dome("concert", "113", 38, 7)).sections;
+    expect(concert.find((s) => s.id === "F1")).toEqual({ id: "F1", label: "F1 搖滾區 1（模型分區）" });
   });
 
   it("名稱已經以代號開頭時不重複代號：demo-arena 的 A1 區 → 「A1 區」，不是「A1 A1 區」", () => {

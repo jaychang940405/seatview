@@ -395,6 +395,13 @@ describe("taipei-dome：座位排列", () => {
     }
   });
 
+  it("樓層 level：B1 內野與外野是 B1、L2 內野是 L2；搖滾區在場地上，不屬於任何樓層", () => {
+    for (const section of dome().sections) {
+      const expected = L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1";
+      expect(section.level, section.id).toBe(expected);
+    }
+  });
+
   it("L2 baseHeight ≥ B1 內野最後一排高度 + 2.5 m", () => {
     const venue = dome();
     const lowerTop = Math.max(...B1_INFIELD.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));

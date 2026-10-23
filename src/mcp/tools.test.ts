@@ -77,6 +77,16 @@ describe("list_sections", () => {
       expect(s.totalSeats).toBe(s.seatsPerRow.reduce((a, b) => a + b, 0));
     }
   });
+
+  it("有樓層的區附上 level，摘要也寫出來；沒有樓層的區（示範場館）不附", () => {
+    const outcome = listSectionsTool(registry(), { venue: "taipei-dome", layout: "baseball" });
+    const { sections } = ok(outcome);
+    expect(sections.find((s) => s.id === "113")?.level).toBe("B1");
+    expect(sections.find((s) => s.id === "212")?.level).toBe("L2");
+    expect(outcome.text).toContain("- 212［L2］：");
+    const demo = ok(listSectionsTool(registry(), { venue: "demo-arena", layout: "concert" }));
+    expect(demo.sections.every((s) => !("level" in s))).toBe(true);
+  });
 });
 
 describe("get_seat_view", () => {

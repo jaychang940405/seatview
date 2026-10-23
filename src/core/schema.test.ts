@@ -206,6 +206,21 @@ describe("parseVenue：選填的 rowSpans（每排只用從 from 到 to 的一�
   });
 });
 
+describe("parseVenue：選填的 level（樓層，例如 B1、L2）", () => {
+  it("沒寫就是 undefined；有寫就保留", () => {
+    expect(parseVenue(demoArenaJson).sections[0]?.level).toBeUndefined();
+    const json = demoCopy();
+    json.sections[0].level = "L2";
+    expect(parseVenue(json).sections[0]?.level).toBe("L2");
+  });
+
+  it("空字串 → 驗證錯誤", () => {
+    const json = demoCopy();
+    json.sections[0].level = "";
+    expect(issuePaths(json)).toEqual(["sections.0.level"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();

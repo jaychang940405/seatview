@@ -75,6 +75,13 @@ describe("listSections", () => {
     expect(a1?.seatsPerRow).toEqual(Array(20).fill(31));
   });
 
+  it("附上樓層 level（沒寫的區就沒有）", () => {
+    const venue = demo();
+    expect(listSections(venue, "concert").every((s) => s.level === undefined)).toBe(true);
+    const upper = { ...venue, sections: venue.sections.map((s) => (s.id === "B1" ? { ...s, level: "L2" } : s)) };
+    expect(listSections(upper, "concert").find((s) => s.id === "B1")?.level).toBe("L2");
+  });
+
   it("不存在的 layout → UNKNOWN_LAYOUT", () => {
     expectSeatError(() => listSections(demo(), "opera"), "UNKNOWN_LAYOUT");
   });
