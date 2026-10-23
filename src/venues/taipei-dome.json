@@ -90,7 +90,8 @@
       "rowDepth": 0.85,
       "rowRise": 0.5,
       "baseHeight": 15.65,
-      "seatsPerRow": 105
+      "seatsPerRow": 105,
+      "structure": "tier"
     },
     {
       "id": "I2-HP",
@@ -104,7 +105,8 @@
       "rowDepth": 0.85,
       "rowRise": 0.5,
       "baseHeight": 15.65,
-      "seatsPerRow": [108, 110, 113, 116, 118, 121, 124, 126, 129, 132, 134, 137, 140, 142]
+      "seatsPerRow": [108, 110, 113, 116, 118, 121, 124, 126, 129, 132, 134, 137, 140, 142],
+      "structure": "tier"
     },
     {
       "id": "I2-3B",
@@ -117,7 +119,8 @@
       "rowDepth": 0.85,
       "rowRise": 0.5,
       "baseHeight": 15.65,
-      "seatsPerRow": 105
+      "seatsPerRow": 105,
+      "structure": "tier"
     },
     {
       "id": "O1-RF",

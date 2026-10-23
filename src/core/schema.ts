@@ -16,6 +16,8 @@ const SectionBaseSchema = z.object({
   rowRise: z.number().nonnegative(),
   baseHeight: z.number(),
   layouts: z.array(z.string()).optional(),
+  /** 看台下方：solid（預設）= 實心到地面；tier = 懸挑的階梯樓板，下方是空的（例如二層） */
+  structure: z.enum(["solid", "tier"]).optional(),
 });
 
 const ArcSectionSchema = SectionBaseSchema.extend({

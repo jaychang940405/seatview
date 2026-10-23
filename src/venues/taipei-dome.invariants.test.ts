@@ -255,6 +255,12 @@ describe("taipei-dome：座位排列", () => {
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
   });
 
+  it("看台下方結構：二層 I2-* 是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
+    for (const section of dome().sections) {
+      expect(section.structure, section.id).toBe(I2.includes(section.id) ? "tier" : undefined);
+    }
+  });
+
   it("二層 baseHeight ≥ 一層最後一排高度 + 2.5 m", () => {
     const venue = dome();
     const lowerTop = Math.max(...I1.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));

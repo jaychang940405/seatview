@@ -66,7 +66,16 @@ export interface LayoutParams {
   outfield: { clearance: number; insetDeg: number; sideRows: number; centerRows: number; rowRise: number; baseHeight: number };
 }
 
-type StandBase = { id: string; name: string; rows: number; rowDepth: number; rowRise: number; baseHeight: number; layouts?: string[] };
+type StandBase = {
+  id: string;
+  name: string;
+  rows: number;
+  rowDepth: number;
+  rowRise: number;
+  baseHeight: number;
+  layouts?: string[];
+  structure?: "tier";
+};
 export type ArcStand = StandBase & { type: "arc"; center: PlanPoint; innerRadius: number; fromDeg: number; toDeg: number; seatsPerRow: number[] };
 export type LinearStand = StandBase & { type: "linear"; from: PlanPoint; to: PlanPoint; facing: PlanPoint; seatsPerRow: number };
 export type StandSection = ArcStand | LinearStand;
@@ -172,9 +181,10 @@ export function buildStands(field: Field, params: LayoutParams): StandSection[] 
     line("I1-1B", "內野一層・一壘側（模型分區）", lowerOffset, lower.lineLength, lower.rows, lower.rowRise, lower.baseHeight, 1),
     homeArc("I1-HP", "內野一層・本壘後方", lowerOffset, lower.rows, lower.rowRise, lower.baseHeight),
     line("I1-3B", "內野一層・三壘側", lowerOffset, lower.lineLength, lower.rows, lower.rowRise, lower.baseHeight, -1),
-    line("I2-1B", "內野二層・一壘側", upperOffset, upper.lineLength, upper.rows, upper.rowRise, upperBase, 1),
-    homeArc("I2-HP", "內野二層・本壘後方", upperOffset, upper.rows, upper.rowRise, upperBase),
-    line("I2-3B", "內野二層・三壘側", upperOffset, upper.lineLength, upper.rows, upper.rowRise, upperBase, -1),
+    // 二層懸挑在一層後段上方（方案 B），下方是空的
+    { ...line("I2-1B", "內野二層・一壘側", upperOffset, upper.lineLength, upper.rows, upper.rowRise, upperBase, 1), structure: "tier" },
+    { ...homeArc("I2-HP", "內野二層・本壘後方", upperOffset, upper.rows, upper.rowRise, upperBase), structure: "tier" },
+    { ...line("I2-3B", "內野二層・三壘側", upperOffset, upper.lineLength, upper.rows, upper.rowRise, upperBase, -1), structure: "tier" },
     outfieldArc("O1-RF", "外野一層・右外野", rf, outfield.sideRows),
     outfieldArc("O1-CF", "外野一層・中外野", cf, outfield.centerRows, ["baseball"]),
     outfieldArc("O1-LF", "外野一層・左外野", lf, outfield.sideRows),

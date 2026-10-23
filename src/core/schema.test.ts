@@ -92,6 +92,24 @@ describe("parseVenue", () => {
   });
 });
 
+describe("parseVenue：選填的 structure（看台下方的結構）", () => {
+  it("沒寫就是 undefined（代表預設的 solid）", () => {
+    expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();
+  });
+
+  it.each(["solid", "tier"])("%s 會保留下來", (structure) => {
+    const json = demoCopy();
+    json.sections[0].structure = structure;
+    expect(parseVenue(json).sections[0]?.structure).toBe(structure);
+  });
+
+  it("其他值 → 驗證錯誤", () => {
+    const json = demoCopy();
+    json.sections[0].structure = "floating";
+    expect(issuePaths(json)).toEqual(["sections.0.structure"]);
+  });
+});
+
 describe("parseVenue：選填的 meta", () => {
   const meta = {
     disclaimer: "近似模型，非官方圖面。",
