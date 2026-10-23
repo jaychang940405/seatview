@@ -12,7 +12,8 @@
     "typecheck": "tsc",
     "gen:dome": "node scripts/gen-taipei-dome.ts",
     "fit:dome": "node scripts/fit-dome-layout.ts",
-    "sensitivity": "node scripts/sensitivity.ts"
+    "sensitivity": "node scripts/sensitivity.ts",
+    "mcp": "node src/mcp/main.ts"
   },
   "devDependencies": {
     "@types/three": "^0.186.0",
