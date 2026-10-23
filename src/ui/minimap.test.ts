@@ -20,9 +20,13 @@ describe("buildMinimapModel：小地圖（取代鳥瞰的選位功能）", () =>
     expect(model.sections.map((s) => s.id)).toEqual(listSections(venue, layoutId).map((s) => s.id));
   });
 
-  it("演唱會沒有 O1-CF；棒球有", () => {
-    expect(buildMinimapModel(dome(), "concert", null).sections.map((s) => s.id)).not.toContain("O1-CF");
-    expect(buildMinimapModel(dome(), "baseball", null).sections.map((s) => s.id)).toContain("O1-CF");
+  it("演唱會沒有舞台後方的 136、137、140、141；棒球有", () => {
+    const concert = buildMinimapModel(dome(), "concert", null).sections.map((s) => s.id);
+    const baseball = buildMinimapModel(dome(), "baseball", null).sections.map((s) => s.id);
+    for (const id of ["136", "137", "140", "141"]) {
+      expect(concert, id).not.toContain(id);
+      expect(baseball, id).toContain(id);
+    }
   });
 
   it("每個區的輪廓都閉合：SVG path 以 M 開頭、Z 結尾，至少 4 個頂點", () => {
@@ -32,12 +36,14 @@ describe("buildMinimapModel：小地圖（取代鳥瞰的選位功能）", () =>
     }
   });
 
-  it("選中的座位：點落在對應區的輪廓內", () => {
+  it("選中的座位：點落在對應區的輪廓內（含被外框截短的排：102 第 23 排、201 第 15 排）", () => {
     for (const [sectionId, row, seat] of [
-      ["I1-HP", 1, 29],
-      ["I1-1B", 15, 58],
-      ["I2-HP", 14, 71],
-      ["O1-CF", 30, 45],
+      ["113", 38, 7],
+      ["105", 15, 11],
+      ["102", 23, 32],
+      ["201", 15, 15],
+      ["212", 19, 6],
+      ["140", 14, 12],
     ] as const) {
       const model = buildMinimapModel(dome(), "baseball", { sectionId, row, seat });
       const section = model.sections.find((s) => s.id === sectionId);
@@ -47,17 +53,17 @@ describe("buildMinimapModel：小地圖（取代鳥瞰的選位功能）", () =>
   });
 
   it("座位不合法，或這個 layout 沒開放那一區 → 沒有選中點", () => {
-    expect(buildMinimapModel(dome(), "baseball", { sectionId: "I1-HP", row: 99, seat: 1 }).selected).toBeNull();
-    expect(buildMinimapModel(dome(), "concert", { sectionId: "O1-CF", row: 1, seat: 1 }).selected).toBeNull();
+    expect(buildMinimapModel(dome(), "baseball", { sectionId: "113", row: 99, seat: 1 }).selected).toBeNull();
+    expect(buildMinimapModel(dome(), "concert", { sectionId: "140", row: 1, seat: 1 }).selected).toBeNull();
   });
 
-  it("點一區 → 跳到中央座位：排取中間，號取那一排的中間（I1-HP 30 排 → 第 15 排；I2-HP 14 排 → 第 7 排）", () => {
+  it("點一區 → 跳到中央座位：排取中間，號取那一排的中間（113 有 38 排 → 第 19 排；212 有 19 排 → 第 10 排）", () => {
     const sections = buildMinimapModel(dome(), "baseball", null).sections;
     const seatsPerRow = (id: string) => listSections(dome(), "baseball").find((s) => s.id === id)?.seatsPerRow ?? [];
-    const hp = sections.find((s) => s.id === "I1-HP");
-    expect(hp?.target).toEqual({ row: 15, seat: Math.ceil((seatsPerRow("I1-HP")[14] ?? 0) / 2) });
-    const upper = sections.find((s) => s.id === "I2-HP");
-    expect(upper?.target).toEqual({ row: 7, seat: Math.ceil((seatsPerRow("I2-HP")[6] ?? 0) / 2) });
+    const lower = sections.find((s) => s.id === "113");
+    expect(lower?.target).toEqual({ row: 19, seat: Math.ceil((seatsPerRow("113")[18] ?? 0) / 2) });
+    const upper = sections.find((s) => s.id === "212");
+    expect(upper?.target).toEqual({ row: 10, seat: Math.ceil((seatsPerRow("212")[9] ?? 0) / 2) });
   });
 
   it("viewBox 包住所有區的輪廓（含邊距）", () => {

@@ -95,16 +95,25 @@ describe("sectionTreads：每一排的踏面", () => {
     }
   });
 
-  it(`折線點數：linear 是兩點直線；弧形每段不超過 ${ARC_STEP_DEG}°（I1-HP 跨 90° → 45 段、46 點）`, () => {
+  it(`折線點數：linear 是兩點直線；弧形每段不超過 ${ARC_STEP_DEG}°、段數取最少（113 區每排用到 5.7°–6.9° → 3 或 4 段）`, () => {
     const venue = dome();
-    expect(sectionTreads(venue, "I1-1B").every((t) => t.front.length === 2 && t.back.length === 2)).toBe(true);
-    expect(sectionTreads(venue, "I1-HP").every((t) => t.front.length === 46 && t.back.length === 46)).toBe(true);
+    expect(sectionTreads(venue, "105").every((t) => t.front.length === 2 && t.back.length === 2)).toBe(true);
+    const arc = venue.sections.find((s) => s.id === "113");
+    if (arc?.type !== "arc" || !arc.rowSpans) throw new Error("113 區應該是有 rowSpans 的弧形區");
+    const sweep = arc.toDeg - arc.fromDeg;
+    sectionTreads(venue, "113").forEach((t, i) => {
+      const [start, end] = arc.rowSpans?.[i] ?? [0, 1];
+      const points = Math.ceil(((end - start) * sweep) / ARC_STEP_DEG) + 1;
+      expect([4, 5]).toContain(points);
+      expect(t.front.length, `第 ${t.row} 排`).toBe(points);
+      expect(t.back.length, `第 ${t.row} 排`).toBe(points);
+    });
   });
 
   it("前緣在座位前方（較靠近場地）：弧形區前緣半徑較小，linear 前緣在 facing 那一側", () => {
     const venue = dome();
     const plate = { x: 0, z: 60.95 };
-    for (const id of ["I1-HP", "I1-1B", "I1-3B"]) {
+    for (const id of ["113", "105", "122"]) {
       const [first] = sectionTreads(venue, id);
       if (!first) throw new Error(`${id} 沒有踏面`);
       const mid = (points: PlanPoint[]) => ({ x: (points[0]!.x + points.at(-1)!.x) / 2, z: (points[0]!.z + points.at(-1)!.z) / 2 });
@@ -154,7 +163,7 @@ describe("sectionOutline：區的平面輪廓（給小地圖用）", () => {
   });
 
   it("不存在的區 → UNKNOWN_SECTION", () => {
-    expectSeatError(() => sectionOutline(dome(), "O2-RF"), "UNKNOWN_SECTION");
+    expectSeatError(() => sectionOutline(dome(), "233"), "UNKNOWN_SECTION");
   });
 });
 
@@ -162,11 +171,11 @@ describe("sectionTreads：底部（看台下方的結構）", () => {
   it("solid（預設）：每一排都實心到地面 0", () => {
     const venue = parseVenue(demoArenaJson);
     expect(sectionTreads(venue, "A1").every((t) => t.bottom === 0)).toBe(true);
-    expect(sectionTreads(dome(), "I1-HP").every((t) => t.bottom === 0)).toBe(true);
+    expect(sectionTreads(dome(), "113").every((t) => t.bottom === 0)).toBe(true);
   });
 
   it(`tier：底部在前一排踏面下方 ${TIER_SLAB_THICKNESS} m，第 1 排在自己的踏面下方`, () => {
-    const treads = sectionTreads(dome(), "I2-HP");
+    const treads = sectionTreads(dome(), "212");
     expect(treads[0]?.bottom).toBeCloseTo((treads[0]?.top ?? Number.NaN) - TIER_SLAB_THICKNESS, 9);
     for (let i = 1; i < treads.length; i++) {
       expect(treads[i]?.bottom).toBeCloseTo((treads[i - 1]?.top ?? Number.NaN) - TIER_SLAB_THICKNESS, 9);
@@ -178,6 +187,6 @@ describe("sectionTreads：底部（看台下方的結構）", () => {
   });
 
   it("不存在的區 → UNKNOWN_SECTION", () => {
-    expectSeatError(() => sectionTreads(dome(), "O2-RF"), "UNKNOWN_SECTION");
+    expectSeatError(() => sectionTreads(dome(), "233"), "UNKNOWN_SECTION");
   });
 });

@@ -11,7 +11,7 @@ import { applyChange, normalize, panelOptions, toSearch, type Change, type Chang
 import demoArenaJson from "./venues/demo-arena.json";
 import taipeiDomeJson from "./venues/taipei-dome.json";
 
-// 入口：面板選位，網址參數同步（例如 ?venue=taipei-dome&layout=baseball&section=I1-HP&row=1&seat=29）。
+// 入口：面板選位，網址參數同步（例如 ?venue=taipei-dome&layout=baseball&section=113&row=38&seat=7）。
 // 只有座位視角；鳥瞰是隱藏的除錯模式 ?debug=overview。
 
 /** 每個場館都顯示：3D 畫面只是示意（放在 UI，不放進場館資料；MCP 沒有畫面，不需要這句）。 */

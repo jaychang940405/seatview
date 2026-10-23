@@ -23,7 +23,7 @@ import {
   type Look,
 } from "./look";
 
-/** 面向 +x、往下看 10°（像 I1-HP 第 1 排看本壘）。 */
+/** 面向 +x、往下看 10°（像 113 區第 1 排看本壘）。 */
 const POSE: CameraPose = {
   position: { x: 0, y: 4, z: 0 },
   target: { x: 100 * Math.cos(THREE.MathUtils.degToRad(10)), y: 4 - 100 * Math.sin(THREE.MathUtils.degToRad(10)), z: 0 },

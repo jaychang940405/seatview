@@ -67,7 +67,7 @@ describe("buildStands：每區一個看台實體", () => {
   it("實體範圍 = core 踏面的範圍：高度從最低的底到最高的踏面，平面包住所有踏面頂點", () => {
     const venue = dome();
     const group = buildStands(venue, "baseball");
-    for (const id of ["I1-HP", "I1-1B", "I2-HP", "O1-CF"]) {
+    for (const id of ["113", "105", "212", "140"]) {
       const treads = sectionTreads(venue, id);
       const points = treads.flatMap((t) => [...t.front, ...t.back]);
       const box = boundsOf(meshNamed(group, `stand:${id}`));
@@ -81,18 +81,19 @@ describe("buildStands：每區一個看台實體", () => {
     }
   });
 
-  it(`solid 看台（I1-HP）實心到地面；tier 看台（I2-HP）最低點在第 1 排踏面下 ${TIER_SLAB_THICKNESS} m`, () => {
+  it(`solid 看台（113）實心到地面；tier 看台（212）最低點在第 1 排踏面下 ${TIER_SLAB_THICKNESS} m`, () => {
     const venue = dome();
     const group = buildStands(venue, "baseball");
-    expect(boundsOf(meshNamed(group, "stand:I1-HP")).min.y).toBeCloseTo(0, 4);
-    const first = sectionTreads(venue, "I2-HP")[0];
-    expect(boundsOf(meshNamed(group, "stand:I2-HP")).min.y).toBeCloseTo((first?.top ?? Number.NaN) - TIER_SLAB_THICKNESS, 4);
+    expect(boundsOf(meshNamed(group, "stand:113")).min.y).toBeCloseTo(0, 4);
+    const first = sectionTreads(venue, "212")[0];
+    expect(boundsOf(meshNamed(group, "stand:212")).min.y).toBeCloseTo((first?.top ?? Number.NaN) - TIER_SLAB_THICKNESS, 4);
   });
 
-  it("朝上的面都是踏面色、其他面是側面色；I1-HP 的踏面三角形 = 30 排 × 45 段 × 2", () => {
-    const faces = facesOf(meshNamed(buildStands(dome(), "baseball"), "stand:I1-HP"));
+  it("朝上的面都是踏面色、其他面是側面色；113 區的踏面三角形 = 每排的段數 × 2 加總（每排長度不同，段數也不同）", () => {
+    const venue = dome();
+    const faces = facesOf(meshNamed(buildStands(venue, "baseball"), "stand:113"));
     const up = faces.filter((f) => f.normal.y > 0.999);
-    expect(up).toHaveLength(30 * 45 * 2);
+    expect(up).toHaveLength(sectionTreads(venue, "113").reduce((sum, t) => sum + (t.front.length - 1) * 2, 0));
     for (const face of faces) expectColorClose(face.color, face.normal.y > 0.999 ? STAND_COLORS.tread : STAND_COLORS.side);
     // 其餘的面不是朝正下方就是垂直面（踢面、牆、兩端）
     for (const face of faces.filter((f) => f.normal.y <= 0.999)) expect(face.normal.y < -0.999 || Math.abs(face.normal.y) < 1e-6).toBe(true);
@@ -100,7 +101,7 @@ describe("buildStands：每區一個看台實體", () => {
 
   it("每一排都是封閉的實體：所有面的面積向量加總為 0（面都朝外、沒有破洞）", () => {
     const group = buildStands(dome(), "baseball");
-    for (const id of ["I1-HP", "I1-3B", "I2-HP", "O1-RF"]) {
+    for (const id of ["113", "122", "212", "143"]) {
       const sum = facesOf(meshNamed(group, `stand:${id}`)).reduce((acc, f) => acc.add(f.area), new THREE.Vector3());
       // 整區面積上千平方公尺，加總誤差只來自 Float32
       expect(sum.length(), id).toBeLessThan(0.01);
@@ -111,9 +112,9 @@ describe("buildStands：每區一個看台實體", () => {
 describe("buildStands：前緣護欄", () => {
   it(`沿第 1 排踏面的前緣，從踏面往上 ${PARAPET.height} m；半透明、兩面都畫`, () => {
     const venue = dome();
-    const parapet = meshNamed(buildStands(venue, "baseball"), "parapet:I1-HP");
-    const first = sectionTreads(venue, "I1-HP")[0];
-    if (!first) throw new Error("I1-HP 沒有踏面");
+    const parapet = meshNamed(buildStands(venue, "baseball"), "parapet:113");
+    const first = sectionTreads(venue, "113")[0];
+    if (!first) throw new Error("113 沒有踏面");
     const box = boundsOf(parapet);
     expect(box.min.y).toBeCloseTo(first.top, 4);
     expect(box.max.y).toBeCloseTo(first.top + PARAPET.height, 4);
