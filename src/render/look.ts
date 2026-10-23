@@ -1,8 +1,37 @@
 import * as THREE from "three";
 import type { CameraPose } from "../core/seat";
 
-/** 從座位轉頭的範圍與放大倍率。 */
-export const LOOK_LIMITS = { yawDeg: 120, minPitchDeg: -45, maxPitchDeg: 60, maxZoom: 4 } as const;
+/** 從座位轉頭的範圍與倍數。 */
+export const LOOK_LIMITS = { yawDeg: 120, minPitchDeg: -45, maxPitchDeg: 60, minZoom: 0.5, maxZoom: 4 } as const;
+
+/** 預設倍數：0.5× ≈ 等效 13 mm 廣角。 */
+export const DEFAULT_ZOOM = 0.5;
+/** 「人眼」那一檔：約 1.7×（C 級，等效約 44 mm 的標準鏡頭量級，不是量測值）。 */
+export const HUMAN_EYE_ZOOM = 1.7;
+export const ZOOM_PRESETS = [
+  { label: "0.5×", zoom: 0.5 },
+  { label: "1×", zoom: 1 },
+  { label: "人眼", zoom: HUMAN_EYE_ZOOM },
+] as const;
+
+export function isFacingFocus(_look: Look): boolean {
+  throw new Error("not implemented");
+}
+
+/** 回正：方向轉回正視焦點，倍數不變。 */
+export function faceFocus(_look: Look): Look {
+  throw new Error("not implemented");
+}
+
+/** 座位相機的垂直 FOV：直式窄螢幕以水平 FOV 為基準（verticalFovFor），再套倍數。 */
+export function seatFov(_aspect: number, _zoom: number, _baseFov: number): number {
+  throw new Error("not implemented");
+}
+
+/** 倍數的說明，以「人眼」那一檔為基準。 */
+export function zoomNote(_zoom: number): string {
+  throw new Error("not implemented");
+}
 
 /**
  * 相對於「正視焦點」的轉頭量。

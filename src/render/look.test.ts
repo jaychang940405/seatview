@@ -3,7 +3,25 @@ import { describe, expect, it } from "vitest";
 import type { CameraPose } from "../core/seat";
 import { expectVec3Close } from "../test/helpers";
 import { createSeatCamera, DEFAULT_FOV } from "./camera";
-import { applyLook, clampLook, dragLook, isAhead, LOOK_AHEAD, LOOK_LIMITS, lookDirection, zoomedFov, zoomLook, type Look } from "./look";
+import { verticalFovFor } from "./camera";
+import {
+  applyLook,
+  clampLook,
+  DEFAULT_ZOOM,
+  dragLook,
+  faceFocus,
+  HUMAN_EYE_ZOOM,
+  isFacingFocus,
+  LOOK_AHEAD,
+  LOOK_LIMITS,
+  lookDirection,
+  seatFov,
+  ZOOM_PRESETS,
+  zoomedFov,
+  zoomLook,
+  zoomNote,
+  type Look,
+} from "./look";
 
 /** 面向 +x、往下看 10°（像 I1-HP 第 1 排看本壘）。 */
 const POSE: CameraPose = {
@@ -55,11 +73,11 @@ describe("lookDirection / applyLook", () => {
 });
 
 describe("clampLook：轉頭範圍", () => {
-  it(`左右 ±${LOOK_LIMITS.yawDeg}°；放大 1–${LOOK_LIMITS.maxZoom} 倍`, () => {
+  it(`左右 ±${LOOK_LIMITS.yawDeg}°；倍數 ${LOOK_LIMITS.minZoom}–${LOOK_LIMITS.maxZoom}×`, () => {
     expect(clampLook(POSE, look(200, 0)).yawDeg).toBe(LOOK_LIMITS.yawDeg);
     expect(clampLook(POSE, look(-200, 0)).yawDeg).toBe(-LOOK_LIMITS.yawDeg);
     expect(clampLook(POSE, look(0, 0, 9)).zoom).toBe(LOOK_LIMITS.maxZoom);
-    expect(clampLook(POSE, look(0, 0, 0.2)).zoom).toBe(1);
+    expect(clampLook(POSE, look(0, 0, 0.2)).zoom).toBe(LOOK_LIMITS.minZoom);
   });
 
   it("上下限是絕對仰角：正視時往下 10°，所以 pitch 只能到 −35°（−45°）和 +70°（+60°）", () => {
@@ -73,7 +91,7 @@ describe("clampLook：轉頭範圍", () => {
   });
 });
 
-describe("dragLook / zoomLook / isAhead", () => {
+describe("dragLook / zoomLook / 回正", () => {
   it("像抓著畫面：往右拖 100 px（垂直視野 50°、畫面高 500 px）→ 往左轉 10°；往下拖 100 px → 抬頭 10°", () => {
     expect(dragLook(POSE, LOOK_AHEAD, 100, 0, 500, 50).yawDeg).toBeCloseTo(-10);
     expect(dragLook(POSE, LOOK_AHEAD, 0, 100, 500, 50).pitchDeg).toBeCloseTo(10);
@@ -84,14 +102,58 @@ describe("dragLook / zoomLook / isAhead", () => {
   });
 
   it("zoomLook 乘上倍率並受限制", () => {
-    expect(zoomLook(POSE, LOOK_AHEAD, 2).zoom).toBeCloseTo(2);
+    expect(zoomLook(POSE, look(0, 0, 1), 2).zoom).toBeCloseTo(2);
     expect(zoomLook(POSE, look(0, 0, 3), 2).zoom).toBe(LOOK_LIMITS.maxZoom);
-    expect(zoomLook(POSE, LOOK_AHEAD, 0.5).zoom).toBe(1);
+    expect(zoomLook(POSE, look(0, 0, 0.6), 0.5).zoom).toBe(LOOK_LIMITS.minZoom);
   });
 
-  it("isAhead：沒轉頭也沒放大才算正視", () => {
-    expect(isAhead(LOOK_AHEAD)).toBe(true);
-    expect(isAhead(look(0.5, 0))).toBe(false);
-    expect(isAhead(look(0, 0, 1.2))).toBe(false);
+  it("回正只重設方向、保留倍數；正視與否只看方向", () => {
+    expect(faceFocus(look(40, -10, 1.7))).toEqual(look(0, 0, 1.7));
+    expect(isFacingFocus(look(0, 0, 3))).toBe(true);
+    expect(isFacingFocus(look(0.5, 0))).toBe(false);
+    expect(isFacingFocus(look(0, -2))).toBe(false);
+  });
+});
+
+describe("倍數（FOV）：tan(fov/2) = tan(base/2) / zoom，1× = 垂直 50°（等效 26 mm）", () => {
+  it.each([
+    [0.5, 86.0],
+    [1, 50.0],
+    [1.7, 30.7],
+    [4, 13.3],
+  ])("%s× → 垂直 FOV %s°", (zoom, fov) => {
+    expect(zoomedFov(DEFAULT_FOV, zoom)).toBeCloseTo(fov, 1);
+  });
+
+  it("預設 0.5×（約等效 13 mm）；預設按鈕 0.5×、1×、人眼（約 1.7×，C 級）", () => {
+    expect(DEFAULT_ZOOM).toBe(0.5);
+    expect(LOOK_AHEAD.zoom).toBe(DEFAULT_ZOOM);
+    expect(HUMAN_EYE_ZOOM).toBeCloseTo(1.7);
+    expect(ZOOM_PRESETS.map((p) => p.zoom)).toEqual([0.5, 1, HUMAN_EYE_ZOOM]);
+    expect(ZOOM_PRESETS.map((p) => p.label)).toEqual(["0.5×", "1×", "人眼"]);
+  });
+
+  it("直式窄螢幕：倍數套在「水平 FOV 為基準」之上，比例 1 前後連續", () => {
+    for (const zoom of [0.5, 1, 1.7, 4]) {
+      expect(seatFov(1 - 1e-9, zoom, DEFAULT_FOV)).toBeCloseTo(seatFov(1 + 1e-9, zoom, DEFAULT_FOV), 6);
+      expect(seatFov(16 / 9, zoom, DEFAULT_FOV)).toBeCloseTo(zoomedFov(DEFAULT_FOV, zoom), 9);
+    }
+  });
+
+  it("直式 9:16：水平 FOV = 以 50° 為基準縮放（0.5× → 水平 86°）", () => {
+    const aspect = 9 / 16;
+    for (const zoom of [0.5, 1, 1.7]) {
+      const vertical = THREE.MathUtils.degToRad(seatFov(aspect, zoom, DEFAULT_FOV));
+      const horizontal = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(vertical / 2) * aspect));
+      expect(horizontal).toBeCloseTo(zoomedFov(DEFAULT_FOV, zoom), 6);
+    }
+    expect(seatFov(aspect, 1, DEFAULT_FOV)).toBeCloseTo(verticalFovFor(aspect), 9);
+  });
+
+  it("倍數說明以「人眼」那一檔為基準", () => {
+    expect(zoomNote(0.5)).toBe("比肉眼看起來小、遠");
+    expect(zoomNote(1)).toBe("比肉眼看起來小、遠");
+    expect(zoomNote(HUMAN_EYE_ZOOM)).toBe("約等於肉眼");
+    expect(zoomNote(3)).toBe("比肉眼看起來大、近");
   });
 });
