@@ -50,7 +50,7 @@ export function panelOptions(venues: readonly Venue[], selection: Selection): Pa
   const section = findSection(venue, selection.sectionId);
   return {
     venues: venues.map((v) => ({ id: v.id, label: v.name })),
-    layouts: Object.entries(venue.layouts).map(([id, layout]) => ({ id, label: layout.name })),
+    layouts: Object.entries(venue.layouts).map(([id, layout]) => ({ id, label: layout.name, short: layout.name.split("（")[0] })),
     sections: listSections(venue, selection.layoutId).map((s) => ({ id: s.id, label: sectionLabel(s.id, s.name) })),
     rows: section.rows,
     seats: rowFits(section, selection.row) ? seatsInRow(section, selection.row) : null,
@@ -105,11 +105,13 @@ export function applyChange(venues: readonly Venue[], selection: Selection, chan
 }
 
 /** 排、號的 − / + 按鈕：加減 1，限制在 1 到上限之間（上限未知時只限制下限）。 */
-export function stepValue(_current: number, _delta: 1 | -1, _max: number | null): number {
-  throw new Error("not implemented");
+export function stepValue(current: number, delta: 1 | -1, max: number | null): number {
+  if (!Number.isFinite(current)) return 1;
+  const next = Math.max(1, Math.round(current) + delta);
+  return max === null ? next : Math.min(next, max);
 }
 
-/** 寫回網址用；與 parseSeatQuery 互逆。 */
+/** 寫回網址用；與 parseSeatQuery 互逆。不寫 mode=：鳥瞰只在除錯時以 debug=overview 出現。 */
 export function toSearch(selection: Selection): string {
   const params = new URLSearchParams({
     venue: selection.venueId,
@@ -117,8 +119,8 @@ export function toSearch(selection: Selection): string {
     section: selection.sectionId,
     row: String(selection.row),
     seat: String(selection.seat),
-    mode: selection.mode,
   });
+  if (selection.mode === "overview") params.set("debug", "overview");
   return `?${params}`;
 }
 

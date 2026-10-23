@@ -9,7 +9,8 @@ import { applyChange, normalize, panelOptions, toSearch, type ChangeResult, type
 import demoArenaJson from "./venues/demo-arena.json";
 import taipeiDomeJson from "./venues/taipei-dome.json";
 
-// 入口：面板選位，網址參數同步（例如 ?venue=taipei-dome&layout=baseball&section=I1-HP&row=1&seat=29&mode=overview）
+// 入口：面板選位，網址參數同步（例如 ?venue=taipei-dome&layout=baseball&section=I1-HP&row=1&seat=29）。
+// 只有座位視角；鳥瞰是隱藏的除錯模式 ?debug=overview。
 
 // 順序就是場館下拉選單的順序
 const VENUES = [parseVenue(demoArenaJson), parseVenue(taipeiDomeJson)];
@@ -23,12 +24,13 @@ function required<T extends Element>(selector: string): T {
 const app = required<HTMLDivElement>("#app");
 const info = required<HTMLDivElement>("#info");
 const form = required<HTMLFormElement>("#panel");
+const layoutSwitch = required<HTMLDivElement>("#layout-switch");
 const viewTools = required<HTMLDivElement>("#view-tools");
 const viewHint = required<HTMLSpanElement>("#view-hint");
 const resetView = required<HTMLButtonElement>("#reset-view");
 
 const viewer = createViewer(app);
-const panel = createPanel(form, (change) => show(applyChange(VENUES, selection, change)));
+const panel = createPanel({ form, layoutSwitch }, (change) => show(applyChange(VENUES, selection, change)));
 
 let selection: Selection;
 let sceneKey = "";

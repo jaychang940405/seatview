@@ -19,7 +19,8 @@ export const DEFAULT_QUERY: SeatQuery = {
 };
 
 /**
- * 解析 ?venue=&layout=&section=&row=&seat=&mode=，沒給的用 DEFAULT_QUERY。
+ * 解析 ?venue=&layout=&section=&row=&seat=，沒給的用 DEFAULT_QUERY。
+ * 鳥瞰是隱藏的除錯模式：?debug=overview（舊連結的 mode=overview 是別名）；UI 沒有入口。
  * 不檢查排號／座號是否合法（例如 row=abc 會得到 NaN），交給 core 回報錯誤，避免兩邊各寫一套驗證。
  */
 export function parseSeatQuery(search: string): SeatQuery {
@@ -34,6 +35,6 @@ export function parseSeatQuery(search: string): SeatQuery {
     sectionId: params.get("section") ?? DEFAULT_QUERY.sectionId,
     row: number("row", DEFAULT_QUERY.row),
     seat: number("seat", DEFAULT_QUERY.seat),
-    mode: params.get("mode") === "overview" ? "overview" : "seat",
+    mode: params.get("debug") === "overview" || params.get("mode") === "overview" ? "overview" : "seat",
   };
 }

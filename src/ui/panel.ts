@@ -1,66 +1,120 @@
-import type { CameraMode } from "../render/viewer";
-import type { Change, Option, PanelOptions, Selection } from "./selection";
+import { stepValue, type Change, type Option, type PanelOptions, type Selection } from "./selection";
 
 // 選位面板的 DOM：只把選項畫成表單、把使用者操作轉成 Change；規則都在 selection.ts。
+// 只有座位視角；鳥瞰是 ?debug=overview 的除錯模式，面板上沒有入口。
 
 export interface Panel {
   update(options: PanelOptions, selection: Selection): void;
 }
 
-const MODES: Option[] = [
-  { id: "seat", label: "座位" },
-  { id: "overview", label: "鳥瞰" },
-];
+export interface PanelElements {
+  /** 左上角的選位面板（可收合） */
+  form: HTMLFormElement;
+  /** 右上角的場地切換鈕 */
+  layoutSwitch: HTMLElement;
+}
 
-export function createPanel(form: HTMLFormElement, onChange: (change: Change) => void): Panel {
+/** 窄螢幕預設收合，免得面板蓋住太多畫面。 */
+const NARROW_SCREEN = "(max-width: 600px)";
+
+export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (change: Change) => void): Panel {
   form.innerHTML = `
-    <label for="pick-venue">場館</label>
-    <select id="pick-venue"></select>
-    <span id="pick-layout-label">場地</span>
-    <div id="pick-layout" class="choices" role="radiogroup" aria-labelledby="pick-layout-label"></div>
-    <label for="pick-section">區</label>
-    <select id="pick-section"></select>
-    <label for="pick-row">排</label>
-    <span><input id="pick-row" type="number" min="1" step="1" inputmode="numeric" aria-describedby="pick-row-hint" /><span id="pick-row-hint" class="hint"></span></span>
-    <label for="pick-seat">號</label>
-    <span><input id="pick-seat" type="number" min="1" step="1" inputmode="numeric" aria-describedby="pick-seat-hint" /><span id="pick-seat-hint" class="hint"></span></span>
-    <span id="pick-mode-label">視角</span>
-    <div id="pick-mode" class="choices" role="radiogroup" aria-labelledby="pick-mode-label"></div>
+    <div class="panel-head">
+      <button type="button" id="panel-toggle" aria-controls="panel-body"></button>
+      <span id="panel-summary" class="summary"></span>
+    </div>
+    <div id="panel-body" class="panel-body">
+      <label for="pick-venue">場館</label>
+      <select id="pick-venue"></select>
+      <label for="pick-section">區</label>
+      <select id="pick-section"></select>
+      <label for="pick-row">排</label>
+      <span class="stepper">
+        <button type="button" id="row-down" aria-label="前一排">−</button>
+        <input id="pick-row" type="number" min="1" step="1" inputmode="numeric" aria-describedby="pick-row-hint" />
+        <button type="button" id="row-up" aria-label="後一排">+</button>
+        <span id="pick-row-hint" class="hint"></span>
+      </span>
+      <label for="pick-seat">號</label>
+      <span class="stepper">
+        <button type="button" id="seat-down" aria-label="前一號">−</button>
+        <input id="pick-seat" type="number" min="1" step="1" inputmode="numeric" aria-describedby="pick-seat-hint" />
+        <button type="button" id="seat-up" aria-label="後一號">+</button>
+        <span id="pick-seat-hint" class="hint"></span>
+      </span>
+    </div>
   `;
+  layoutSwitch.setAttribute("role", "radiogroup");
+  layoutSwitch.setAttribute("aria-label", "場地");
+
+  const toggle = part<HTMLButtonElement>(form, "#panel-toggle");
+  const summary = part<HTMLSpanElement>(form, "#panel-summary");
+  const body = part<HTMLDivElement>(form, "#panel-body");
   const venue = part<HTMLSelectElement>(form, "#pick-venue");
-  const layout = part<HTMLDivElement>(form, "#pick-layout");
   const section = part<HTMLSelectElement>(form, "#pick-section");
   const row = part<HTMLInputElement>(form, "#pick-row");
   const rowHint = part<HTMLSpanElement>(form, "#pick-row-hint");
   const seat = part<HTMLInputElement>(form, "#pick-seat");
   const seatHint = part<HTMLSpanElement>(form, "#pick-seat-hint");
-  const mode = part<HTMLDivElement>(form, "#pick-mode");
+  const steppers = {
+    rowDown: part<HTMLButtonElement>(form, "#row-down"),
+    rowUp: part<HTMLButtonElement>(form, "#row-up"),
+    seatDown: part<HTMLButtonElement>(form, "#seat-down"),
+    seatUp: part<HTMLButtonElement>(form, "#seat-up"),
+  };
+
+  // 最近一次 update 的狀態；− / + 依它計算下一個值
+  let current: { options: PanelOptions; selection: Selection } | null = null;
+
+  const setCollapsed = (collapsed: boolean) => {
+    body.hidden = collapsed;
+    form.classList.toggle("collapsed", collapsed);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.textContent = collapsed ? "▸ 選位" : "▾ 選位";
+  };
+  setCollapsed(window.matchMedia(NARROW_SCREEN).matches);
+  toggle.addEventListener("click", () => setCollapsed(!body.hidden));
 
   // 沒有送出按鈕；按 Enter 時瀏覽器仍可能送出表單，擋掉以免重新載入頁面
   form.addEventListener("submit", (event) => event.preventDefault());
   venue.addEventListener("change", () => onChange({ kind: "venue", venueId: venue.value }));
   section.addEventListener("change", () => onChange({ kind: "section", sectionId: section.value }));
-  layout.addEventListener("change", (event) => onChange({ kind: "layout", layoutId: (event.target as HTMLInputElement).value }));
-  mode.addEventListener("change", (event) => onChange({ kind: "mode", mode: (event.target as HTMLInputElement).value as CameraMode }));
+  layoutSwitch.addEventListener("change", (event) => onChange({ kind: "layout", layoutId: (event.target as HTMLInputElement).value }));
   // 數字框用 change（Enter 或離開欄位才觸發），不用 input：輸入「58」途中不會先跳到 5 號
   row.addEventListener("change", () => onChange({ kind: "row", row: row.valueAsNumber }));
   seat.addEventListener("change", () => onChange({ kind: "seat", seat: seat.valueAsNumber }));
+  const step = (field: "row" | "seat", delta: 1 | -1) => () => {
+    if (!current) return;
+    const { options, selection } = current;
+    if (field === "row") onChange({ kind: "row", row: stepValue(selection.row, delta, options.rows) });
+    else onChange({ kind: "seat", seat: stepValue(selection.seat, delta, options.seats) });
+  };
+  steppers.rowDown.addEventListener("click", step("row", -1));
+  steppers.rowUp.addEventListener("click", step("row", 1));
+  steppers.seatDown.addEventListener("click", step("seat", -1));
+  steppers.seatUp.addEventListener("click", step("seat", 1));
 
   return {
     update(options, selection) {
+      current = { options, selection };
       fillSelect(venue, options.venues, selection.venueId);
-      fillRadios(layout, "pick-layout", options.layouts, selection.layoutId);
+      fillRadios(layoutSwitch, "pick-layout", options.layouts, selection.layoutId);
       fillSelect(section, options.sections, selection.sectionId);
-      fillRadios(mode, "pick-mode", MODES, selection.mode);
 
       row.max = String(options.rows);
       row.value = numberText(selection.row);
       rowHint.textContent = `1–${options.rows} 排`;
+      steppers.rowDown.disabled = selection.row <= 1;
+      steppers.rowUp.disabled = selection.row >= options.rows;
 
       if (options.seats === null) seat.removeAttribute("max");
       else seat.max = String(options.seats);
       seat.value = numberText(selection.seat);
       seatHint.textContent = options.seats === null ? "" : `本排 1–${options.seats} 號`;
+      steppers.seatDown.disabled = selection.seat <= 1;
+      steppers.seatUp.disabled = options.seats !== null && selection.seat >= options.seats;
+
+      summary.textContent = `${selection.sectionId} 第 ${numberText(selection.row) || "?"} 排 ${numberText(selection.seat) || "?"} 號`;
     },
   };
 }
@@ -93,15 +147,20 @@ function fillSelect(select: HTMLSelectElement, options: Option[], value: string)
   select.value = value;
 }
 
+/** 分段按鈕樣式的 radio：看得到的是短名稱，完整名稱放在 title。 */
 function fillRadios(group: HTMLElement, name: string, options: Option[], value: string): void {
   rebuildIfChanged(group, options, () =>
     options.map((option) => {
       const label = document.createElement("label");
+      label.title = option.label;
       const input = document.createElement("input");
       input.type = "radio";
       input.name = name;
       input.value = option.id;
-      label.append(input, ` ${option.label}`);
+      input.setAttribute("aria-label", option.label);
+      const text = document.createElement("span");
+      text.textContent = option.short ?? option.label;
+      label.append(input, text);
       return label;
     }),
   );
