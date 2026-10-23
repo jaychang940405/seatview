@@ -81,12 +81,26 @@ const MetaSchema = z.object({
   provenance: z.array(ProvenanceSchema),
 });
 
-/** 穹頂外殼：底面輪廓（不重複起點）、牆頂高度、室內屋頂最高點（m）。 */
+/**
+ * 牆上的大螢幕：中心、寬高（m）、正面朝向（平面角度，從 +x 轉向 +z）。
+ * onLayouts：在哪些 layout 會亮；省略代表每個 layout 都亮。
+ */
+const ScreenSchema = z.object({
+  id: z.string().min(1),
+  center: Vec3Schema,
+  width: z.number().positive(),
+  height: z.number().positive(),
+  facingYawDeg: z.number(),
+  onLayouts: z.array(z.string()).optional(),
+});
+
+/** 穹頂外殼：底面輪廓（不重複起點）、牆頂高度、室內屋頂最高點（m），以及牆上的螢幕。 */
 const ShellSchema = z
   .object({
     outline: z.array(PlanPointSchema).min(3),
     wallHeight: z.number().positive(),
     roofHeight: z.number().positive(),
+    screens: z.array(ScreenSchema).optional(),
   })
   .superRefine((shell, ctx) => {
     if (shell.roofHeight <= shell.wallHeight) {
@@ -158,6 +172,7 @@ export type Layout = z.infer<typeof LayoutSchema>;
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 export type VenueMeta = z.infer<typeof MetaSchema>;
 export type Shell = z.infer<typeof ShellSchema>;
+export type Screen = z.infer<typeof ScreenSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
 
 /** 驗證場館 JSON；格式錯誤時丟 ZodError。 */
