@@ -36,10 +36,27 @@ render 有改動時重新跑一次，在「結果」欄記錄日期。
 - **整體比例感**（看台斜度、舞台大小）：demo-arena 的尺寸是編出來的。大巨蛋的比例請見下面「還沒檢查」那一段。
 - **build 警告**：bundle 超過 500 kB，主要是 three.js 本身；之後可以用動態 import 拆開。
 
-## 2026-10-23（taipei-dome 近似模型，桌面 Browser pane 800×726）
+## 2026-10-23（taipei-dome 方案 B，桌面 Browser pane 800×450）
 
-預期值來自 `docs/venue-taipei-dome.md` 第 4 節（Layouts）。網址都要加上 `?venue=taipei-dome&`。
-截圖只用本專案自己的 render 畫面，不放別人的照片。
+這一輪改成方案 B 的看台（本壘弧 + 沿界外線的直線看台 + 與外野牆同心的外野弧，二層懸挑在一層上方）。
+網址都要加上 `?venue=taipei-dome&`；截圖只用本專案自己的 render 畫面。對照用的平面圖：[dome-plan-b.svg](screenshots/dome-plan-b.svg)。
+
+| # | 網址參數 | 預期 | 結果 | 截圖 |
+|---|---|---|---|---|
+| B1 | `layout=baseball&section=I1-HP&row=1&seat=29&mode=overview` | 跟平面圖一致：本壘後方是弧、兩側是沿界外線的直線看台、二層在一層外側上方、外野三段弧；本壘在內野菱形下方的頂點，界外線從本壘延伸到外野牆兩端 | ✅ 距離 18.6 m、俯角 10.5°、偏角 0.0° | [B1](screenshots/dome-b-01-baseball-overview.jpg) |
+| B2 | `layout=concert&section=F1&row=1&seat=50&mode=overview` | 舞台在外野端；F1–F3 在舞台前；舞台後方沒有 O1-CF，外野左右兩區還在 | ✅ | [B2](screenshots/dome-b-02-concert-overview.jpg) |
+| B3 | `layout=baseball&section=I2-HP&row=14&seat=71` | 二層最後一排中央：本壘在正中央，前方是二層前幾排 | ✅ 距離 50.8 m、俯角 26.4°、偏角 0.3° | [B3](screenshots/dome-b-03-baseball-i2hp-r14-s71.jpg) |
+| B4 | `layout=baseball&section=I1-1B&row=15&seat=58` | 一壘側：本壘在中央、內野往右側延伸、左側是本壘後方看台 | ✅ 距離 42.5 m、俯角 11.3°、偏角 88.6° | [B4](screenshots/dome-b-04-baseball-i11b-r15-s58.jpg) |
+
+**之前截圖的「外野牆端點接到本壘」「內野菱形不在界外線交點」**：這次對照確認不是 render 或資料的錯，而是畫面上的錯覺。
+
+- 從本壘連到外野牆兩端的是**界外線**，外野牆的端點本來就是界外桿。
+- 一壘、三壘依規則就在界外線上，所以菱形下方兩條邊跟界外線重疊，看起來像界外線從菱形側邊的頂點出發。
+- 這次加了不變量從數字確認：界外線終點 = 外野牆端點（座標相等、左右沒接反）、一壘與三壘在界外線上、本壘 = 菱形第一個頂點 = 界外線起點。
+
+## 2026-10-23（taipei-dome 第一版：同心圓弧看台，已被方案 B 取代）
+
+以下是第一版的紀錄，保留作為對照。預期值來自當時的 `docs/venue-taipei-dome.md`。
 
 | # | 網址參數 | 預期 | 結果 | 截圖 |
 |---|---|---|---|---|
@@ -57,5 +74,5 @@ render 有改動時重新跑一次，在「結果」欄記錄日期。
 
 ### 還沒檢查
 
-- **比例感**：OSM 外框顯示模型在短向太寬（見 `docs/venue-taipei-dome.md` 的「OpenStreetMap 外框檢查」）。等修正方向決定後再目視。
-- **效能**：同上，還沒量化。
+- **比例感**：第一版在短向比 OSM 外框寬，已由方案 B 修正（看台全部在外框摘要內、留空 ≥ 3 m）。
+- **效能**：還沒量化。
