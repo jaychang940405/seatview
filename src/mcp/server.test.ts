@@ -118,3 +118,63 @@ describe("MCP server（InMemoryTransport 端到端）", () => {
     }
   });
 });
+
+describe("MCP server × 大巨蛋資料（端到端）", () => {
+  it("get_seat_view 成功：I1-HP 第 1 排 29 號正對本壘，距離 √(18.3² + 3.4²) ≈ 18.61 m，附免責聲明", async () => {
+    const { client, close } = await connect();
+    try {
+      const result = await client.callTool({
+        name: "get_seat_view",
+        arguments: { venue: "taipei-dome", layout: "baseball", section: "I1-HP", row: 1, seat: 29 },
+      });
+      expect(result.isError, textOf(result)).toBeFalsy();
+      const data = result.structuredContent as {
+        metrics: { distance: number; horizontalDeg: number };
+        direction: string;
+        disclaimer?: string;
+      };
+      expect(data.metrics.distance).toBeCloseTo(Math.hypot(18.3, 4.2 - 0.8), 3);
+      expect(data.metrics.horizontalDeg).toBeCloseTo(0, 6);
+      expect(data.direction).toBe("正面");
+      expect(data.disclaimer).toContain("不應作為購票依據");
+      expect(textOf(result)).toContain("不應作為購票依據");
+    } finally {
+      await close();
+    }
+  });
+
+  it("未建模的區 O2-RF → UNKNOWN_SECTION，提示 baseball 開放的區", async () => {
+    const { client, close } = await connect();
+    try {
+      const result = await client.callTool({
+        name: "get_seat_view",
+        arguments: { venue: "taipei-dome", layout: "baseball", section: "O2-RF", row: 1, seat: 1 },
+      });
+      expect(result.isError).toBe(true);
+      const text = textOf(result);
+      expect(text).toContain("UNKNOWN_SECTION");
+      expect(text).toContain("baseball 開放的區");
+      expect(text).toContain("O1-CF");
+    } finally {
+      await close();
+    }
+  });
+
+  it("O1-CF 在 concert 沒開放 → SECTION_NOT_IN_LAYOUT，提示 concert 開放的區（不含 O1-CF）", async () => {
+    const { client, close } = await connect();
+    try {
+      const result = await client.callTool({
+        name: "get_seat_view",
+        arguments: { venue: "taipei-dome", layout: "concert", section: "O1-CF", row: 1, seat: 1 },
+      });
+      expect(result.isError).toBe(true);
+      const text = textOf(result);
+      expect(text).toContain("SECTION_NOT_IN_LAYOUT");
+      const hint = text.split("\n").find((line) => line.startsWith("concert 開放的區"));
+      expect(hint).toContain("F1");
+      expect(hint).not.toContain("O1-CF");
+    } finally {
+      await close();
+    }
+  });
+});
