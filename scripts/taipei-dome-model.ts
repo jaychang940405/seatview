@@ -75,7 +75,7 @@ export const K = {
     label: "票面標籤（區/排/號；201 第 15 排沒有第 16 號）",
     value: TICKET_LABELS.map(([id, row, seat]) => `${id}/${row}/${seat}`).join("、"),
     grade: "B",
-    source: `球迷照片上的票面（見 ${WAIHANN} 等視野圖）`,
+    source: `使用者整理的票面標籤，來自公開視野圖文章裡的票面照片（例如 ${WAIHANN}）`,
   },
   layerSeats: {
     label: "層總席數（B−：來源之間約有 500 席的內部不一致；只回報偏差，不拿來縮放）",

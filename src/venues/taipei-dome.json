@@ -8,7 +8,7 @@
       { "key": "centerField", "value": "本壘到中外野牆：121.92 m", "grade": "B", "source": "https://www.nownews.com/news/6860709（400 呎）" },
       { "key": "foulPole", "value": "本壘到左右外野牆（界外桿）：102.11 m", "grade": "B", "source": "https://www.nownews.com/news/6860709（335 呎；報導數字，非官方圖面）" },
       { "key": "officialSections", "value": "官方票區（區號、層別、相鄰關係）：B1 內野 102–124；B1 外野 131–137、140–146（138、139 是打者之眼）；L2 內野 201–212、214–225（213 是灰色無編號的一塊）；102、201、146 在一壘側", "grade": "B", "source": "https://gdf999.com/bigdomelazybag-sara240214/；https://waihann.tw/1136/taipeidome-seatview/；使用者提供的售票座位圖（只讀區號與相對位置，不描摹、不放進 repo）" },
-      { "key": "ticketLabels", "value": "票面標籤（區/排/號；201 第 15 排沒有第 16 號）：113/38/7、102/23/32、103/38/9、115/38/9、133/14/6、142/9/34、201/15/15、203/18/26、205/19/10", "grade": "B", "source": "球迷照片上的票面（見 https://waihann.tw/1136/taipeidome-seatview/ 等視野圖）" },
+      { "key": "ticketLabels", "value": "票面標籤（區/排/號；201 第 15 排沒有第 16 號）：113/38/7、102/23/32、103/38/9、115/38/9、133/14/6、142/9/34、201/15/15、203/18/26、205/19/10", "grade": "B", "source": "使用者整理的票面標籤，來自公開視野圖文章裡的票面照片（例如 https://waihann.tw/1136/taipeidome-seatview/）" },
       { "key": "layerSeats", "value": "層總席數（B−：來源之間約有 500 席的內部不一致；只回報偏差，不拿來縮放）：{\"b1Infield\":13423,\"b1Outfield\":3826,\"l2Infield\":9209} 席", "grade": "B", "source": "https://gdf999.com/bigdomelazybag-sara240214/" },
       { "key": "seatsTotal", "value": "總席位（不建模，只說明範圍）：40000 席", "grade": "B", "source": "https://www.taiwannews.com.tw/zh/news/5089544" },
       { "key": "tierNames", "value": "層名：B1（內野、外野）、L2（內野、外野）、L3–L5", "grade": "B", "source": "https://waihann.tw/1136/taipeidome-seatview/；https://news.tvbs.com.tw/sports/2429115 等報導" },
