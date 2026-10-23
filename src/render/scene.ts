@@ -4,6 +4,7 @@ import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
 import { buildOverlay, GROUND_RENDER_ORDER } from "./overlays";
 import { buildSectionMesh, CHAIR, type ColorMode, type SectionMesh } from "./seats";
+import { buildShell } from "./shell";
 import { buildStands } from "./stands";
 
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
@@ -31,8 +32,8 @@ export interface VenueScene {
   highlightSeat(ref: SeatRef | null): void;
   /** 座位視角用中性色，鳥瞰混入分區色；選中的座位維持 HIGHLIGHT_COLOR */
   setColorMode(mode: ColorMode): void;
-  /** 鳥瞰（除錯）時藏起屋頂與格柵，才看得到裡面 */
-  setRoofVisible(visible: boolean): void;
+  /** 鳥瞰（除錯）時藏起整個外殼（38 m 的牆會擋住裡面）；沒有外殼的場館什麼都不做 */
+  setShellVisible(visible: boolean): void;
   dispose(): void;
 }
 
@@ -57,6 +58,8 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   });
   scene.add(sections);
   scene.add(buildStands(venue, layoutId));
+  const shell = venue.shell ? buildShell(venue.shell) : null;
+  if (shell) scene.add(shell);
 
   const overlays = new THREE.Group();
   overlays.name = "overlays";
@@ -93,8 +96,8 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
       marker.position.set(seat.x, seat.y + CHAIR.backTop + MARKER.hover + MARKER.height / 2, seat.z);
       marker.visible = true;
     },
-    setRoofVisible() {
-      throw new Error("not implemented");
+    setShellVisible(visible) {
+      if (shell) shell.visible = visible;
     },
     setColorMode(mode) {
       colorMode = mode;

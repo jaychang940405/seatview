@@ -198,6 +198,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       next.scene.environment = environment;
       next.scene.environmentIntensity = ENVIRONMENT_INTENSITY;
       next.setColorMode(mode);
+      next.setShellVisible(mode === "seat");
       venueScene?.dispose();
       venueScene = next;
       frameOverview(next);
@@ -213,6 +214,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       mode = next;
       controls.enabled = next === "overview";
       venueScene?.setColorMode(next);
+      venueScene?.setShellVisible(next === "seat");
       requestRender();
     },
     resetLook() {

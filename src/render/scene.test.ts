@@ -176,13 +176,13 @@ describe("光線與材質", () => {
     expect(sun?.position.y).toBeGreaterThan(0);
   });
 
-  it("椅子、看台、護欄、地板、舞台都用會反應光線的 MeshStandardMaterial；只有選位標記不受光", () => {
+  it("椅子、看台、護欄、地板、舞台、外殼都用會反應光線的 MeshStandardMaterial；只有選位標記與屋頂邊緣的燈（自己發光）不受光", () => {
     const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "concert");
     const unlit: string[] = [];
     scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       const material = object.material as THREE.Material;
-      if (object.name === "seat-marker") return;
+      if (object.name === "seat-marker" || object.name === "shell-lights") return;
       if (!(material instanceof THREE.MeshStandardMaterial)) unlit.push(`${object.name}（${material.type}）`);
     });
     expect(unlit).toEqual([]);

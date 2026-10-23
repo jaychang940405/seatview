@@ -71,6 +71,14 @@ export const K = {
     source: `${TVBS_HEIGHT}（球場位於地下 10.5 m、整體 74.5 m）；與 OSM 地面以上 64 m ＋ 10.5 m 相符；室內淨高 72 m（${LTN_HEIGHT}）`,
   },
 
+  shellRoofHeight: {
+    label: "穹頂室內最高點（室內淨高；畫面的屋頂內側）",
+    value: 72,
+    unit: "m",
+    grade: "B",
+    source: `${LTN_HEIGHT}（室內淨高 72 m）；屋頂外側是 roofHeight 74.5 m`,
+  },
+
   // ── A：棒球規則 ──
   basePath: { label: "壘間距離", value: 27.43, unit: "m", grade: "A", source: "棒球規則（90 呎）" },
   plateToPitcher: { label: "本壘到投手板", value: 18.44, unit: "m", grade: "A", source: "棒球規則（60 呎 6 吋）" },
@@ -127,6 +135,8 @@ export const K = {
   },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
+  shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
+  shellOutlineStepDeg: { label: "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）", value: 2, unit: "°", grade: "C", source: "建模選擇" },
   infieldGrassInset: { label: "內野草皮離壘線內縮", value: 1.2, unit: "m", grade: "C", source: "畫面外觀用" },
   fieldColors: {
     label: "球場地面與線條顏色",
@@ -372,6 +382,12 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
       })),
     },
     sections,
+    // 穹頂外殼：底面輪廓就是外框摘要的超橢圓（座位離它 ≥ 3 m），不另外取 OSM 座標
+    shell: {
+      outline: superellipsePolygon(OUTLINE, K.shellOutlineStepDeg.value).map((p) => point(p.x, p.z)),
+      wallHeight: K.shellWallHeight.value,
+      roofHeight: K.shellRoofHeight.value,
+    },
     layouts: {
       baseball: {
         name: "棒球",

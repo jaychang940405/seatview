@@ -88,15 +88,13 @@ describe("buildVenueScene 與 shell", () => {
     expect(buildVenueScene(parseVenue(demoArenaJson), "concert").scene.getObjectByName("shell")).toBeUndefined();
   });
 
-  it("鳥瞰（除錯）時藏起屋頂與格柵，才看得到裡面；座位視角再顯示", () => {
+  it("鳥瞰（除錯）時藏起整個外殼（38 m 的牆會擋住裡面）；座位視角再顯示", () => {
     const venueScene = buildVenueScene(dome(), "baseball");
-    const roof = venueScene.scene.getObjectByName("shell-roof");
-    const lattice = venueScene.scene.getObjectByName("shell-lattice");
-    venueScene.setRoofVisible(false);
-    expect(roof?.visible).toBe(false);
-    expect(lattice?.visible).toBe(false);
-    venueScene.setRoofVisible(true);
-    expect(roof?.visible).toBe(true);
+    const shell = venueScene.scene.getObjectByName("shell");
+    venueScene.setShellVisible(false);
+    expect(shell?.visible).toBe(false);
+    venueScene.setShellVisible(true);
+    expect(shell?.visible).toBe(true);
   });
 
   it("dispose：外殼的 geometry、material、InstancedMesh 全部釋放", () => {

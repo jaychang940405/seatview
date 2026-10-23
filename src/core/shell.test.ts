@@ -68,7 +68,8 @@ describe("roofLattice：屋頂的菱形格柵線", () => {
     for (const sign of [1, -1] as const) {
       const list = offsets(sign);
       expect(list.length, `方向 ${sign}`).toBeGreaterThan(10);
-      for (let i = 1; i < list.length; i++) expect((list[i] ?? 0) - (list[i - 1] ?? 0)).toBeCloseTo(6 * Math.SQRT2, 6);
+      // 位置先四捨五入到 mm 才去重，所以比到 cm
+      for (let i = 1; i < list.length; i++) expect((list[i] ?? 0) - (list[i - 1] ?? 0)).toBeCloseTo(6 * Math.SQRT2, 2);
     }
   });
 });
