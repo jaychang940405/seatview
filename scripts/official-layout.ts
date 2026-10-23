@@ -44,6 +44,19 @@ export interface OfficialParams {
   concertClosed: string[];
 }
 
+/** 同一個 key 只算一次：同一排的截斷長度每一區都要用，不用每區重算。 */
+function memo<K>(compute: (key: K) => number): (key: K) => number {
+  const cache = new Map<K, number>();
+  return (key) => {
+    let value = cache.get(key);
+    if (value === undefined) {
+      value = compute(key);
+      cache.set(key, value);
+    }
+    return value;
+  };
+}
+
 /** 依最小寬度切分 [0, total]：最小寬度大於平均分的區用最小寬度，其餘平分剩下的。order[0] 從 0 開始。 */
 export function splitByMinWidth(order: string[], total: number, minWidth: Record<string, number>): Record<string, [number, number]> {
   const fixed = new Set<string>();
@@ -74,14 +87,14 @@ export function centeredSpan([a, b]: [number, number], pitch: number): { seats: 
   return { seats, span: [middle - (seats * pitch) / 2, middle + (seats * pitch) / 2] };
 }
 
-/** 從 0 往 limit 走，inside 連續成立的最遠距離（先 0.25 一步，再二分到 1 mm）。 */
-function reach(inside: (t: number) => boolean, limit: number, step = 0.25): number {
+/** 從 0 往 limit 走，inside 連續成立的最遠距離（先一步 step，再二分到 1e-6，結果跟步長無關）。 */
+function reach(inside: (t: number) => boolean, limit: number, step: number): number {
   if (!inside(0)) return 0;
   let t = 0;
   while (t + step <= limit && inside(t + step)) t += step;
   let [lo, hi] = [t, Math.min(limit, t + step)];
   if (inside(hi)) return hi;
-  while (hi - lo > 0.001) {
+  while (hi - lo > 1e-6) {
     const mid = (lo + hi) / 2;
     if (inside(mid)) lo = mid;
     else hi = mid;
@@ -100,13 +113,14 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     x: plate.x + side * S45 * (s + offset),
     z: plate.z + S45 * (offset - s),
   });
-  const lineReach = (side: number, offset: number) => reach((s) => inside(linePoint(side, offset, s)), poleDistance);
+  const lineReachOn = (side: 1 | -1) => memo((offset: number) => reach((s) => inside(linePoint(side, offset, s)), poleDistance, 1));
+  const lineReaches = { 1: lineReachOn(1), [-1]: lineReachOn(-1) };
+  const lineReach = (side: 1 | -1, offset: number) => lineReaches[side](offset);
   const arcPoint = (radius: number, deg: number) => ({ x: plate.x + radius * Math.cos(deg * DEG), z: plate.z + radius * Math.sin(deg * DEG) });
   /** 本壘後方的弧：從 90° 往兩側在外框內的角度範圍（最多到 45°／135°） */
-  const arcReach = (radius: number): [number, number] => [
-    90 - reach((d) => inside(arcPoint(radius, 90 - d)), 45, 0.1),
-    90 + reach((d) => inside(arcPoint(radius, 90 + d)), 45, 0.1),
-  ];
+  const arcLow = memo((radius: number) => 90 - reach((d) => inside(arcPoint(radius, 90 - d)), 45, 1));
+  const arcHigh = memo((radius: number) => 90 + reach((d) => inside(arcPoint(radius, 90 + d)), 45, 1));
+  const arcReach = (radius: number): [number, number] => [arcLow(radius), arcHigh(radius)];
   const rowsOf = (id: string, layer: "b1" | "l2") => (layer === "b1" ? params.b1.rows : (params.l2.rows[id] ?? params.l2.defaultRows));
 
   const b1Top = params.b1.baseHeight + (params.b1.rows - 1) * params.b1.rowRise;
@@ -215,10 +229,12 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const eye = params.outfield.eyeHalfDeg;
   const outfieldSide = (sign: 1 | -1, nearFromCenter: string[], farId: string) => {
     const eyeEdge = -90 + sign * eye;
-    const limit = (radius: number) => eyeEdge + sign * reach((d) => inside(ofPoint(radius, eyeEdge + sign * d)), 75, 0.05);
+    const limit = memo((radius: number) => eyeEdge + sign * reach((d) => inside(ofPoint(radius, eyeEdge + sign * d)), 75, 0.5));
     const rows = params.outfield.rows;
     const front = limit(radiusOf(1));
-    const farStart = limit(radiusOf(rows)) - (sign * (params.farBackWidth / radiusOf(rows))) / DEG;
+    // 取到 0.001° 時往中外野那側取整：四捨五入可能讓最後一排少不到 1 mm，剛好放不下最後一席
+    const towardCenter = (deg: number) => (sign === 1 ? Math.floor(deg * 1000) : Math.ceil(deg * 1000)) / 1000;
+    const farStart = towardCenter(limit(radiusOf(rows)) - (sign * (params.farBackWidth / radiusOf(rows))) / DEG);
     const widthRadius = radiusOf(params.outfieldWidthRow);
     const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, params.minWidth);
     const toAngle = (length: number) => eyeEdge + (sign * length) / widthRadius / DEG;
