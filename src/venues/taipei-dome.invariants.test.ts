@@ -27,6 +27,7 @@ const I2 = ["I2-1B", "I2-HP", "I2-3B"];
 const O1 = ["O1-RF", "O1-CF", "O1-LF"];
 const SEAT_SPACING = { min: 0.45, max: 0.65 };
 const WALL_CLEARANCE = 3;
+const HEADROOM = 2.5; // 上下兩層座位之間的垂直淨空門檻（C）
 
 // 每個測試各自 parse：資料是空殼或壞掉時，每個案例各自失敗
 const dome = () => parseVenue(taipeiDomeJson);
@@ -165,10 +166,10 @@ describe("taipei-dome：座位排列", () => {
     }
   });
 
-  // 用平面距離：兩個看台在平面上重疊時，排的高度可能錯開而讓 3D 距離看起來夠遠
-  // （例：I1 與 O1 半徑差 2 m，同半徑處 O1 高約 0.8 m）。前提是模型沒有建上層懸挑；
-  // 之後若建懸挑，要改成「平面太近且垂直淨空不足」才算重疊。
-  it("不同區的座位不重疊：平面上任兩席距離 ≥ 0.45 m（0.5 m 格點雜湊，避免 O(n²)）", () => {
+  // 平面太近「而且」垂直淨空不足才算重疊：允許二層懸挑在一層上方。
+  // 不用 3D 距離，因為兩個看台在平面上重疊時，排的高度可能只錯開一點（例：舊版 I1 與 O1 同半徑處差約 0.8 m），
+  // 3D 距離看起來夠遠，實際上卻是兩座看台撞在一起。
+  it("不同區的座位不重疊：平面距離 < 0.45 m 且垂直淨空 < 2.5 m 才算重疊（0.5 m 格點雜湊，避免 O(n²)）", () => {
     const venue = dome();
     const CELL = 0.5;
     const grid = new Map<string, { sectionId: string; position: Vec3 }[]>();
@@ -186,7 +187,11 @@ describe("taipei-dome：座位排列", () => {
         for (let dk = -1; dk <= 1; dk++) {
           for (const b of grid.get(`${i + di},${k + dk}`) ?? []) {
             for (const a of seats) {
-              if (a.sectionId !== b.sectionId && planDistance(a.position, b.position) < SEAT_SPACING.min) {
+              if (
+                a.sectionId !== b.sectionId &&
+                planDistance(a.position, b.position) < SEAT_SPACING.min &&
+                Math.abs(a.position.y - b.position.y) < HEADROOM
+              ) {
                 overlaps.push(`${a.sectionId} ↔ ${b.sectionId}`);
               }
             }
