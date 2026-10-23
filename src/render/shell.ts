@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import type { PlanPoint, Shell } from "../core/schema";
-import { roofHeightAt, roofLattice, shellCenter } from "../core/shell";
+import type { PlanPoint, Screen, Shell } from "../core/schema";
+import { isScreenOn, roofHeightAt, roofLattice, screenCorners, screenNormal, shellCenter } from "../core/shell";
 
 // 穹頂外殼：形狀與高度全部來自 core（shell 資料、roofHeightAt、roofLattice），這裡只負責畫。
 // 顏色與間距依使用者照片目視估計（C）；圖案自己生成，不複製任何照片或網站的畫面。
@@ -11,7 +11,17 @@ const COLORS = {
   roof: "#2a2e35",
   lattice: "#d5d9dd",
   light: "#ffe9b8",
+  /** 螢幕亮的時候：中性的漸層色塊（不放文字、標誌、廣告或品牌色），下深上淺 */
+  screenBottom: "#2b3f58",
+  screenTop: "#86a7c4",
+  screenOff: "#121418",
+  screenFrame: "#1b1d21",
 } as const;
+
+/** 螢幕外框比螢幕大多少、厚多少、退到螢幕後面多少（m）。 */
+const FRAME = { margin: 0.3, depth: 0.4, back: 0.25 } as const;
+/** 螢幕網格的切分（給漸層用）。 */
+const SCREEN_GRID = { columns: 8, rows: 4 } as const;
 
 /** 格柵線間距、牆面接縫間距、屋頂邊緣燈的間距（m，C）。 */
 export const SHELL_SPACING = { lattice: 6, seam: 6, light: 5 } as const;
@@ -23,11 +33,65 @@ const LIGHT_SIZE = { length: 1.6, height: 0.6, depth: 0.6 } as const;
 /** 燈離牆往內多少（m）：放在深色屋頂前面才看得出來。 */
 const LIGHT_INSET = 2.5;
 
-export function buildShell(shell: Shell, _layoutId: string): THREE.Group {
+export function buildShell(shell: Shell, layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "shell";
-  group.add(buildWall(shell), buildSeams(shell), buildRoof(shell), buildLattice(shell), buildLights(shell));
+  group.add(buildWall(shell), buildSeams(shell), buildRoof(shell), buildLattice(shell), buildLights(shell), buildScreens(shell, layoutId));
   return group;
+}
+
+/** 牆上的螢幕：這個 layout 亮就用自己發光的漸層，熄滅就用深色材質；外框是一圈深色的薄框。 */
+function buildScreens(shell: Shell, layoutId: string): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "shell-screens";
+  for (const screen of shell.screens ?? []) group.add(buildScreenFace(screen, isScreenOn(screen, layoutId)), buildScreenFrame(screen));
+  return group;
+}
+
+/** 螢幕面：頂點由 core 的四個角雙線性內插，正面朝 screenNormal。 */
+function buildScreenFace(screen: Screen, lit: boolean): THREE.Mesh {
+  const [bl, br, , tl] = screenCorners(screen);
+  if (!bl || !br || !tl) throw new Error(`${screen.id} 螢幕的角不足`);
+  const { columns, rows } = SCREEN_GRID;
+  const [bottom, top] = [new THREE.Color(COLORS.screenBottom), new THREE.Color(COLORS.screenTop)];
+  const positions: number[] = [];
+  const colors: number[] = [];
+  for (let j = 0; j <= rows; j++) {
+    for (let i = 0; i <= columns; i++) {
+      const [u, v] = [i / columns, j / rows];
+      positions.push(bl.x + u * (br.x - bl.x) + v * (tl.x - bl.x), bl.y + v * (tl.y - bl.y), bl.z + u * (br.z - bl.z) + v * (tl.z - bl.z));
+      // 下深上淺，中間略亮一點，像一塊沒有內容的發光面板
+      const color = bottom.clone().lerp(top, v).multiplyScalar(1 + 0.12 * (1 - Math.abs(2 * u - 1)));
+      colors.push(color.r, color.g, color.b);
+    }
+  }
+  const at = (i: number, j: number) => j * (columns + 1) + i;
+  const indices: number[] = [];
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++) indices.push(at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j), at(i + 1, j + 1), at(i, j + 1));
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const material = lit
+    ? new THREE.MeshBasicMaterial({ vertexColors: true })
+    : new THREE.MeshStandardMaterial({ color: COLORS.screenOff, roughness: 0.5 });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = `screen:${screen.id}`;
+  return mesh;
+}
+
+function buildScreenFrame(screen: Screen): THREE.Mesh {
+  const n = screenNormal(screen);
+  const geometry = new THREE.BoxGeometry(screen.width + 2 * FRAME.margin, screen.height + 2 * FRAME.margin, FRAME.depth);
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: COLORS.screenFrame, roughness: 0.7 }));
+  // 方塊的本地 +z 轉到 n；整個退到螢幕面後方，前面剛好在螢幕面後 5 cm
+  mesh.position.set(screen.center.x - n.x * FRAME.back, screen.center.y, screen.center.z - n.z * FRAME.back);
+  mesh.rotation.y = Math.atan2(n.x, n.z);
+  mesh.name = `screen-frame:${screen.id}`;
+  return mesh;
 }
 
 const edges = (outline: PlanPoint[]) => outline.map((p, i) => [p, outline[(i + 1) % outline.length] as PlanPoint] as const);

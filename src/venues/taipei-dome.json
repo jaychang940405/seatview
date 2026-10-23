@@ -38,6 +38,7 @@
       { "key": "wallSampleDeg", "value": "外野牆圓弧取樣間隔：5 °", "grade": "C", "source": "建模選擇" },
       { "key": "warningTrack", "value": "警戒區寬：4.5 m", "grade": "C", "source": "本專案估算（非量測）" },
       { "key": "shellWallHeight", "value": "穹頂牆頂高度（屋頂起拱處）：38 m", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）" },
+      { "key": "screens", "value": "牆上的大螢幕（依拍照目視估計，非量測值）：{\"centerField\":{\"width\":28,\"height\":9,\"bottom\":20},\"corners\":{\"width\":9,\"height\":5,\"bottom\":16,\"offsetDeg\":40},\"wallMargin\":0.6,\"litOn\":[\"baseball\"]}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；演唱會時全部熄滅" },
       { "key": "shellOutlineStepDeg", "value": "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）：2 °", "grade": "C", "source": "建模選擇" },
       { "key": "infieldGrassInset", "value": "內野草皮離壘線內縮：1.2 m", "grade": "C", "source": "畫面外觀用" },
       { "key": "fieldColors", "value": "球場地面與線條顏色：{\"grass\":\"#5f9a3c\",\"dirt\":\"#b5663b\",\"track\":\"#9e5934\",\"line\":\"#f2f2f2\"}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）" },
@@ -401,7 +402,33 @@
       { "x": 81.488, "z": 4.139 }
     ],
     "wallHeight": 38,
-    "roofHeight": 72
+    "roofHeight": 72,
+    "screens": [
+      {
+        "id": "center-field",
+        "center": { "x": 0, "y": 24.5, "z": -93.903 },
+        "width": 28,
+        "height": 9,
+        "facingYawDeg": 90,
+        "onLayouts": ["baseball"]
+      },
+      {
+        "id": "left-corner",
+        "center": { "x": -71.538, "y": 18.5, "z": -24.306 },
+        "width": 9,
+        "height": 5,
+        "facingYawDeg": 50,
+        "onLayouts": ["baseball"]
+      },
+      {
+        "id": "right-corner",
+        "center": { "x": 77.025, "y": 18.5, "z": -30.845 },
+        "width": 9,
+        "height": 5,
+        "facingYawDeg": 130,
+        "onLayouts": ["baseball"]
+      }
+    ]
   },
   "layouts": {
     "baseball": {

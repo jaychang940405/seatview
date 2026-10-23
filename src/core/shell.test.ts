@@ -99,8 +99,8 @@ describe("螢幕：screenCorners / screenNormal / isScreenOn", () => {
     const across = sub(br, bl);
     expect(across.x * n.x + across.z * n.z).toBeCloseTo(0, 9);
     expect(sub(tl, bl).x * n.x + sub(tl, bl).z * n.z).toBeCloseTo(0, 9);
-    // 面向 +z 的螢幕，觀眾面向 −z，觀眾的右手邊是 −x：右下角的 x 比較小
-    expect(br.x).toBeLessThan(bl.x);
+    // 面向 +z 的螢幕，觀眾面向 −z（平面圖上往上看），右手邊是 +x：右下角的 x 比較大
+    expect(br.x).toBeGreaterThan(bl.x);
   });
 
   it("isScreenOn：沒寫 onLayouts 就每個 layout 都亮；有寫只在列出的 layout 亮", () => {

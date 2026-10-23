@@ -97,16 +97,26 @@ export function roofLattice(shell: Shell, spacing: number): Vec3[][] {
 }
 
 /** 螢幕正面的方向（平面單位向量）。 */
-export function screenNormal(_screen: Screen): PlanPoint {
-  throw new Error("not implemented");
+export function screenNormal(screen: Screen): PlanPoint {
+  const yaw = (screen.facingYawDeg * Math.PI) / 180;
+  return { x: Math.cos(yaw), z: Math.sin(yaw) };
 }
 
 /** 螢幕的四個角：從正面看依序是左下、右下、右上、左上。 */
-export function screenCorners(_screen: Screen): Vec3[] {
-  throw new Error("not implemented");
+export function screenCorners(screen: Screen): Vec3[] {
+  const n = screenNormal(screen);
+  // 觀眾面向 −n；面向 f 時右手邊是 (−f.z, f.x)，所以右手邊 = (n.z, −n.x)
+  const right = { x: n.z, z: -n.x };
+  const { center, width, height } = screen;
+  const corner = (side: -1 | 1, level: -1 | 1): Vec3 => ({
+    x: center.x + (side * width * right.x) / 2,
+    y: center.y + (level * height) / 2,
+    z: center.z + (side * width * right.z) / 2,
+  });
+  return [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
 }
 
 /** 螢幕在這個 layout 亮不亮：沒寫 onLayouts 就每個 layout 都亮。 */
-export function isScreenOn(_screen: Screen, _layoutId: string): boolean {
-  throw new Error("not implemented");
+export function isScreenOn(screen: Screen, layoutId: string): boolean {
+  return screen.onLayouts === undefined || screen.onLayouts.includes(layoutId);
 }

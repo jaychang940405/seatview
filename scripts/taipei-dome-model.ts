@@ -12,7 +12,9 @@
  * 原點 = 本壘到中外野牆連線的中點；本壘在 +z 側，中外野在 −z 側。
  */
 import { buildStands, circleThrough, fieldGeometry, type LayoutParams, type StandSection } from "./dome-layout.ts";
-import { superellipsePolygon, type PlanPoint, type Superellipse } from "./outline.ts";
+import type { Screen } from "../src/core/schema.ts";
+import { screenCorners } from "../src/core/shell.ts";
+import { pointInPolygon, signedDistance, superellipsePolygon, type PlanPoint, type Superellipse } from "./outline.ts";
 
 type Grade = "A" | "B" | "C";
 interface Sourced {
@@ -136,6 +138,17 @@ export const K = {
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
   shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
+  screens: {
+    label: "牆上的大螢幕（依拍照目視估計，非量測值）",
+    value: {
+      centerField: { width: 28, height: 9, bottom: 20 },
+      corners: { width: 9, height: 5, bottom: 16, offsetDeg: 40 },
+      wallMargin: 0.6,
+      litOn: ["baseball"],
+    },
+    grade: "C",
+    source: `${PHOTO}；演唱會時全部熄滅`,
+  },
   shellOutlineStepDeg: { label: "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）", value: 2, unit: "°", grade: "C", source: "建模選擇" },
   infieldGrassInset: { label: "內野草皮離壘線內縮", value: 1.2, unit: "m", grade: "C", source: "畫面外觀用" },
   fieldColors: {
@@ -308,6 +321,36 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   ];
 }
 
+/**
+ * 牆上的螢幕：從本壘沿 offsetDeg 方向走到穹頂輪廓，面朝本壘；
+ * 再往本壘方向退，直到四個角都在輪廓內並留 wallMargin（螢幕是平面、牆是弧面）。
+ */
+function wallScreen(id: string, plate: PlanPoint, outline: PlanPoint[], offsetDeg: number, size: { width: number; height: number; bottom: number }): Screen {
+  const dir = { x: Math.sin(offsetDeg * DEG), z: -Math.cos(offsetDeg * DEG) };
+  // 二分法找輪廓上的點（本壘在輪廓內）
+  let [inside, outside] = [0, 400];
+  for (let i = 0; i < 60; i++) {
+    const mid = (inside + outside) / 2;
+    if (pointInPolygon(outline, { x: plate.x + dir.x * mid, z: plate.z + dir.z * mid })) inside = mid;
+    else outside = mid;
+  }
+  const { wallMargin, litOn } = K.screens.value;
+  for (let back = 0; back < 20; back += 0.25) {
+    const center = point(plate.x + dir.x * (inside - back), plate.z + dir.z * (inside - back));
+    const facingYawDeg = Math.round((Math.atan2(plate.z - center.z, plate.x - center.x) / DEG) * 100) / 100;
+    const screen: Screen = {
+      id,
+      center: { x: center.x, y: mm(size.bottom + size.height / 2), z: center.z },
+      width: size.width,
+      height: size.height,
+      facingYawDeg,
+      onLayouts: [...litOn],
+    };
+    if (screenCorners(screen).every((c) => signedDistance(outline, c) >= wallMargin)) return screen;
+  }
+  throw new Error(`${id} 螢幕放不進穹頂輪廓`);
+}
+
 /** 每排的隱含座位間距（排長 ÷ 席數）必須合理，否則報錯。 */
 function checkSpacing(section: StandSection | ReturnType<typeof floorSection>): void {
   const rowLength = (row: number) => {
@@ -359,6 +402,7 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
   const centerFieldWall = point(plate.x, plate.z - K.centerField.value);
   const wallArc = arcThrough(leftPole, centerFieldWall, rightPole, K.wallSampleDeg.value);
   const lineY = K.groundLayers.value.lineY;
+  const shellOutline = superellipsePolygon(OUTLINE, K.shellOutlineStepDeg.value).map((p) => point(p.x, p.z));
   const [f1z, f2z, f3z] = K.floorBlocks.value.frontZ;
   const sections = [
     ...buildStands(FIELD, params.layout),
@@ -384,9 +428,14 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
     sections,
     // 穹頂外殼：底面輪廓就是外框摘要的超橢圓（座位離它 ≥ 3 m），不另外取 OSM 座標
     shell: {
-      outline: superellipsePolygon(OUTLINE, K.shellOutlineStepDeg.value).map((p) => point(p.x, p.z)),
+      outline: shellOutline,
       wallHeight: K.shellWallHeight.value,
       roofHeight: K.shellRoofHeight.value,
+      screens: [
+        wallScreen("center-field", plate, shellOutline, 0, K.screens.value.centerField),
+        wallScreen("left-corner", plate, shellOutline, -K.screens.value.corners.offsetDeg, K.screens.value.corners),
+        wallScreen("right-corner", plate, shellOutline, K.screens.value.corners.offsetDeg, K.screens.value.corners),
+      ],
     },
     layouts: {
       baseball: {
