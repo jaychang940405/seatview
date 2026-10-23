@@ -119,7 +119,8 @@ describe("highlightSeat", () => {
     const venueScene = buildVenueScene(demo(), "concert");
     const a1 = sectionMesh(venueScene.scene, "A1");
     const b1 = sectionMesh(venueScene.scene, "B1");
-    const a1Base = colorAt(a1, 1);
+    // 每一席顏色不同（座椅混色），所以比的是這一席自己原本的顏色
+    const a1Base = colorAt(a1, 0);
 
     venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 1 });
     venueScene.highlightSeat({ sectionId: "B1", row: 1, seat: 1 });
@@ -130,7 +131,7 @@ describe("highlightSeat", () => {
   it("傳 null 清除選取", () => {
     const venueScene = buildVenueScene(demo(), "concert");
     const a1 = sectionMesh(venueScene.scene, "A1");
-    const base = colorAt(a1, 1);
+    const base = colorAt(a1, 0);
     venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 1 });
     venueScene.highlightSeat(null);
     expectColorClose(colorAt(a1, 0), base);

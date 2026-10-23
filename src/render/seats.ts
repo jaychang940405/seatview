@@ -30,8 +30,19 @@ export const SEAT_NEUTRAL = new THREE.Color("#3b4d61");
 export const SEAT_PALETTE = [new THREE.Color("#1f2124"), new THREE.Color("#e4e5e7"), new THREE.Color("#a9adb3")] as const;
 
 /** 這一席在 SEAT_PALETTE 裡的顏色：由 (區、排、號) 雜湊決定，每次都一樣。 */
-export function seatPaletteIndex(_sectionId: string, _row: number, _seat: number): number {
-  throw new Error("not implemented");
+export function seatPaletteIndex(sectionId: string, row: number, seat: number): number {
+  // FNV-1a（32 位元），再用 MurmurHash3 的 fmix32 打散：相鄰座位的字串只差一兩個字元，不打散會有規律
+  let hash = 0x811c9dc5;
+  for (const char of `${sectionId}:${row}:${seat}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x85ebca6b);
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 0xc2b2ae35);
+  hash ^= hash >>> 16;
+  return (hash >>> 0) % SEAT_PALETTE.length;
 }
 /** 鳥瞰時混入多少分區色（0 = 全中性、1 = 全分區色）。 */
 export const OVERVIEW_TINT = 0.5;
@@ -108,7 +119,9 @@ export function buildSectionMesh(
   });
   mesh.instanceMatrix.needsUpdate = true;
 
-  const colorAt = (mode: ColorMode, _index: number) => colors[mode];
+  const palette = Uint8Array.from(placements, ({ row, seat }) => seatPaletteIndex(sectionId, row, seat));
+  const colorAt = (mode: ColorMode, index: number) =>
+    mode === "overview" ? colors.overview : (SEAT_PALETTE[palette[index] ?? 0] ?? colors.seat);
   const paint = (mode: ColorMode) => {
     for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colorAt(mode, i));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
