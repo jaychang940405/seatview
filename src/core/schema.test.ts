@@ -148,6 +148,29 @@ describe("parseVenue：選填的 shell（穹頂外殼：牆與屋頂）", () => 
     expect(issuePaths({ ...demoCopy(), shell: { ...shell, roofHeight: 38 } })).toEqual(["shell.roofHeight"]);
   });
 
+  const screen = { id: "cf", center: { x: 0, y: 24.5, z: -90 }, width: 28, height: 9, facingYawDeg: 90, onLayouts: ["concert"] };
+
+  it("screens：完整保留；onLayouts 可省略", () => {
+    const { onLayouts: _omit, ...always } = screen;
+    const parsed = parseVenue({ ...demoCopy(), shell: { ...shell, screens: [screen, { ...always, id: "always" }] } }).shell;
+    expect(parsed?.screens).toEqual([screen, { ...always, id: "always" }]);
+  });
+
+  it.each(["id", "center", "width", "height", "facingYawDeg"])("screens 缺 %s → 驗證錯誤", (field) => {
+    const broken: Record<string, unknown> = { ...screen };
+    delete broken[field];
+    expect(issuePaths({ ...demoCopy(), shell: { ...shell, screens: [broken] } })).toEqual([`shell.screens.0.${field}`]);
+  });
+
+  it.each([
+    ["width", 0],
+    ["width", -1],
+    ["height", 0],
+    ["height", -2],
+  ])("screens 的 %s = %s（不是正數）→ 驗證錯誤", (field, value) => {
+    expect(issuePaths({ ...demoCopy(), shell: { ...shell, screens: [{ ...screen, [field]: value }] } })).toEqual([`shell.screens.0.${field}`]);
+  });
+
   it("輪廓少於 3 點、牆高不是正數 → 驗證錯誤", () => {
     expect(issuePaths({ ...demoCopy(), shell: { ...shell, outline: shell.outline.slice(0, 2) } })).toEqual(["shell.outline"]);
     expect(issuePaths({ ...demoCopy(), shell: { ...shell, wallHeight: 0 } })).toEqual(["shell.wallHeight"]);
