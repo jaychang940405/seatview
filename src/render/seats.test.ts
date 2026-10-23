@@ -5,7 +5,7 @@ import { DEFAULT_EYE_HEIGHT, sectionSeats } from "../core/seat";
 import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { expectColorClose, expectSeatError, expectVec3Close } from "../test/helpers";
-import { buildSectionMesh, CHAIR, chairGeometry, OVERVIEW_TINT, SEAT_NEUTRAL } from "./seats";
+import { buildSectionMesh, CHAIR, chairGeometry, OVERVIEW_TINT, SEAT_NEUTRAL, SEAT_PALETTE, seatPaletteIndex } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
 const VENUES = [demo(), parseVenue(taipeiDomeJson)];
@@ -132,10 +132,18 @@ describe("buildSectionMesh", () => {
     expect(buildSectionMesh(demo(), "A1", "#4477aa").indexOf(row, seat)).toBeUndefined();
   });
 
-  it("顏色：座位視角是中性色；鳥瞰混入一半的分區色", () => {
-    const { colors } = buildSectionMesh(demo(), "B1", "#cc6677");
-    expectColorClose(colors.seat, SEAT_NEUTRAL);
-    expectColorClose(colors.overview, SEAT_NEUTRAL.clone().lerp(new THREE.Color("#cc6677"), OVERVIEW_TINT));
+  it("鳥瞰（除錯）：整區混入一半的分區色", () => {
+    const sectionMesh = buildSectionMesh(demo(), "B1", "#cc6677");
+    const expected = SEAT_NEUTRAL.clone().lerp(new THREE.Color("#cc6677"), OVERVIEW_TINT);
+    for (const i of [0, 7, sectionMesh.mesh.count - 1]) expectColorClose(sectionMesh.colorAt("overview", i), expected);
+  });
+
+  it("座位視角：每席是黑、白、淺灰其中之一，由 (區、排、號) 決定", () => {
+    const venue = demo();
+    const sectionMesh = buildSectionMesh(venue, "B1", "#cc6677");
+    sectionSeats(venue, "B1").forEach(({ row, seat }, i) => {
+      expectColorClose(sectionMesh.colorAt("seat", i), SEAT_PALETTE[seatPaletteIndex("B1", row, seat)] ?? new THREE.Color());
+    });
   });
 
   it("paint：每個 instance 換成該模式的顏色，並標記需要上傳 GPU", () => {
@@ -145,14 +153,56 @@ describe("buildSectionMesh", () => {
       const before = sectionMesh.mesh.instanceColor?.version ?? 0;
       sectionMesh.paint(mode);
       expect(sectionMesh.mesh.instanceColor?.version ?? 0, mode).toBeGreaterThan(before);
-      for (const i of [0, sectionMesh.mesh.count - 1]) {
+      for (const i of [0, 1, 2, sectionMesh.mesh.count - 1]) {
         sectionMesh.mesh.getColorAt(i, color);
         // instance color 也是 Float32Array，不能用 equals 比完全相等
-        expectColorClose(color, sectionMesh.colors[mode]);
+        expectColorClose(color, sectionMesh.colorAt(mode, i));
+      }
+    }
+  });
+});
+
+describe("座椅混色（座位視角）：黑、白、淺灰，依 (區、排、號) 雜湊決定（比例是 C 級）", () => {
+  const ALL = VENUES.flatMap((venue) => venue.sections.map((section) => ({ venue, id: section.id })));
+
+  it("同一個座位每次都是同一個顏色（重建也一樣）", () => {
+    expect(seatPaletteIndex("I1-HP", 15, 48)).toBe(seatPaletteIndex("I1-HP", 15, 48));
+    const venue = demo();
+    const a = buildSectionMesh(venue, "A1", "#4477aa");
+    const b = buildSectionMesh(venue, "A1", "#4477aa");
+    for (let i = 0; i < a.mesh.count; i++) expect(a.colorAt("seat", i).equals(b.colorAt("seat", i))).toBe(true);
+  });
+
+  it("每一區三種顏色各占 1/3 ± 5%", () => {
+    for (const { venue, id } of ALL) {
+      const counts = [0, 0, 0];
+      const seats = sectionSeats(venue, id);
+      for (const { row, seat } of seats) counts[seatPaletteIndex(id, row, seat)] = (counts[seatPaletteIndex(id, row, seat)] ?? 0) + 1;
+      for (const count of counts) {
+        expect(Math.abs(count / seats.length - 1 / 3), `${venue.id}/${id}：${counts.join("/")}`).toBeLessThanOrEqual(0.05);
       }
     }
   });
 
+  it("不同區不是同一個樣式：大小相同的 I1-1B 與 I1-3B，同排同號同色的比例不到一半", () => {
+    const venue = VENUES[1] ?? demo();
+    let same = 0;
+    const seats = sectionSeats(venue, "I1-1B");
+    for (const { row, seat } of seats) if (seatPaletteIndex("I1-1B", row, seat) === seatPaletteIndex("I1-3B", row, seat)) same++;
+    expect(same / seats.length).toBeLessThan(0.5);
+  });
+
+  it("相鄰座位不是固定循環：同一排連續三席同色的情況會出現（不規則配置）", () => {
+    let runs = 0;
+    for (let seat = 1; seat + 2 <= 115; seat++) {
+      const c = seatPaletteIndex("I1-1B", 15, seat);
+      if (c === seatPaletteIndex("I1-1B", 15, seat + 1) && c === seatPaletteIndex("I1-1B", 15, seat + 2)) runs++;
+    }
+    expect(runs).toBeGreaterThan(0);
+  });
+});
+
+describe("buildSectionMesh：錯誤", () => {
   it("不存在的區 → UNKNOWN_SECTION（core 的錯誤直接往外傳）", () => {
     expectSeatError(() => buildSectionMesh(demo(), "Z9", "#4477aa"), "UNKNOWN_SECTION");
   });

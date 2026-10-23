@@ -7,7 +7,7 @@ import { expectColorClose, expectSeatError } from "../test/helpers";
 import { createSeatCamera } from "./camera";
 import { GROUND_RENDER_ORDER } from "./overlays";
 import { buildVenueScene, HIGHLIGHT_COLOR, MARKER_LAYER } from "./scene";
-import { CHAIR, SEAT_NEUTRAL } from "./seats";
+import { CHAIR, SEAT_NEUTRAL, SEAT_PALETTE, seatPaletteIndex } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
 
@@ -189,14 +189,14 @@ describe("光線與材質", () => {
 });
 
 describe("setColorMode", () => {
-  it("座位視角：每一區都是中性色；鳥瞰：每一區混入自己的分區色，彼此不同", () => {
+  it("座位視角：每一席都是黑、白、淺灰之一；鳥瞰（除錯）：每一區混入自己的分區色，彼此不同", () => {
     const venueScene = buildVenueScene(demo(), "concert");
     const a1 = sectionMesh(venueScene.scene, "A1");
     const b1 = sectionMesh(venueScene.scene, "B1");
+    const inPalette = (c: THREE.Color) => SEAT_PALETTE.some((p) => Math.abs(p.r - c.r) + Math.abs(p.g - c.g) + Math.abs(p.b - c.b) < 1e-5);
 
     venueScene.setColorMode("seat");
-    expectColorClose(colorAt(a1, 0), SEAT_NEUTRAL);
-    expectColorClose(colorAt(b1, 0), SEAT_NEUTRAL);
+    for (let i = 0; i < 20; i++) expect(inPalette(colorAt(a1, i)), `A1 #${i}`).toBe(true);
 
     venueScene.setColorMode("overview");
     expect(colorAt(a1, 0).equals(colorAt(b1, 0))).toBe(false);
@@ -213,7 +213,8 @@ describe("setColorMode", () => {
     venueScene.setColorMode("seat");
     expectColorClose(colorAt(a1, 0), HIGHLIGHT_COLOR);
 
+    // 換選別的座位：A1 第 1 排 1 號恢復成它自己在座位視角的顏色
     venueScene.highlightSeat({ sectionId: "B1", row: 1, seat: 1 });
-    expectColorClose(colorAt(a1, 0), SEAT_NEUTRAL);
+    expectColorClose(colorAt(a1, 0), SEAT_PALETTE[seatPaletteIndex("A1", 1, 1)] ?? new THREE.Color());
   });
 });

@@ -20,8 +20,19 @@ export const CHAIR = {
   backTiltDeg: 8,
 } as const;
 
-/** 座位視角的椅子顏色：中性的深藍灰，不假裝是大巨蛋的實際配色。 */
+/** 鳥瞰（除錯）配色的底色：中性的深藍灰，再混入分區色。 */
 export const SEAT_NEUTRAL = new THREE.Color("#3b4d61");
+
+/**
+ * 座位視角的椅子顏色：黑、白、淺灰不規則配置。
+ * 依使用者照片目視估計的顏色與「大約各 1/3」的比例都是 C 級，不是官方配色或量測值。
+ */
+export const SEAT_PALETTE = [new THREE.Color("#1f2124"), new THREE.Color("#e4e5e7"), new THREE.Color("#a9adb3")] as const;
+
+/** 這一席在 SEAT_PALETTE 裡的顏色：由 (區、排、號) 雜湊決定，每次都一樣。 */
+export function seatPaletteIndex(_sectionId: string, _row: number, _seat: number): number {
+  throw new Error("not implemented");
+}
 /** 鳥瞰時混入多少分區色（0 = 全中性、1 = 全分區色）。 */
 export const OVERVIEW_TINT = 0.5;
 
@@ -62,8 +73,8 @@ export interface SectionMesh {
   sectionId: string;
   /** name = "section:<sectionId>"，一個 instance 一個座位，順序同 sectionSeats */
   mesh: THREE.InstancedMesh;
-  /** 各模式下的椅子顏色 */
-  colors: Record<ColorMode, THREE.Color>;
+  /** 第 index 席在該模式下的顏色 */
+  colorAt(mode: ColorMode, index: number): THREE.Color;
   /** 把每個 instance 換成該模式的顏色 */
   paint(mode: ColorMode): void;
   /** (row, seat) → instance index；沒有這個座位回傳 undefined */
@@ -97,8 +108,9 @@ export function buildSectionMesh(
   });
   mesh.instanceMatrix.needsUpdate = true;
 
+  const colorAt = (mode: ColorMode, _index: number) => colors[mode];
   const paint = (mode: ColorMode) => {
-    for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colors[mode]);
+    for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colorAt(mode, i));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   };
   paint("seat");
@@ -108,7 +120,7 @@ export function buildSectionMesh(
   return {
     sectionId,
     mesh,
-    colors,
+    colorAt,
     paint,
     indexOf: (row, seat) => indexByKey.get(`${row}:${seat}`),
   };

@@ -76,7 +76,7 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
     focus: { ...layout.focus.position },
     highlightSeat(ref) {
       if (highlighted) {
-        setSeatColor(highlighted.sectionMesh, highlighted.index, highlighted.sectionMesh.colors[colorMode]);
+        setSeatColor(highlighted.sectionMesh, highlighted.index, highlighted.sectionMesh.colorAt(colorMode, highlighted.index));
         highlighted = null;
       }
       marker.visible = false;
