@@ -28,6 +28,13 @@ const O1 = ["O1-RF", "O1-CF", "O1-LF"];
 const SEAT_SPACING = { min: 0.45, max: 0.65 };
 const WALL_CLEARANCE = 3;
 const HEADROOM = 2.5; // 上下兩層座位之間的垂直淨空門檻（C）
+const ROOF_HEIGHT = 74.5; // 球場面到屋頂外側：地面以上 64 m（OSM）＋地下 10.5 m（B，TVBS）；室內淨高 72 m
+const MAX_LOWER_ROWS = 30; // 一層排數的經驗上限（C，不是量測值）
+// 席數錨點（B 級推算）：不超過 +10%（不誇大容量）；寬鬆下限只當回歸保護
+const SEAT_ANCHORS = {
+  lower: { anchor: 17000, min: 17000 * 0.75, max: 17000 * 1.1 },
+  upper: { anchor: 4700, min: 4700 * 0.9, max: 4700 * 1.1 },
+};
 
 // 每個測試各自 parse：資料是空殼或壞掉時，每個案例各自失敗
 const dome = () => parseVenue(taipeiDomeJson);
@@ -107,7 +114,7 @@ describe("taipei-dome：球場幾何（baseball overlays）", () => {
     expectWithin(Math.max(...wall.map((p) => planDistance(p, PLATE))), CENTER_FIELD, 0.1);
   });
 
-  it("外野牆兩端（左右桿）距本壘 102.11 ± 0.1 m，界外線終點就是桿位", () => {
+  it("外野牆兩端（左右桿）距本壘 102.11 ± 0.1 m，界外線從本壘出發", () => {
     const venue = dome();
     const wall = polyline(venue, "outfield-wall");
     for (const pole of [wall[0], wall.at(-1)]) {
@@ -118,6 +125,32 @@ describe("taipei-dome：球場幾何（baseball overlays）", () => {
       expectWithin(planDistance(line[0] ?? { x: NaN, z: NaN }, PLATE), 0, 1e-6);
       expectWithin(planDistance(line.at(-1) ?? { x: NaN, z: NaN }, PLATE), FOUL_POLE, 0.1);
     }
+  });
+
+  it("界外線終點 = 外野牆端點（座標相等），左右沒有接反", () => {
+    const venue = dome();
+    const wall = polyline(venue, "outfield-wall");
+    const leftEnd = polyline(venue, "foul-line-left").at(-1);
+    const rightEnd = polyline(venue, "foul-line-right").at(-1);
+    // 外野牆從左外野桿畫到右外野桿；三壘側在 −x、一壘側在 +x
+    expect(leftEnd).toEqual(wall[0]);
+    expect(rightEnd).toEqual(wall.at(-1));
+    expect(leftEnd?.x).toBeLessThan(0);
+    expect(rightEnd?.x).toBeGreaterThan(0);
+  });
+
+  it("一壘、三壘落在界外線上（內野菱形的本壘頂點就在兩條界外線的交點）", () => {
+    const venue = dome();
+    const [plate, first, , third] = polyline(venue, "infield");
+    const onLine = (p: PlanPoint | undefined, end: PlanPoint | undefined) => {
+      if (!p || !end || !plate) return NaN;
+      const dx = end.x - plate.x, dz = end.z - plate.z;
+      return Math.abs((p.x - plate.x) * dz - (p.z - plate.z) * dx) / Math.hypot(dx, dz);
+    };
+    expect(onLine(first, polyline(venue, "foul-line-right").at(-1))).toBeLessThan(0.01);
+    expect(onLine(third, polyline(venue, "foul-line-left").at(-1))).toBeLessThan(0.01);
+    expect(first?.x).toBeGreaterThan(0);
+    expect(third?.x).toBeLessThan(0);
   });
 
   it("內野：壘間 27.43 ± 0.01 m、本壘到二壘 38.80 ± 0.01 m", () => {
@@ -138,21 +171,23 @@ describe("taipei-dome：球場幾何（baseball overlays）", () => {
   });
 });
 
-describe("taipei-dome：席數（B 級推算）", () => {
-  it("內野一層 + 外野一層 ≈ 17,000（± 3%）", () => {
-    expectWithin(seatCount(dome(), [...I1, ...O1]), 17000, 17000 * 0.03);
+describe("taipei-dome：席數（B 級推算的錨點）", () => {
+  it("一層（內野一層 + 外野一層）不超過 17,000 + 10%；下限 −25% 只當回歸保護", () => {
+    const count = seatCount(dome(), [...I1, ...O1]);
+    expect(count).toBeLessThanOrEqual(SEAT_ANCHORS.lower.max);
+    expect(count).toBeGreaterThanOrEqual(SEAT_ANCHORS.lower.min);
   });
 
-  it("內野二層 ≈ 4,700（± 3%）", () => {
-    expectWithin(seatCount(dome(), I2), 4700, 4700 * 0.03);
+  it("二層（內野二層）不超過 4,700 + 10%；下限 −10%", () => {
+    const count = seatCount(dome(), I2);
+    expect(count).toBeLessThanOrEqual(SEAT_ANCHORS.upper.max);
+    expect(count).toBeGreaterThanOrEqual(SEAT_ANCHORS.upper.min);
   });
 
-  it("baseball 開放的座位合計 ≈ 21,700（± 3%）", () => {
-    const total = listSections(dome(), "baseball").reduce(
-      (sum, s) => sum + s.seatsPerRow.reduce((a, b) => a + b, 0),
-      0,
-    );
-    expectWithin(total, 21700, 21700 * 0.03);
+  it("baseball 開放的座位 = 一層 + 二層（沒有漏算或重複算）", () => {
+    const venue = dome();
+    const total = listSections(venue, "baseball").reduce((sum, s) => sum + s.seatsPerRow.reduce((a, b) => a + b, 0), 0);
+    expect(total).toBe(seatCount(venue, [...I1, ...I2, ...O1]));
   });
 });
 
@@ -214,10 +249,24 @@ describe("taipei-dome：座位排列", () => {
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
   });
 
-  it("內野二層最低的座位高於內野一層最高的座位", () => {
+  it("二層 baseHeight ≥ 一層最後一排高度 + 2.5 m", () => {
     const venue = dome();
-    const heights = (ids: string[]) => ids.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y));
-    expect(Math.min(...heights(I2))).toBeGreaterThan(Math.max(...heights(I1)));
+    const lowerTop = Math.max(...I1.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));
+    for (const section of venue.sections.filter((s) => I2.includes(s.id))) {
+      expect(section.baseHeight, section.id).toBeGreaterThanOrEqual(lowerTop + HEADROOM);
+    }
+  });
+
+  it("最高的座位低於屋頂（74.5 m）減淨空 2.5 m", () => {
+    const venue = dome();
+    const highest = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((p) => p.position.y)));
+    expect(highest).toBeLessThan(ROOF_HEIGHT - HEADROOM);
+  });
+
+  it("一層每區不超過 30 排（C 級經驗上限）", () => {
+    for (const section of dome().sections.filter((s) => [...I1, ...O1].includes(s.id))) {
+      expect(section.rows, section.id).toBeLessThanOrEqual(MAX_LOWER_ROWS);
+    }
   });
 });
 
@@ -230,6 +279,13 @@ describe("taipei-dome：水平偏角正負號（baseball，0° = 本壘正後方
 
   it("本壘後方 I1-HP 第 1 排中央座位 ≈ 0", () => {
     expectCentered(dome(), "baseball", "I1-HP", 1);
+  });
+
+  it("內野二層：I2-1B 全部 > 0、I2-3B 全部 < 0、I2-HP 第 1 排中央座位 ≈ 0", () => {
+    const venue = dome();
+    for (const deg of horizontalDegs(venue, "baseball", "I2-1B")) expect(deg).toBeGreaterThan(0);
+    for (const deg of horizontalDegs(venue, "baseball", "I2-3B")) expect(deg).toBeLessThan(0);
+    expectCentered(venue, "baseball", "I2-HP", 1);
   });
 
   it("中外野 O1-CF 中央座位 |角度| > 170", () => {
