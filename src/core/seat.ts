@@ -1,6 +1,6 @@
-import { SeatViewError } from "./errors";
-import { DEG, normalAwayFrom, normalizeDeg } from "./geometry";
-import type { Section, Vec3, Venue } from "./schema";
+import { SeatViewError } from "./errors.ts";
+import { DEG, normalAwayFrom, normalizeDeg } from "./geometry.ts";
+import type { Section, Vec3, Venue } from "./schema.ts";
 
 /** 坐姿眼高（m），從座位地面算起。 */
 export const DEFAULT_EYE_HEIGHT = 1.2;

@@ -1,4 +1,4 @@
-import type { Focus, PlanPoint, Vec3 } from "./schema";
+import type { Focus, PlanPoint, Vec3 } from "./schema.ts";
 
 export const DEG = 180 / Math.PI;
 const EPSILON = 1e-9;

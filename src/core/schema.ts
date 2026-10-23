@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalAwayFrom } from "./geometry";
+import { normalAwayFrom } from "./geometry.ts";
 
 // 座標慣例：公尺；Y 向上、地板 y = 0、原點在場館中心。
 // 平面圖 (x, z)：x 向右、z 向下（同 SVG）；平面角度從 +x 轉向 +z 為正（平面圖上順時針）。

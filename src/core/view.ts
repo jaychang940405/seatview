@@ -1,7 +1,7 @@
-import { SeatViewError } from "./errors";
-import { distance, elevationAngle, horizontalAngle, horizontalDistance } from "./geometry";
-import type { Layout, Section, Vec3, Venue } from "./schema";
-import { cameraPose, findSection, seatPosition, seatsInRow, type CameraPose } from "./seat";
+import { SeatViewError } from "./errors.ts";
+import { distance, elevationAngle, horizontalAngle, horizontalDistance } from "./geometry.ts";
+import type { Layout, Section, Vec3, Venue } from "./schema.ts";
+import { cameraPose, findSection, seatPosition, seatsInRow, type CameraPose } from "./seat.ts";
 
 export interface SeatView {
   venueId: string;
