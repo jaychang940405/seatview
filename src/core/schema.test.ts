@@ -92,6 +92,41 @@ describe("parseVenue", () => {
   });
 });
 
+describe("parseVenue：overlay 類型 polygon（球場地面、投手丘）", () => {
+  const square = [
+    { x: 0, z: 0 },
+    { x: 1, z: 0 },
+    { x: 1, z: 1 },
+  ];
+
+  it("points、y、height、color 都保留下來；y、height、color 可省略", () => {
+    const json = demoCopy();
+    json.layouts.concert.overlays.push(
+      { type: "polygon", id: "grass", points: square, y: 0.02, color: "#5c9a3c" },
+      { type: "polygon", id: "mound", points: square, y: 0.254, height: 0.254 },
+      { type: "polygon", id: "bare", points: square },
+    );
+    const overlays = parseVenue(json).layouts.concert?.overlays ?? [];
+    expect(overlays.slice(1)).toEqual([
+      { type: "polygon", id: "grass", points: square, y: 0.02, color: "#5c9a3c" },
+      { type: "polygon", id: "mound", points: square, y: 0.254, height: 0.254 },
+      { type: "polygon", id: "bare", points: square },
+    ]);
+  });
+
+  it("少於 3 個頂點 → 驗證錯誤", () => {
+    const json = demoCopy();
+    json.layouts.concert.overlays.push({ type: "polygon", id: "line", points: square.slice(0, 2) });
+    expect(issuePaths(json)).toEqual(["layouts.concert.overlays.1.points"]);
+  });
+
+  it.each([0, -0.1])("height = %s（不是正數）→ 驗證錯誤", (height) => {
+    const json = demoCopy();
+    json.layouts.concert.overlays.push({ type: "polygon", id: "flat", points: square, height });
+    expect(issuePaths(json)).toEqual(["layouts.concert.overlays.1.height"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();
