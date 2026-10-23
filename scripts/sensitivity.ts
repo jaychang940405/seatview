@@ -35,8 +35,9 @@ const officialParam = (label: string, baseValue: number, range: [number, number]
 
 // 擾動範圍本身也是 C 級假設（「估算可能差多少」），不是量測誤差
 const PARAMS: Param[] = [
-  officialParam("B1 前緣距離", base.foulOffset, [15, 21.5], (o, v) => ({ ...o, foulOffset: v })),
-  officialParam("排距", base.rowDepth, [0.8, 0.9], (o, v) => ({ ...o, rowDepth: v })),
+  // 這兩個的上限是外框決定的：再大，本壘後方就放不下官方的 38 排（見 docs/sensitivity.md 的「方法」）
+  officialParam("B1 前緣距離", base.foulOffset, [15, 19], (o, v) => ({ ...o, foulOffset: v })),
+  officialParam("排距", base.rowDepth, [0.8, 0.87], (o, v) => ({ ...o, rowDepth: v })),
   officialParam("B1 內野 baseHeight", base.b1.baseHeight, [2, 4], (o, v) => ({ ...o, b1: { ...o.b1, baseHeight: v } })),
   officialParam("B1 內野 rowRise", base.b1.rowRise, [0.3, 0.4], (o, v) => ({ ...o, b1: { ...o.b1, rowRise: v } })),
   officialParam("L2 淨空", base.l2.headroom, [2.5, 3.5], (o, v) => ({ ...o, l2: { ...o.l2, headroom: v } })),
@@ -179,6 +180,8 @@ try {
     "- **範圍本身也是 C 級假設**：它表示「估算可能差多少」，不是量測誤差。",
     "- 每次都用 `buildTaipeiDome` 重建模型，並通過 `parseVenue` 驗證。",
     "- 官方票區的排數（B）與每區寬度的規則保持不動；只擾動看台的距離與高度參數，每區寬度依規則重新推算。",
+    "- **B1 前緣距離與排距的上限由外框決定**：外框位置固定（C 級）時，B1 前緣距離超過 19 m 或排距超過 0.87 m，本壘後方就放不下官方的 38 排（B 級）。",
+    "  - 所以上限改用外框放得下的值（之前的範圍是 21.5 m、0.9 m）。如果真實值更大，代表外框位置也要跟著修正。",
     "- 每排席數會隨距離重新計算，所以代表座位用「該排的同一比例位置」指定。",
     "- 指標是 baseball layout 下 `getSeatView` 的 `metrics`（focus = 本壘板）。",
     "- 水平偏角以基準值為中心展開，避免 ±180° 附近的跳號讓平均值失真。",
@@ -197,7 +200,7 @@ try {
   ];
 
   SEATS.forEach((seat, i) => {
-    lines.push(`### ${seat.label}（${seat.sectionId} 第 ${seat.row} 排）`, "");
+    lines.push(`### ${seat.label}（${seat.sectionId} 區第 ${seat.row} 排）`, "");
     lines.push("| 指標 | 基準值 | 平均 | 95% 區間 | 區間半寬 | 主要來源（擺幅） |", "|---|---|---|---|---|---|");
     for (const { key, label, unit } of METRICS) {
       const s = stats[i]?.[key];
@@ -213,6 +216,13 @@ try {
   const [hpFront, firstBase, hpUpper, rightField, centerField] = [0, 1, 2, 3, 4];
   const baseDistance = (i: number) => fmt(at(baseline, i).distance, 1);
   const relative = (i: number) => fmt((halfWidth(i, "distance") / at(baseline, i).distance) * 100, 1);
+  /** 「擺動 4 m（15–19 m）」：範圍寬度與兩端都從 PARAMS 取 */
+  const spread = (label: string) => {
+    const param = PARAMS.find((p) => p.label === label);
+    if (!param) throw new Error(`沒有參數 ${label}`);
+    const [lo, hi] = param.range;
+    return `${Number((hi - lo).toFixed(3))} ${param.unit}（${lo}–${hi} ${param.unit}）`;
+  };
   const upperStack = base.l2.startRow + base.l2.defaultRows - 1; // L2 最後一排離 B1 前緣隔了幾個排距
   const lowerBackRows = base.b1.rows - 1;
   const hpStats = stats[hpFront]?.horizontalDeg;
@@ -221,40 +231,40 @@ try {
     "",
     "### 1. 距離主要取決於「看台離本壘、離外野牆多遠」",
     "",
-    "方案 B 的看台是跟著球場畫的：本壘後方的弧以本壘為圓心，兩側的直線看台平行界外線，外野的弧跟外野牆同心。",
-    "所以座位到本壘的距離，幾乎就是「一層前緣距離 + 排距 × 排數」（外野則是外野牆 + 外野淨空）。",
+    "看台是跟著球場畫的：本壘後方的弧以本壘為圓心，兩側的直線看台平行界外線，外野的弧跟外野牆同心。",
+    "所以座位到本壘的距離，幾乎就是「B1 前緣距離 + 排距 × 排數」（外野則是外野牆 + 外野淨空）。",
     "",
-    `- 本壘後方一層第 1 排：一層前緣距離擺動 6.5 m（15–21.5 m），距離擺動 ${fmt(swing("一層前緣距離", hpFront, "distance"))} m。`,
+    `- 本壘正後方 B1 第 1 排：B1 前緣距離擺動 ${spread("B1 前緣距離")}，距離擺動 ${fmt(swing("B1 前緣距離", hpFront, "distance"))} m。`,
     `  - 95% 區間半寬 ±${fmt(halfWidth(hpFront, "distance"))} m。基準距離只有 ${baseDistance(hpFront)} m，相對誤差約 ${relative(hpFront)}%。`,
-    `- 二層最後一排：它離一層前緣隔了 ${upperStack} 個排距，所以排距的誤差被放大 ${upperStack} 倍。`,
-    `  - 排距擺動 0.1 m，距離擺動 ${fmt(swing("排距", hpUpper, "distance"))} m；一層前緣距離擺動 ${fmt(swing("一層前緣距離", hpUpper, "distance"))} m。`,
-    `- 中外野第 1 排：距離主要受外野淨空影響，擺動 3 m 時距離擺動 ${fmt(swing("外野淨空", centerField, "distance"))} m。`,
+    `- L2 最後一排：它離 B1 前緣隔了 ${upperStack} 個排距，所以排距的誤差被放大 ${upperStack} 倍。`,
+    `  - 排距擺動 ${spread("排距")}，距離擺動 ${fmt(swing("排距", hpUpper, "distance"))} m；B1 前緣距離擺動 ${fmt(swing("B1 前緣距離", hpUpper, "distance"))} m。`,
+    `- 中外野（打者之眼旁）第 1 排：距離主要受外野淨空影響，擺動 ${spread("外野淨空")}時距離擺動 ${fmt(swing("外野淨空", centerField, "distance"))} m。`,
     `  - 基準距離 ${baseDistance(centerField)} m，相對誤差只有約 ${relative(centerField)}%。`,
     "",
     "### 2. 俯角是「高度誤差 ÷ 距離」",
     "",
     "俯角 = atan(高度差 ÷ 水平距離)，高度誤差 Δh 大約讓俯角變動 Δh ÷ 距離（弧度）。所以同樣的高度誤差，越近的座位影響越大。",
     "",
-    `- 本壘後方一層第 1 排（${baseDistance(hpFront)} m）：一層 baseHeight 擺動 2 m，俯角擺動 ${fmt(swing("一層 baseHeight", hpFront, "elevationDeg"))}°。`,
-    `  - 一層前緣距離改的是分母，前排距離短、比例變化大，所以也有 ${fmt(swing("一層前緣距離", hpFront, "elevationDeg"))}°。`,
-    `- 中外野第 1 排（${baseDistance(centerField)} m）：外野 baseHeight 同樣擺動 2 m，俯角只擺動 ${fmt(swing("外野 baseHeight", centerField, "elevationDeg"))}°。`,
-    `- 二層最後一排（${baseDistance(hpUpper)} m）：二層 baseHeight = 一層最後一排高度 + 淨空，所以一層的斜度誤差會累積 ${lowerBackRows} 排再傳到二層。`,
-    `  - 一層 rowRise 擺動 0.1 m，俯角擺動 ${fmt(swing("一層 rowRise", hpUpper, "elevationDeg"))}°；二層淨空擺動 1 m，俯角擺動 ${fmt(swing("二層淨空", hpUpper, "elevationDeg"))}°。`,
+    `- 本壘正後方 B1 第 1 排（${baseDistance(hpFront)} m）：B1 內野 baseHeight 擺動 ${spread("B1 內野 baseHeight")}，俯角擺動 ${fmt(swing("B1 內野 baseHeight", hpFront, "elevationDeg"))}°。`,
+    `  - B1 前緣距離改的是分母，前排距離短、比例變化大，所以也有 ${fmt(swing("B1 前緣距離", hpFront, "elevationDeg"))}°。`,
+    `- 中外野第 1 排（${baseDistance(centerField)} m）：外野 baseHeight 同樣擺動 ${spread("外野 baseHeight")}，俯角只擺動 ${fmt(swing("外野 baseHeight", centerField, "elevationDeg"))}°。`,
+    `- L2 最後一排（${baseDistance(hpUpper)} m）：L2 baseHeight = B1 內野最後一排高度 + 淨空，所以 B1 的斜度誤差會累積 ${lowerBackRows} 排再傳到 L2。`,
+    `  - B1 內野 rowRise 擺動 ${spread("B1 內野 rowRise")}，俯角擺動 ${fmt(swing("B1 內野 rowRise", hpUpper, "elevationDeg"))}°；L2 淨空擺動 ${spread("L2 淨空")}，俯角擺動 ${fmt(swing("L2 淨空", hpUpper, "elevationDeg"))}°。`,
     "",
     "### 3. 水平偏角：只有側邊的座位受影響",
     "",
-    "水平偏角的變化 ≈ 側向位移 ÷ 距離（弧度）。本壘後方和外野的座位，參數改變時大多沿「離本壘的方向」移動，側向位移很小；一壘側的直線看台則是沿界外線的法線平移，方位會跟著變。",
+    "水平偏角的變化 ≈ 側向位移 ÷ 距離（弧度）。本壘後方和外野的座位，參數改變時大多沿「離本壘的方向」移動，側向位移很小；一壘側的直線看台則是沿界外線的法線平移，每區的寬度也依外框重新分配，方位會跟著變。",
     "",
-    `- 本壘正後方的座位：偏角只跟「中央座位是哪一席」有關。席數變成偶數時，最中間兩席各偏半個座位寬，所以 95% 區間是 ${fmt(hpStats?.lo ?? NaN)}–${fmt(hpStats?.hi ?? NaN)}°。`,
-    `- 一壘側：一層前緣距離改變時，座位沿界外線的法線方向平移，相對本壘的方位跟著變，擺幅 ${fmt(swing("一層前緣距離", firstBase, "horizontalDeg"))}°。`,
-    `- 右外野（約 ${baseDistance(rightField)} m）：外野淨空擺動 3 m，偏角只擺動 ${fmt(swing("外野淨空", rightField, "horizontalDeg"))}°。`,
+    `- 本壘正後方的座位（113 區）：偏角只跟「中央座位是哪一席」有關。席數變成偶數時，最中間兩席各偏半個座位寬，所以 95% 區間是 ${fmt(hpStats?.lo ?? NaN)}–${fmt(hpStats?.hi ?? NaN)}°。`,
+    `- 一壘側（105 區）：B1 前緣距離改變時，座位沿界外線的法線方向平移、區的範圍也跟著重新切分，相對本壘的方位跟著變，擺幅 ${fmt(swing("B1 前緣距離", firstBase, "horizontalDeg"))}°。`,
+    `- 右外野（143 區，約 ${baseDistance(rightField)} m）：外野淨空擺動 ${spread("外野淨空")}，偏角只擺動 ${fmt(swing("外野淨空", rightField, "horizontalDeg"))}°。`,
     "",
     "### 結論",
     "",
-    `- 對使用者最有感的「距離」，誤差主要來自兩個 C 級估算：一層前緣距離（本壘後方距離，${base.foulOffset} m）和外野淨空（${base.outfieldClearance} m）。`,
-    `- 越靠近本壘的座位，相對誤差越大：本壘後方前排約 ${relative(hpFront)}%，中外野約 ${relative(centerField)}%。`,
-    "- 二層疊在一層上方，對排距和一層斜度特別敏感。",
-    "- 如果之後有可靠的資料，最值得優先校正的是：本壘到後擋網的距離、排距、一層斜度。",
+    `- 對使用者最有感的「距離」，誤差主要來自兩個 C 級估算：B1 前緣距離（本壘後方距離，${base.foulOffset} m）和外野淨空（${base.outfieldClearance} m）。`,
+    `- 越靠近本壘的座位，相對誤差越大：本壘正後方前排約 ${relative(hpFront)}%，中外野約 ${relative(centerField)}%。`,
+    "- L2 疊在 B1 上方，對排距和 B1 斜度特別敏感。",
+    "- 如果之後有可靠的資料，最值得優先校正的是：本壘到後擋網的距離、排距、B1 斜度。",
     "",
   );
 
