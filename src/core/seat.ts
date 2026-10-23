@@ -68,8 +68,9 @@ export function sectionSeats(venue: Venue, sectionId: string): SeatPlacement[] {
 
 /** 位置與朝向的實際算式；呼叫前 row、seat 必須已檢查過範圍。 */
 function placeSeat(section: Section, row: number, seat: number, count: number): SeatPlacement {
-  // from/to 是區塊邊緣，座位中心落在每格中間
-  const t = (seat - 0.5) / count;
+  // from/to 是區塊邊緣（有 rowSpans 時是這一排用的那一段），座位中心落在每格中間
+  const [spanStart, spanEnd] = section.rowSpans?.[row - 1] ?? [0, 1];
+  const t = spanStart + ((seat - 0.5) / count) * (spanEnd - spanStart);
   const back = (row - 1) * section.rowDepth;
   const y = section.baseHeight + (row - 1) * section.rowRise;
 

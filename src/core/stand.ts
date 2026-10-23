@@ -32,42 +32,55 @@ export function sectionTreads(venue: Venue, sectionId: string): RowTread[] {
     const seatLine = (row - 1) * section.rowDepth;
     const top = section.baseHeight + (row - 1) * section.rowRise;
     const below = row === 1 ? top : top - section.rowRise;
+    const span = section.rowSpans?.[row - 1] ?? FULL_SPAN;
     treads.push({
       row,
       top,
       bottom: section.structure === "tier" ? below - TIER_SLAB_THICKNESS : 0,
-      front: edge(seatLine - section.rowDepth / 2),
-      back: edge(seatLine + section.rowDepth / 2),
+      front: edge(seatLine - section.rowDepth / 2, span),
+      back: edge(seatLine + section.rowDepth / 2, span),
     });
   }
   return treads;
 }
 
-/** 區的平面輪廓：第 1 排前緣接最後一排後緣（反向），不重複起點。給小地圖用，UI 不自己算幾何。 */
+/** 區的平面輪廓：第 1 排前緣、兩側沿各排端點的階梯、最後一排後緣（反向），不重複起點。給小地圖用，UI 不自己算幾何。 */
 export function sectionOutline(venue: Venue, sectionId: string): PlanPoint[] {
   const treads = sectionTreads(venue, sectionId);
   const first = treads[0];
   const last = treads.at(-1);
   if (!first || !last) throw new Error(`${sectionId} 區沒有任何一排`);
-  return [...first.front, ...[...last.back].reverse()];
+  // 每排的範圍可能不同（rowSpans），所以兩側沿著每一排的端點走成階梯
+  const right = treads.flatMap((t) => [t.front.at(-1), t.back.at(-1)] as PlanPoint[]);
+  const left = treads.flatMap((t) => [t.front[0], t.back[0]] as PlanPoint[]).reverse();
+  return [...first.front.slice(0, -1), ...right, ...[...last.back].reverse().slice(1, -1), ...left.slice(0, -1)];
 }
 
-/** 回傳「往後 back 公尺的那條邊」的折線；同一區每一排用同樣的取樣，相鄰排的邊才會完全重合。 */
-function edgeAt(section: Section): (back: number) => PlanPoint[] {
+const FULL_SPAN: [number, number] = [0, 1];
+
+/**
+ * 回傳「往後 back 公尺、只取 span 那一段」的折線。
+ * 取樣只由 span 決定，所以兩排的範圍相同時，相鄰排的邊會完全重合。
+ */
+function edgeAt(section: Section): (back: number, span: [number, number]) => PlanPoint[] {
   switch (section.type) {
     case "arc": {
-      const segments = Math.max(1, Math.ceil(Math.abs(section.toDeg - section.fromDeg) / ARC_STEP_DEG));
-      const angles = Array.from({ length: segments + 1 }, (_, k) => (section.fromDeg + (k / segments) * (section.toDeg - section.fromDeg)) / DEG);
-      return (back) => {
+      const sweep = section.toDeg - section.fromDeg;
+      return (back, [start, end]) => {
+        const segments = Math.max(1, Math.ceil(Math.abs(sweep * (end - start)) / ARC_STEP_DEG));
         const radius = Math.max(0, section.innerRadius + back);
-        return angles.map((angle) => ({ x: section.center.x + radius * Math.cos(angle), z: section.center.z + radius * Math.sin(angle) }));
+        return Array.from({ length: segments + 1 }, (_, k) => {
+          const angle = (section.fromDeg + (start + (k / segments) * (end - start)) * sweep) / DEG;
+          return { x: section.center.x + radius * Math.cos(angle), z: section.center.z + radius * Math.sin(angle) };
+        });
       };
     }
     case "linear": {
       const normal = normalAwayFrom(section.from, section.to, section.facing);
       if (!normal) throw new Error(`${section.id} 區的 from/to/facing 無法決定後方，請先用 parseVenue 驗證`);
-      return (back) =>
-        [section.from, section.to].map((p) => ({ x: p.x + back * normal.x, z: p.z + back * normal.z }));
+      const { from, to } = section;
+      return (back, span) =>
+        span.map((t) => ({ x: from.x + t * (to.x - from.x) + back * normal.x, z: from.z + t * (to.z - from.z) + back * normal.z }));
     }
   }
 }
