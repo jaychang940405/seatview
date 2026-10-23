@@ -11,9 +11,9 @@ const stage: Overlay = {
   size: { x: 24, y: 1.8, z: 12 },
 };
 
-function asMesh(object: THREE.Object3D): THREE.Mesh<THREE.BoxGeometry, THREE.MeshLambertMaterial> {
+function asMesh(object: THREE.Object3D): THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> {
   if (!(object instanceof THREE.Mesh)) throw new Error("不是 Mesh");
-  return object as THREE.Mesh<THREE.BoxGeometry, THREE.MeshLambertMaterial>;
+  return object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
 }
 
 function linePoints(object: THREE.Object3D): THREE.Vector3[] {
@@ -27,7 +27,7 @@ describe("buildOverlay：box", () => {
     const mesh = asMesh(buildOverlay(stage));
     expect(mesh.name).toBe("overlay:stage");
     expectVec3Close(mesh.position, { x: 0, y: 0.9, z: -30 });
-    expect(mesh.geometry.parameters).toMatchObject({ width: 24, height: 1.8, depth: 12 });
+    expect((mesh.geometry as THREE.BoxGeometry).parameters).toMatchObject({ width: 24, height: 1.8, depth: 12 });
   });
 
   it("沒給 yawDeg → 不旋轉", () => {
@@ -71,5 +71,55 @@ describe("buildOverlay：polyline", () => {
     const vertices = linePoints(loop);
     expect(vertices).toHaveLength(3);
     for (const v of vertices) expect(v.y).toBeCloseTo(0.5);
+  });
+});
+
+describe("buildOverlay：polygon（球場地面、投手丘）", () => {
+  const triangle = [
+    { x: 0, z: 0 },
+    { x: 10, z: 0 },
+    { x: 0, z: 5 },
+  ];
+
+  function boundsOf(object: THREE.Object3D): THREE.Box3 {
+    if (!(object instanceof THREE.Mesh)) throw new Error("不是 Mesh");
+    object.updateMatrixWorld();
+    return new THREE.Box3().setFromObject(object);
+  }
+
+  it("平面：name = overlay:<id>，所有頂點在 y 高度，平面範圍 = points，用指定顏色", () => {
+    const object = buildOverlay({ type: "polygon", id: "grass", points: triangle, y: 0.02, color: "#5c9a3c" });
+    expect(object.name).toBe("overlay:grass");
+    const box = boundsOf(object);
+    expect(box.min.y).toBeCloseTo(0.02, 6);
+    expect(box.max.y).toBeCloseTo(0.02, 6);
+    expectVec3Close({ x: box.min.x, y: 0, z: box.min.z }, { x: 0, y: 0, z: 0 });
+    expectVec3Close({ x: box.max.x, y: 0, z: box.max.z }, { x: 10, y: 0, z: 5 });
+    expectColorClose(asMesh(object).material.color, new THREE.Color("#5c9a3c"));
+  });
+
+  it("平面朝上：法向量都是 +y（從看台往下看得到）", () => {
+    const mesh = asMesh(buildOverlay({ type: "polygon", id: "grass", points: triangle, y: 0.02 }));
+    const normal = mesh.geometry.getAttribute("normal");
+    for (let i = 0; i < normal.count; i++) expect(normal.getY(i)).toBeCloseTo(1, 6);
+  });
+
+  it("沒給 y → 貼地（y = 0）", () => {
+    const box = boundsOf(buildOverlay({ type: "polygon", id: "dirt", points: triangle }));
+    expect(box.max.y).toBeCloseTo(0, 6);
+  });
+
+  it("有 height：從 y − height 長到 y 的柱體（投手丘）", () => {
+    const box = boundsOf(buildOverlay({ type: "polygon", id: "mound", points: triangle, y: 0.254, height: 0.254 }));
+    expect(box.min.y).toBeCloseTo(0, 6);
+    expect(box.max.y).toBeCloseTo(0.254, 6);
+  });
+
+  it("疊放的平面圖層：layer 越大越往前畫（polygonOffset 越負），避免同高度閃爍", () => {
+    const material = (layer: number) =>
+      asMesh(buildOverlay({ type: "polygon", id: `p${layer}`, points: triangle }, layer)).material as THREE.Material;
+    expect(material(0).polygonOffset).toBe(true);
+    expect(material(3).polygonOffsetFactor).toBeLessThan(material(1).polygonOffsetFactor);
+    expect(material(3).polygonOffsetUnits).toBeLessThan(material(1).polygonOffsetUnits);
   });
 });

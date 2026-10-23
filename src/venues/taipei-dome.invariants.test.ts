@@ -21,6 +21,10 @@ const FOUL_POLE = 102.11; // 335 呎（B）
 const BASE_PATH = 27.43; // 90 呎（A）
 const PLATE_TO_PITCHER = 18.44; // 60 呎 6 吋（A）
 const PLATE_TO_SECOND = 38.8; // A
+const INFIELD_ARC = 28.96; // 內野紅土弧半徑 95 呎（規則值；外觀用）
+const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
+const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
+const WARNING_TRACK = 4.5; // 警戒區寬（C）
 
 // 作業指令的規格
 const SECTION_IDS = ["I1-1B", "I1-HP", "I1-3B", "I2-1B", "I2-HP", "I2-3B", "O1-RF", "O1-CF", "O1-LF", "F1", "F2", "F3"];
@@ -52,6 +56,29 @@ function overlay(venue: Venue, layoutId: string, id: string): Overlay {
   const found = venue.layouts[layoutId]?.overlays?.find((o) => o.id === id);
   if (!found) throw new Error(`${layoutId} 沒有 overlay ${id}`);
   return found;
+}
+
+function polygon(venue: Venue, id: string): Extract<Overlay, { type: "polygon" }> {
+  const found = overlay(venue, "baseball", id);
+  if (found.type !== "polygon") throw new Error(`${id} 不是 polygon`);
+  return found;
+}
+
+const centroid = (points: PlanPoint[]): PlanPoint => ({
+  x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+  z: points.reduce((sum, p) => sum + p.z, 0) / points.length,
+});
+
+/** 從本壘看，偏離本壘–中外野軸線的角度（度，一壘側為正）；界內是 ±45° 以內。 */
+const angleFromCenterLine = (p: PlanPoint) => (Math.atan2(p.x - PLATE.x, PLATE.z - p.z) * 180) / Math.PI;
+
+/** 外野牆圓弧：通過兩根界外桿與中外野（只用 B 級的 335 呎、400 呎推出來）。 */
+function outfieldWallCircle(): { center: PlanPoint; radius: number } {
+  const pole = { x: FOUL_POLE * Math.SQRT1_2, z: PLATE.z - FOUL_POLE * Math.SQRT1_2 };
+  const centerField = PLATE.z - CENTER_FIELD;
+  // 圓心在 x = 0 上：到中外野與到界外桿等距
+  const zc = (pole.x ** 2 + pole.z ** 2 - centerField ** 2) / (2 * (pole.z - centerField));
+  return { center: { x: 0, z: zc }, radius: Math.abs(centerField - zc) };
 }
 
 function polyline(venue: Venue, id: string): PlanPoint[] {
@@ -171,9 +198,73 @@ describe("taipei-dome：球場幾何（baseball overlays）", () => {
   });
 
   it("本壘到投手丘中心 18.44 ± 0.01 m", () => {
-    const mound = overlay(dome(), "baseball", "mound");
-    if (mound.type !== "box") throw new Error("mound 不是 box");
-    expectWithin(planDistance(mound.center, PLATE), PLATE_TO_PITCHER, 0.01);
+    // 投手丘從方塊改成圓形 polygon；中心 = 頂點平均（正多邊形的中心）
+    expectWithin(planDistance(centroid(polygon(dome(), "mound").points), PLATE), PLATE_TO_PITCHER, 0.01);
+  });
+});
+
+describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => {
+  const polygons = () => (dome().layouts.baseball?.overlays ?? []).filter((o) => o.type === "polygon");
+  const pitcher = { x: PLATE.x, z: PLATE.z - PLATE_TO_PITCHER };
+
+  it("七層地面，由下往上：界外地紅土、界內草皮、警戒區、內野紅土、內野草皮、本壘圓、投手丘", () => {
+    expect(polygons().map((o) => o.id)).toEqual(["field-dirt", "fair-grass", "warning-track", "infield-dirt", "infield-grass", "home-circle", "mound"]);
+  });
+
+  it("每個 polygon 的頂點與高度都是有限數", () => {
+    for (const o of polygons()) {
+      if (o.type !== "polygon") continue;
+      expect(o.points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.z)), o.id).toBe(true);
+      expect(Number.isFinite(o.y ?? 0), o.id).toBe(true);
+    }
+  });
+
+  it("界內草皮在外野牆內、界外線內側（容差 1 cm）", () => {
+    const wall = outfieldWallCircle();
+    for (const p of polygon(dome(), "fair-grass").points) {
+      expect(planDistance(p, wall.center), `(${p.x}, ${p.z})`).toBeLessThanOrEqual(wall.radius + 0.01);
+      // 超出界外線的距離：相對本壘 (dx, dz)，界外線是 |dx| = dz
+      const [dx, dz] = [p.x - PLATE.x, PLATE.z - p.z];
+      expect((Math.abs(dx) - dz) / Math.SQRT2, `(${p.x}, ${p.z})`).toBeLessThanOrEqual(0.01);
+    }
+  });
+
+  it(`內野紅土：以投手板為圓心、半徑 ${INFIELD_ARC} m（95 呎）的弧，兩端落在界外線上`, () => {
+    const [first, ...arc] = polygon(dome(), "infield-dirt").points;
+    expect(first).toEqual(PLATE);
+    for (const p of arc) expectWithin(planDistance(p, pitcher), INFIELD_ARC, 0.01);
+    expectWithin(Math.abs(angleFromCenterLine(arc[0] ?? PLATE)), 45, 0.01);
+    expectWithin(Math.abs(angleFromCenterLine(arc.at(-1) ?? PLATE)), 45, 0.01);
+  });
+
+  it(`警戒區寬 ${WARNING_TRACK} m：外緣在外野牆上、內緣離牆 ${WARNING_TRACK} m`, () => {
+    const wall = outfieldWallCircle();
+    const radii = polygon(dome(), "warning-track").points.map((p) => planDistance(p, wall.center));
+    for (const r of radii) {
+      const onWall = Math.abs(r - wall.radius) <= 0.01;
+      const onInner = Math.abs(r - (wall.radius - WARNING_TRACK)) <= 0.01;
+      expect(onWall || onInner, `半徑 ${r}`).toBe(true);
+    }
+  });
+
+  it(`本壘圓：圓心在本壘、半徑 ${HOME_CIRCLE} m（13 呎）`, () => {
+    for (const p of polygon(dome(), "home-circle").points) expectWithin(planDistance(p, PLATE), HOME_CIRCLE, 0.01);
+  });
+
+  it(`投手丘：圓形、直徑 ${MOUND.diameter} m、高 ${MOUND.height} m（A），從地面長到頂面`, () => {
+    const mound = polygon(dome(), "mound");
+    const center = centroid(mound.points);
+    for (const p of mound.points) expectWithin(planDistance(p, center), MOUND.diameter / 2, 0.01);
+    expect(mound.y).toBeCloseTo(MOUND.height, 6);
+    expect(mound.height).toBeCloseTo(MOUND.height, 6);
+  });
+
+  it("線條畫在平面地面之上：界外線、內野線、外野牆的 y 都高於每一層平面 polygon", () => {
+    const flatTop = Math.max(...polygons().flatMap((o) => (o.type === "polygon" && o.height === undefined ? [o.y ?? 0] : [])));
+    for (const id of ["foul-line-left", "foul-line-right", "infield", "outfield-wall"]) {
+      const line = overlay(dome(), "baseball", id);
+      expect(line.type === "polyline" ? (line.y ?? 0) : Number.NaN, id).toBeGreaterThan(flatTop);
+    }
   });
 });
 

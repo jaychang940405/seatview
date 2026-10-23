@@ -6,7 +6,7 @@ import { planYawToRotationY, toVector3 } from "./convert";
 const LINE_DEFAULT_Y = 0.01;
 
 /** overlay 本來就是世界座標，這裡只負責轉成 three.js 物件。name = "overlay:<id>"。 */
-export function buildOverlay(overlay: Overlay): THREE.Object3D {
+export function buildOverlay(overlay: Overlay, _layer = 0): THREE.Object3D {
   switch (overlay.type) {
     case "box": {
       const { size } = overlay;
