@@ -177,6 +177,35 @@ describe("parseVenue：選填的 shell（穹頂外殼：牆與屋頂）", () => 
   });
 });
 
+describe("parseVenue：選填的 rowSpans（每排只用從 from 到 to 的一段）", () => {
+  const spans = (rows: number) => Array.from({ length: rows }, (_, i) => [0, 1 - i * 0.01]);
+
+  it("沒寫就是 undefined；有寫就保留（A1 有 20 排）", () => {
+    expect(parseVenue(demoArenaJson).sections[0]?.rowSpans).toBeUndefined();
+    const json = demoCopy();
+    json.sections[0].rowSpans = spans(20);
+    expect(parseVenue(json).sections[0]?.rowSpans).toEqual(spans(20));
+  });
+
+  it("長度跟 rows 不同 → 驗證錯誤", () => {
+    const json = demoCopy();
+    json.sections[0].rowSpans = spans(19);
+    expect(issuePaths(json)).toEqual(["sections.0.rowSpans"]);
+  });
+
+  it.each([
+    ["起點 = 終點", [0.5, 0.5]],
+    ["起點 > 終點", [0.6, 0.4]],
+    ["小於 0", [-0.1, 0.5]],
+    ["大於 1", [0.5, 1.2]],
+  ])("%s → 驗證錯誤（指到那一排）", (_label, bad) => {
+    const json = demoCopy();
+    json.sections[0].rowSpans = spans(20);
+    json.sections[0].rowSpans[3] = bad;
+    expect(issuePaths(json)).toEqual(["sections.0.rowSpans.3"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();

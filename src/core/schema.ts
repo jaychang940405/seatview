@@ -18,6 +18,11 @@ const SectionBaseSchema = z.object({
   layouts: z.array(z.string()).optional(),
   /** 看台下方：solid（預設）= 實心到地面；tier = 懸挑的階梯樓板，下方是空的（例如二層） */
   structure: z.enum(["solid", "tier"]).optional(),
+  /**
+   * 每一排只用 from→to（arc 是 fromDeg→toDeg）的一段 [起, 訖]（0–1 的比例）；長度 = rows。
+   * 沒寫就是每排都用整段。用來表示被牆截短的排。
+   */
+  rowSpans: z.array(z.tuple([z.number(), z.number()])).optional(),
 });
 
 const ArcSectionSchema = SectionBaseSchema.extend({
@@ -134,6 +139,15 @@ export const VenueSchema = z
     venue.sections.forEach((section, i) => {
       if (seenIds.has(section.id)) issue(["sections", i, "id"], `區 id 重複：${section.id}`);
       seenIds.add(section.id);
+
+      if (section.rowSpans) {
+        if (section.rowSpans.length !== section.rows) {
+          issue(["sections", i, "rowSpans"], `rowSpans 有 ${section.rowSpans.length} 個，但 rows 是 ${section.rows}`);
+        }
+        section.rowSpans.forEach(([start, end], k) => {
+          if (!(start >= 0 && start < end && end <= 1)) issue(["sections", i, "rowSpans", k], `第 ${k + 1} 排的範圍 [${start}, ${end}] 不在 0 ≤ 起 < 訖 ≤ 1`);
+        });
+      }
 
       if (Array.isArray(section.seatsPerRow) && section.seatsPerRow.length !== section.rows) {
         issue(

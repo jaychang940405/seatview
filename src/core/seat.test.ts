@@ -105,6 +105,35 @@ describe("seatPosition — linear", () => {
   });
 });
 
+describe("seatPosition — rowSpans（每排只用一段範圍）", () => {
+  const spanned: Venue = {
+    ...venue,
+    sections: [
+      // from x = −10 到 10（20 m）：第 1 排用 25%–75%（x = −5…5，20 席），第 2 排用 0–25%（x = −10…−5，10 席）
+      { ...line, id: "SPAN", rows: 2, seatsPerRow: [20, 10], rowSpans: [[0.25, 0.75], [0, 0.25]] },
+      // 60° → 120° 的後半（90°–120°），10 席
+      { ...arc, id: "ARC_SPAN", rows: 1, seatsPerRow: 10, rowSpans: [[0.5, 1]] },
+    ],
+  };
+
+  it("linear：第 1 排的座位只排在 x = −5…5（1 號 −4.75、20 號 4.75）", () => {
+    expectVec3Close(seatPosition(spanned, "SPAN", 1, 1), { x: -4.75, y: 0, z: 15 });
+    expectVec3Close(seatPosition(spanned, "SPAN", 1, 20), { x: 4.75, y: 0, z: 15 });
+  });
+
+  it("linear：第 2 排只排在 x = −10…−5（1 號 −9.75、10 號 −5.25）", () => {
+    expectVec3Close(seatPosition(spanned, "SPAN", 2, 1), { x: -9.75, y: 0.5, z: 16 });
+    expectVec3Close(seatPosition(spanned, "SPAN", 2, 10), { x: -5.25, y: 0.5, z: 16 });
+  });
+
+  it("arc：範圍換算成角度，1 號在 91.5°（= 60° + 60° × (0.5 + 0.05 × 0.5)）", () => {
+    const p = seatPosition(spanned, "ARC_SPAN", 1, 1);
+    const deg = (Math.atan2(p.z, p.x) * 180) / Math.PI;
+    expect(deg).toBeCloseTo(91.5, 6);
+    expect(Math.hypot(p.x, p.z)).toBeCloseTo(20, 6);
+  });
+});
+
 describe("seatPosition — 錯誤", () => {
   it("不存在的區 → UNKNOWN_SECTION", () => {
     expectSeatError(() => seatPosition(venue, "NOPE", 1, 1), "UNKNOWN_SECTION");
