@@ -7,7 +7,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { createServer } from "vite";
-import type { LayoutParams } from "./dome-layout.ts";
+import type { OfficialParams } from "./official-layout.ts";
 import { buildTaipeiDome, DEFAULT_PARAMS, type ModelParams } from "./taipei-dome-model.ts";
 
 type Core = typeof import("../src/core/index.ts");
@@ -23,27 +23,27 @@ interface Param {
   apply: (params: ModelParams, value: number) => ModelParams;
 }
 
-const base = DEFAULT_PARAMS.layout;
-/** 擾動看台幾何的一個 C 級參數；看台的排數、長度（擬合結果）固定不動。 */
-const layoutParam = (label: string, baseValue: number, range: [number, number], set: (l: LayoutParams, v: number) => LayoutParams): Param => ({
+const base = DEFAULT_PARAMS.official;
+/** 擾動看台幾何的一個 C 級參數；官方票區的排數與寬度規則固定不動。 */
+const officialParam = (label: string, baseValue: number, range: [number, number], set: (o: OfficialParams, v: number) => OfficialParams): Param => ({
   label,
   base: baseValue,
   range,
   unit: "m",
-  apply: (params, value) => ({ ...params, layout: set(params.layout, value) }),
+  apply: (params, value) => ({ ...params, official: set(params.official, value) }),
 });
 
 // 擾動範圍本身也是 C 級假設（「估算可能差多少」），不是量測誤差
 const PARAMS: Param[] = [
-  layoutParam("一層前緣距離", base.foulOffset, [15, 21.5], (l, v) => ({ ...l, foulOffset: v })),
-  layoutParam("排距", base.rowDepth, [0.8, 0.9], (l, v) => ({ ...l, rowDepth: v })),
-  layoutParam("一層 baseHeight", base.lower.baseHeight, [2, 4], (l, v) => ({ ...l, lower: { ...l.lower, baseHeight: v } })),
-  layoutParam("一層 rowRise", base.lower.rowRise, [0.3, 0.4], (l, v) => ({ ...l, lower: { ...l.lower, rowRise: v } })),
-  layoutParam("二層淨空", base.upper.headroom, [2.5, 3.5], (l, v) => ({ ...l, upper: { ...l.upper, headroom: v } })),
-  layoutParam("二層 rowRise", base.upper.rowRise, [0.45, 0.55], (l, v) => ({ ...l, upper: { ...l.upper, rowRise: v } })),
-  layoutParam("外野淨空", base.outfield.clearance, [2, 5], (l, v) => ({ ...l, outfield: { ...l.outfield, clearance: v } })),
-  layoutParam("外野 baseHeight", base.outfield.baseHeight, [2, 4], (l, v) => ({ ...l, outfield: { ...l.outfield, baseHeight: v } })),
-  layoutParam("外野 rowRise", base.outfield.rowRise, [0.3, 0.4], (l, v) => ({ ...l, outfield: { ...l.outfield, rowRise: v } })),
+  officialParam("B1 前緣距離", base.foulOffset, [15, 21.5], (o, v) => ({ ...o, foulOffset: v })),
+  officialParam("排距", base.rowDepth, [0.8, 0.9], (o, v) => ({ ...o, rowDepth: v })),
+  officialParam("B1 內野 baseHeight", base.b1.baseHeight, [2, 4], (o, v) => ({ ...o, b1: { ...o.b1, baseHeight: v } })),
+  officialParam("B1 內野 rowRise", base.b1.rowRise, [0.3, 0.4], (o, v) => ({ ...o, b1: { ...o.b1, rowRise: v } })),
+  officialParam("L2 淨空", base.l2.headroom, [2.5, 3.5], (o, v) => ({ ...o, l2: { ...o.l2, headroom: v } })),
+  officialParam("L2 rowRise", base.l2.rowRise, [0.45, 0.55], (o, v) => ({ ...o, l2: { ...o.l2, rowRise: v } })),
+  officialParam("外野淨空", base.outfieldClearance, [2, 5], (o, v) => ({ ...o, outfieldClearance: v })),
+  officialParam("外野 baseHeight", base.outfield.baseHeight, [2, 4], (o, v) => ({ ...o, outfield: { ...o.outfield, baseHeight: v } })),
+  officialParam("外野 rowRise", base.outfield.rowRise, [0.3, 0.4], (o, v) => ({ ...o, outfield: { ...o.outfield, rowRise: v } })),
   {
     label: "棒球 focus 高度",
     base: DEFAULT_PARAMS.strikeZoneY,
@@ -55,11 +55,11 @@ const PARAMS: Param[] = [
 
 /** 座位用「該排的比例位置」指定，參數改變、每排席數重新分配後仍是同一個位置。 */
 const SEATS = [
-  { label: "本壘後方・一層第 1 排中央", sectionId: "I1-HP", row: 1, t: 0.5 },
-  { label: "一壘側・一層第 15 排中段", sectionId: "I1-1B", row: 15, t: 0.5 },
-  { label: "本壘後方・二層最後一排中央", sectionId: "I2-HP", row: base.upper.rows, t: 0.5 },
-  { label: "右外野・一層中段排的中段", sectionId: "O1-RF", row: Math.ceil(base.outfield.sideRows / 2), t: 0.5 },
-  { label: "中外野・一層第 1 排中央", sectionId: "O1-CF", row: 1, t: 0.5 },
+  { label: "本壘正後方・B1 第 1 排中央", sectionId: "113", row: 1, t: 0.5 },
+  { label: "一壘側・B1 第 15 排中段", sectionId: "105", row: 15, t: 0.5 },
+  { label: "本壘斜後方・L2 最後一排中央", sectionId: "212", row: base.l2.defaultRows, t: 0.5 },
+  { label: "右外野・B1 中段排的中段", sectionId: "143", row: Math.ceil(base.outfield.rows / 2), t: 0.5 },
+  { label: "中外野（打者之眼旁）・B1 第 1 排中央", sectionId: "140", row: 1, t: 0.5 },
 ];
 
 const METRICS = [
@@ -96,7 +96,7 @@ const server = await createServer({ server: { middlewareMode: true }, appType: "
 try {
   const core = (await server.ssrLoadModule("/src/core/index.ts")) as Core;
 
-  /** 用這組參數建模型、驗證，回傳每個代表座位的指標；產生器拒絕（間距不合法）時回傳 null。 */
+  /** 用這組參數建模型、驗證，回傳每個代表座位的指標；產生器拒絕（有一排放不下座位、間距不合法）時回傳 null。 */
   function measure(params: ModelParams): Sample[] | null {
     let venue: ReturnType<Core["parseVenue"]>;
     try {
@@ -178,11 +178,11 @@ try {
     `- 擾動下表的 C 級參數：同時、獨立、在範圍內均勻抽樣，共 ${RUNS} 次。`,
     "- **範圍本身也是 C 級假設**：它表示「估算可能差多少」，不是量測誤差。",
     "- 每次都用 `buildTaipeiDome` 重建模型，並通過 `parseVenue` 驗證。",
-    "- 看台的排數、直線長度、外野內縮角度是擬合結果，保持不動；只擾動看台的距離與高度參數。",
+    "- 官方票區的排數（B）與每區寬度的規則保持不動；只擾動看台的距離與高度參數，每區寬度依規則重新推算。",
     "- 每排席數會隨距離重新計算，所以代表座位用「該排的同一比例位置」指定。",
     "- 指標是 baseball layout 下 `getSeatView` 的 `metrics`（focus = 本壘板）。",
     "- 水平偏角以基準值為中心展開，避免 ±180° 附近的跳號讓平均值失真。",
-    `- 被產生器拒絕的樣本（隱含座位間距超出 0.45–0.65 m）：${rejected} 次。`,
+    `- 被產生器拒絕的樣本（外框內放不下官方的排數、或隱含座位間距超出 0.45–0.65 m）：${rejected} 次。`,
     "",
     "| 參數 | 基準值 | 擾動範圍 |",
     "|---|---|---|",
@@ -213,8 +213,8 @@ try {
   const [hpFront, firstBase, hpUpper, rightField, centerField] = [0, 1, 2, 3, 4];
   const baseDistance = (i: number) => fmt(at(baseline, i).distance, 1);
   const relative = (i: number) => fmt((halfWidth(i, "distance") / at(baseline, i).distance) * 100, 1);
-  const upperStack = base.upper.startRow + base.upper.rows - 1; // 二層最後一排離一層前緣隔了幾個排距
-  const lowerBackRows = base.lower.rows - 1;
+  const upperStack = base.l2.startRow + base.l2.defaultRows - 1; // L2 最後一排離 B1 前緣隔了幾個排距
+  const lowerBackRows = base.b1.rows - 1;
   const hpStats = stats[hpFront]?.horizontalDeg;
   lines.push(
     "## 為什麼是這個結果",
@@ -251,7 +251,7 @@ try {
     "",
     "### 結論",
     "",
-    `- 對使用者最有感的「距離」，誤差主要來自兩個 C 級估算：一層前緣距離（本壘後方距離，${base.foulOffset} m）和外野淨空（${base.outfield.clearance} m）。`,
+    `- 對使用者最有感的「距離」，誤差主要來自兩個 C 級估算：一層前緣距離（本壘後方距離，${base.foulOffset} m）和外野淨空（${base.outfieldClearance} m）。`,
     `- 越靠近本壘的座位，相對誤差越大：本壘後方前排約 ${relative(hpFront)}%，中外野約 ${relative(centerField)}%。`,
     "- 二層疊在一層上方，對排距和一層斜度特別敏感。",
     "- 如果之後有可靠的資料，最值得優先校正的是：本壘到後擋網的距離、排距、一層斜度。",
