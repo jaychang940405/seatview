@@ -49,27 +49,37 @@ src/mcp/
 - **回傳**：成功時回傳 `structuredContent`（符合 `outputSchema`）加中文摘要。
 - **錯誤**：`isError: true`，訊息附錯誤代碼與改正提示。
 - **免責聲明**：近似模型（臺北大巨蛋）的結果一定附上 `disclaimer`，要轉告使用者。
-- **編號**：區、排、號都是模型內部編號，不對應實際票面。
+- **編號**：臺北大巨蛋的區號採官方票區號（B），排與號是模型推算（C），只保證少數票面標籤存在（見 [venue-taipei-dome.md](venue-taipei-dome.md)）；示範場館的區、排、號是模型內部編號。
 
 | tool | 輸入 | 輸出重點 |
 |---|---|---|
 | `list_venues` | — | 場館、各自的 layout、區數、免責聲明 |
-| `list_sections` | `venue`, `layout` | 該 layout 開放的區：排數、每排席數、總席數 |
+| `list_sections` | `venue`, `layout` | 該 layout 開放的區：樓層（`level`，例如 B1、L2；沒有樓層的區不附）、排數、每排席數、總席數 |
 | `get_seat_view` | `venue`, `layout`, `section`, `row`, `seat` | 座位位置、相機位置與看向點、距離、平面距離、高低差、俯角、水平偏角、方位、免責聲明 |
 | `compare_seats` | `venue`, `layout`, `seats`（2–10 筆） | 每席的指標（出錯的座位單獨標示）、由近到遠與由正到偏的排名 |
 | `get_venue_provenance` | `venue` | 每個數字的值、等級（A／B／C）與來源 |
 
-### 例子（真正的 stdio 連線，2026-10-23）
+### 例子（真正的 stdio 連線，2026-10-24）
 
-`get_seat_view { venue: "taipei-dome", layout: "baseball", section: "I1-HP", row: 1, seat: 29 }`：
+用 SDK 的 `StdioClientTransport` 啟動 `node src/mcp/main.ts`，5 個 tool 各呼叫一次。以下是原樣輸出（免責聲明節錄）。
 
-> 臺北大巨蛋（近似模型）｜棒球｜I1-HP（內野一層・本壘後方） 第 1 排 29 號：距本壘 18.6 m（平面 18.3 m），比本壘高 3.4 m（俯角 10.5°），水平偏角 0.0°，位於正面。
-> 本模型為依公開報導與棒球規則推算的近似模型……不應作為購票依據。
+`get_seat_view { venue: "taipei-dome", layout: "baseball", section: "113", row: 38, seat: 7 }`（票面標籤之一）：
 
-`get_seat_view { venue: "taipei-dome", layout: "concert", section: "O1-CF", row: 1, seat: 1 }` → `isError`：
+> 臺北大巨蛋（近似模型）｜棒球｜113 第 38 排 7 號：距本壘 52.4 m（平面 49.8 m），比本壘高 16.3 m（俯角 18.2°），水平偏角 -0.3°，位於正面。
+> 本模型為依公開報導、公開座位圖的票區編號與棒球規則推算的近似模型……不應作為購票依據。
 
-> SECTION_NOT_IN_LAYOUT：O1-CF 區在 concert layout 沒有開放
-> concert 開放的區：I1-1B、I1-HP、I1-3B、I2-1B、I2-HP、I2-3B、O1-RF、O1-LF、F1、F2、F3
+`list_sections { venue: "taipei-dome", layout: "baseball" }`（節錄）：
+
+> 臺北大巨蛋（近似模型）｜棒球：61 區
+> - 113［B1］：38 排、每排 4–12 號、共 293 席
+> - 212［L2］：19 排、每排 8–12 號、共 183 席
+
+`get_seat_view { venue: "taipei-dome", layout: "concert", section: "140", row: 1, seat: 1 }` → `isError`：
+
+> SECTION_NOT_IN_LAYOUT：140 區在 concert layout 沒有開放
+> concert 開放的區：102、103、……、135、142、……、146、201、……、212、214、……、225、F1、F2、F3
+
+（演唱會時舞台正後方的 136、137、140、141 不開放；完整清單逐一列出區號，這裡用「……」節錄。）
 
 ### 錯誤代碼
 
@@ -77,21 +87,22 @@ src/mcp/
 |---|---|---|
 | `UNKNOWN_VENUE` | 場館不存在 | 可用的場館 |
 | `UNKNOWN_LAYOUT` | layout 不存在 | 可用的 layout |
-| `UNKNOWN_SECTION` | 區不存在（例如沒建模的外野二層） | 這個 layout 開放的區 |
-| `SECTION_NOT_IN_LAYOUT` | 區存在，但這個 layout 沒開放（例如演唱會的 O1-CF） | 這個 layout 開放的區 |
+| `UNKNOWN_SECTION` | 區不存在（例如沒建模的 L2 外野 233–244、L3–L5、打者之眼 138／139、本壘正後方的 213） | 這個 layout 開放的區 |
+| `SECTION_NOT_IN_LAYOUT` | 區存在，但這個 layout 沒開放（例如演唱會時舞台後方的 136、137、140、141） | 這個 layout 開放的區 |
 | `ROW_OUT_OF_RANGE`、`SEAT_OUT_OF_RANGE` | 排號、座號超出範圍 | 訊息說明範圍；可用 `list_sections` 查 |
 | `Input validation error` | 輸入不符合 schema（例如 1.5 排、缺參數）；由 SDK 擋下，不會執行 core | — |
 
 ## 測試
 
-- `src/mcp/tools.test.ts`（26 項）：
+- `src/mcp/tools.test.ts`（27 項）：
   - `get_seat_view` 的數字跟 core 的 `getSeatView` 完全一致。
   - 方位標籤的分界角度。
   - 各種錯誤都附提示。
   - 近似模型一定附免責聲明。
   - `compare_seats` 的排名正確，其中一席出錯不影響其他席。
   - 數字來源表的等級正確。
-- `src/mcp/server.test.ts`（7 項）：用 SDK 的 `InMemoryTransport` 走完整的 MCP 協定。
+  - `list_sections` 附上樓層 `level`，摘要寫成「212［L2］」；沒有樓層的場館不附。
+- `src/mcp/server.test.ts`（10 項，其中輸入驗證 3 項）：用 SDK 的 `InMemoryTransport` 走完整的 MCP 協定。
   - 列出 5 個 tool，都有輸入、輸出 schema 和唯讀標註。
   - 每個 tool 的回傳都通過 `outputSchema` 驗證。
   - 錯誤回傳 `isError`。

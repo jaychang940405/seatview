@@ -41,7 +41,7 @@ export function createMcpServer(registry: VenueRegistry): McpServer {
   const venue = z.enum([first, ...rest]).describe("場館 id（用 list_venues 查）");
   const layout = z.string().min(1).describe("layout id，例如 concert、baseball（用 list_venues 查）");
   const seatRef = {
-    section: z.string().min(1).describe("區 id，例如 I1-HP（用 list_sections 查）"),
+    section: z.string().min(1).describe("區 id，例如 113（官方票區號；用 list_sections 查）"),
     row: z.number().int().min(1).describe("排號，從 1 開始"),
     seat: z.number().int().min(1).describe("座號，從 1 開始"),
   };
@@ -74,6 +74,7 @@ export function createMcpServer(registry: VenueRegistry): McpServer {
           z.object({
             id: z.string(),
             name: z.string().optional(),
+            level: z.string().optional().describe("樓層，例如 B1、L2"),
             rows: z.number().int(),
             totalSeats: z.number().int(),
             seatsPerRow: z.array(z.number().int()).describe("第 1 排到最後一排的席數"),

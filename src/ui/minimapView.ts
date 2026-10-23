@@ -2,6 +2,7 @@ import type { MinimapModel } from "./minimap";
 import type { Change } from "./selection";
 
 // 小地圖的 DOM：把 buildMinimapModel 的結果畫成 SVG；點一區（或聚焦後按 Enter）就跳到那一區的中央座位。
+// 場館有兩層以上時，左上角有樓層切換鈕（B1／L2），切換後由 onLevel 通知外面重建 model。
 
 export interface MinimapView {
   update(model: MinimapModel): void;
@@ -17,15 +18,20 @@ function svgElement<K extends keyof SVGElementTagNameMap>(tag: K, attributes: Re
   return element;
 }
 
-export function createMinimap(container: HTMLElement, onChange: (change: Change) => void): MinimapView {
+export function createMinimap(container: HTMLElement, onChange: (change: Change) => void, onLevel: (level: string) => void): MinimapView {
   const svg = svgElement("svg", { role: "group", "aria-label": "小地圖：點一區跳到該區中央座位" });
   const lines = svgElement("g", { class: "lines" });
   const sections = svgElement("g", { class: "sections" });
   const dot = svgElement("circle", { class: "seat-dot", r: String(DOT_RADIUS) });
   svg.append(lines, sections, dot);
-  container.append(svg);
+  const levels = document.createElement("div");
+  levels.className = "segmented levels";
+  levels.setAttribute("role", "radiogroup");
+  levels.setAttribute("aria-label", "小地圖樓層");
+  container.append(svg, levels);
 
   let shapeKey = "";
+  let levelsKey = "";
   const paths = new Map<string, SVGPathElement>();
 
   return {
@@ -63,6 +69,26 @@ export function createMinimap(container: HTMLElement, onChange: (change: Change)
           }),
         );
       }
+      if (model.levels.join(",") !== levelsKey) {
+        levelsKey = model.levels.join(",");
+        levels.replaceChildren(
+          ...model.levels.map((level) => {
+            const label = document.createElement("label");
+            label.title = `小地圖只畫 ${level} 的區`;
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = "minimap-level";
+            input.value = level;
+            input.addEventListener("change", () => onLevel(level));
+            const text = document.createElement("span");
+            text.textContent = level;
+            label.append(input, text);
+            return label;
+          }),
+        );
+      }
+      levels.hidden = model.levels.length < 2;
+      for (const input of levels.querySelectorAll("input")) input.checked = input.value === model.level;
       for (const [id, path] of paths) path.classList.toggle("current", id === model.selected?.sectionId);
       dot.style.display = model.selected ? "" : "none";
       if (model.selected) {

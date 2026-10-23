@@ -166,37 +166,55 @@ describe("座椅混色（座位視角）：黑、白、淺灰，依 (區、排�
   const ALL = VENUES.flatMap((venue) => venue.sections.map((section) => ({ venue, id: section.id })));
 
   it("同一個座位每次都是同一個顏色（重建也一樣）", () => {
-    expect(seatPaletteIndex("I1-HP", 15, 48)).toBe(seatPaletteIndex("I1-HP", 15, 48));
+    expect(seatPaletteIndex("113", 15, 48)).toBe(seatPaletteIndex("113", 15, 48));
     const venue = demo();
     const a = buildSectionMesh(venue, "A1", "#4477aa");
     const b = buildSectionMesh(venue, "A1", "#4477aa");
     for (let i = 0; i < a.mesh.count; i++) expect(a.colorAt("seat", i).equals(b.colorAt("seat", i))).toBe(true);
   });
 
-  it("每一區三種顏色各占 1/3 ± 5%", () => {
+  // 雜湊是隨機抽樣：n 席的比例會自然擺動 σ = √(1/3 × 2/3 ÷ n)。
+  // 幾千席的區用 ±5%；官方票區有只有兩、三百席的小區，±5% 只有 1.8σ，所以容許值取 ±5% 與 4σ 的較大者
+  const tolerance = (n: number) => Math.max(0.05, 4 * Math.sqrt((1 / 3) * (2 / 3) / n));
+
+  it("每一區三種顏色各占 1/3（±5%，小區用 4σ 的抽樣誤差）", () => {
     for (const { venue, id } of ALL) {
       const counts = [0, 0, 0];
       const seats = sectionSeats(venue, id);
       for (const { row, seat } of seats) counts[seatPaletteIndex(id, row, seat)] = (counts[seatPaletteIndex(id, row, seat)] ?? 0) + 1;
       for (const count of counts) {
-        expect(Math.abs(count / seats.length - 1 / 3), `${venue.id}/${id}：${counts.join("/")}`).toBeLessThanOrEqual(0.05);
+        expect(Math.abs(count / seats.length - 1 / 3), `${venue.id}/${id}：${counts.join("/")}`).toBeLessThanOrEqual(tolerance(seats.length));
       }
     }
   });
 
-  it("不同區不是同一個樣式：大小相同的 I1-1B 與 I1-3B，同排同號同色的比例不到一半", () => {
+  it("整個場館加起來三種顏色各占 1/3 ± 1%", () => {
+    for (const venue of VENUES) {
+      const counts = [0, 0, 0];
+      let total = 0;
+      for (const section of venue.sections) {
+        for (const { row, seat } of sectionSeats(venue, section.id)) {
+          counts[seatPaletteIndex(section.id, row, seat)] = (counts[seatPaletteIndex(section.id, row, seat)] ?? 0) + 1;
+          total++;
+        }
+      }
+      for (const count of counts) expect(Math.abs(count / total - 1 / 3), `${venue.id}：${counts.join("/")}`).toBeLessThanOrEqual(0.01);
+    }
+  });
+
+  it("不同區不是同一個樣式：兩側對稱位置的 105 與 121，同排同號同色的比例不到一半", () => {
     const venue = VENUES[1] ?? demo();
     let same = 0;
-    const seats = sectionSeats(venue, "I1-1B");
-    for (const { row, seat } of seats) if (seatPaletteIndex("I1-1B", row, seat) === seatPaletteIndex("I1-3B", row, seat)) same++;
+    const seats = sectionSeats(venue, "105");
+    for (const { row, seat } of seats) if (seatPaletteIndex("105", row, seat) === seatPaletteIndex("121", row, seat)) same++;
     expect(same / seats.length).toBeLessThan(0.5);
   });
 
   it("相鄰座位不是固定循環：同一排連續三席同色的情況會出現（不規則配置）", () => {
     let runs = 0;
-    for (let seat = 1; seat + 2 <= 115; seat++) {
-      const c = seatPaletteIndex("I1-1B", 15, seat);
-      if (c === seatPaletteIndex("I1-1B", 15, seat + 1) && c === seatPaletteIndex("I1-1B", 15, seat + 2)) runs++;
+    for (let seat = 1; seat + 2 <= 40; seat++) {
+      const c = seatPaletteIndex("105", 15, seat);
+      if (c === seatPaletteIndex("105", 15, seat + 1) && c === seatPaletteIndex("105", 15, seat + 2)) runs++;
     }
     expect(runs).toBeGreaterThan(0);
   });

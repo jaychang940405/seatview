@@ -37,7 +37,7 @@ export interface ListVenuesOutput {
 export interface ListSectionsOutput {
   venue: Named;
   layout: Named;
-  sections: { id: string; name?: string; rows: number; totalSeats: number; seatsPerRow: number[] }[];
+  sections: { id: string; name?: string; level?: string; rows: number; totalSeats: number; seatsPerRow: number[] }[];
 }
 
 export interface SeatViewOutput {
@@ -166,6 +166,7 @@ export function listSectionsTool(
       sections: listSections(venue, input.layout).map((s) => ({
         id: s.id,
         ...(s.name !== undefined && { name: s.name }),
+        ...(s.level !== undefined && { level: s.level }),
         rows: s.rows,
         totalSeats: s.seatsPerRow.reduce((a, b) => a + b, 0),
         seatsPerRow: s.seatsPerRow,

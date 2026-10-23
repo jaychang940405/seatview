@@ -5,7 +5,7 @@
  * 常數與等級都在 taipei-dome-model.ts 的 K；要調整估算值改那裡，再重新產生。
  */
 import { writeFileSync } from "node:fs";
-import { buildTaipeiDome } from "./taipei-dome-model.ts";
+import { buildTaipeiDome, layerTotals, seatCount } from "./taipei-dome-model.ts";
 
 /** 只有子項全是純值的陣列／物件才收成一行，其他照常縮排，讓 JSON 好讀、diff 好看。 */
 function format(value: unknown, indent = ""): string {
@@ -27,15 +27,9 @@ function format(value: unknown, indent = ""): string {
 const venue = buildTaipeiDome();
 writeFileSync(new URL("../src/venues/taipei-dome.json", import.meta.url), `${format(venue)}\n`);
 
-const total = (ids: string[]) =>
-  venue.sections
-    .filter((s) => ids.includes(s.id))
-    .reduce(
-      (sum, s) =>
-        sum + (typeof s.seatsPerRow === "number" ? s.seatsPerRow * s.rows : s.seatsPerRow.reduce((a, b) => a + b, 0)),
-      0,
-    );
+const totals = layerTotals(venue.sections);
+const floor = venue.sections.filter((s) => s.id.startsWith("F")).reduce((sum, s) => sum + seatCount(s), 0);
 console.log(
-  `taipei-dome.json：${venue.sections.length} 區；I1+O1 ${total(["I1-1B", "I1-HP", "I1-3B", "O1-RF", "O1-CF", "O1-LF"])} 席、` +
-    `I2 ${total(["I2-1B", "I2-HP", "I2-3B"])} 席、F ${total(["F1", "F2", "F3"])} 席`,
+  `taipei-dome.json：${venue.sections.length} 區；B1 內野 ${totals.b1Infield} 席、B1 外野 ${totals.b1Outfield} 席、` +
+    `L2 內野 ${totals.l2Infield} 席、F ${floor} 席（層席數的偏差：npm run fit:dome）`,
 );

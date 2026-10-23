@@ -60,7 +60,8 @@ describe("list_venues", () => {
     expect(venues.map((v) => v.id)).toEqual(["demo-arena", "taipei-dome"]);
     const dome = venues.find((v) => v.id === "taipei-dome");
     expect(dome?.layouts.map((l) => l.id).sort()).toEqual(["baseball", "concert"]);
-    expect(dome?.sectionCount).toBe(12);
+    // 官方票區 61 區（B1 內野 23、B1 外野 14、L2 內野 24）＋演唱會搖滾區 3 區
+    expect(dome?.sectionCount).toBe(64);
     expect(dome?.disclaimer).toContain("不應作為購票依據");
     expect(venues.find((v) => v.id === "demo-arena")?.disclaimer).toBeUndefined();
   });
@@ -75,6 +76,16 @@ describe("list_sections", () => {
       expect(s.seatsPerRow).toHaveLength(s.rows);
       expect(s.totalSeats).toBe(s.seatsPerRow.reduce((a, b) => a + b, 0));
     }
+  });
+
+  it("有樓層的區附上 level，摘要也寫出來；沒有樓層的區（示範場館）不附", () => {
+    const outcome = listSectionsTool(registry(), { venue: "taipei-dome", layout: "baseball" });
+    const { sections } = ok(outcome);
+    expect(sections.find((s) => s.id === "113")?.level).toBe("B1");
+    expect(sections.find((s) => s.id === "212")?.level).toBe("L2");
+    expect(outcome.text).toContain("- 212［L2］：");
+    const demo = ok(listSectionsTool(registry(), { venue: "demo-arena", layout: "concert" }));
+    expect(demo.sections.every((s) => !("level" in s))).toBe(true);
   });
 });
 
@@ -98,7 +109,7 @@ describe("get_seat_view", () => {
   });
 
   it("近似模型一定附上免責聲明（結構化資料與摘要都有）", () => {
-    const outcome = getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "I1-1B", row: 15, seat: 58 });
+    const outcome = getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "105", row: 15, seat: 11 });
     const data = ok(outcome);
     expect(data.disclaimer).toContain("不應作為購票依據");
     expect(outcome.text).toContain("不應作為購票依據");
@@ -123,20 +134,20 @@ describe("錯誤：附代碼與改正提示", () => {
   it("這個 layout 沒開放的區 → SECTION_NOT_IN_LAYOUT，提示開放的區（不含 F1）", () => {
     const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "F1", row: 1, seat: 1 }));
     expect(error.code).toBe("SECTION_NOT_IN_LAYOUT");
-    expect(error.hint).toContain("I1-HP");
+    expect(error.hint).toContain("113");
     expect(error.hint).not.toContain("F1");
   });
 
   it("不存在的區 → UNKNOWN_SECTION，提示開放的區", () => {
-    const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "O2-RF", row: 1, seat: 1 }));
+    const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "233", row: 1, seat: 1 }));
     expect(error.code).toBe("UNKNOWN_SECTION");
-    expect(error.hint).toContain("O1-CF");
+    expect(error.hint).toContain("140");
   });
 
   it("座號超出範圍 → SEAT_OUT_OF_RANGE，訊息說明這排有幾號", () => {
-    const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "I1-HP", row: 1, seat: 999 }));
+    const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "113", row: 1, seat: 999 }));
     expect(error.code).toBe("SEAT_OUT_OF_RANGE");
-    expect(error.message).toContain("1–57");
+    expect(error.message).toContain("1–4");
   });
 });
 
@@ -147,15 +158,15 @@ describe("compare_seats", () => {
         venue: "taipei-dome",
         layout: "baseball",
         seats: [
-          { section: "O1-CF", row: 1, seat: 50 },
-          { section: "I1-HP", row: 1, seat: 29 },
-          { section: "I1-HP", row: 1, seat: 999 },
-          { section: "I1-1B", row: 15, seat: 58 },
+          { section: "140", row: 1, seat: 11 },
+          { section: "113", row: 4, seat: 3 },
+          { section: "113", row: 4, seat: 999 },
+          { section: "105", row: 15, seat: 11 },
         ],
       }),
     );
     expect(data.results.map((r) => r.ok)).toEqual([true, true, false, true]);
-    // 距離：I1-HP 前排最近、一壘側次之、中外野最遠；最正中的是 I1-HP 中央
+    // 距離：本壘後方 113 前排最近、一壘側 105 次之、中外野旁的 140 最遠；最正中的是 113 中央
     expect(data.ranking.byDistance).toEqual([1, 3, 0]);
     expect(data.ranking.byCenter[0]).toBe(1);
     expect(data.disclaimer).toContain("不應作為購票依據");

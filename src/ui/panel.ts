@@ -135,15 +135,29 @@ function rebuildIfChanged(container: HTMLElement, options: Option[], build: () =
   container.replaceChildren(...build());
 }
 
+/** 有 group 的選項依序放進同名的 optgroup（例如區依樓層分成 B1、L2）；沒有 group 的直接放。 */
 function fillSelect(select: HTMLSelectElement, options: Option[], value: string): void {
-  rebuildIfChanged(select, options, () =>
-    options.map((option) => {
+  rebuildIfChanged(select, options, () => {
+    const children: HTMLElement[] = [];
+    let group: HTMLOptGroupElement | null = null;
+    for (const option of options) {
       const element = document.createElement("option");
       element.value = option.id;
       element.textContent = option.label;
-      return element;
-    }),
-  );
+      if (option.group === undefined) {
+        group = null;
+        children.push(element);
+        continue;
+      }
+      if (group?.label !== option.group) {
+        group = document.createElement("optgroup");
+        group.label = option.group;
+        children.push(group);
+      }
+      group.append(element);
+    }
+    return children;
+  });
   select.value = value;
 }
 

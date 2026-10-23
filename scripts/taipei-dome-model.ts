@@ -1,7 +1,7 @@
 /**
- * 臺北大巨蛋近似模型（方案 B）：常數表與場館組裝。
+ * 臺北大巨蛋近似模型（官方票區版）：常數表與場館組裝。
  *   寫檔：gen-taipei-dome.ts（npm run gen:dome）
- *   看台參數擬合：fit-dome-layout.ts（npm run fit:dome）
+ *   看台排法：official-layout.ts；外框重算與平面圖：fit-dome-layout.ts（npm run fit:dome）
  *   敏感度分析：sensitivity.ts（npm run sensitivity）
  *
  * 所有數字集中在下面的 K，每個都標來源等級：
@@ -11,23 +11,22 @@
  * 座標（同 src/core/schema.ts）：m；Y 向上；場地 y = 0；平面 x 向右、z 向下；角度 0° = +x、90° = +z。
  * 原點 = 本壘到中外野牆連線的中點；本壘在 +z 側，中外野在 −z 側。
  */
-import { buildStands, circleThrough, fieldGeometry, type LayoutParams, type StandSection } from "./dome-layout.ts";
-import type { Screen } from "../src/core/schema.ts";
+import { circleThrough, fieldGeometry } from "./dome-field.ts";
+import type { Screen, Section } from "../src/core/schema.ts";
+import { officialStands, type OfficialParams } from "./official-layout.ts";
 import { screenCorners } from "../src/core/shell.ts";
 import { pointInPolygon, signedDistance, superellipsePolygon, type PlanPoint, type Superellipse } from "./outline.ts";
 
 type Grade = "A" | "B" | "C";
 interface Sourced {
   label: string;
-  value: number | string | readonly number[] | Record<string, unknown>;
+  value: number | string | readonly number[] | readonly string[] | Record<string, unknown>;
   unit?: string;
   grade: Grade;
   source: string;
 }
 
 const NOWNEWS = "https://www.nownews.com/news/6860709";
-const TN_UPPER_DECK = "https://www.taiwannews.com.tw/zh/news/5054311";
-const TN_FIRST_SALE = "https://www.taiwannews.com.tw/zh/news/5046938";
 const TN_TOTAL = "https://www.taiwannews.com.tw/zh/news/5089544";
 const TVBS = "https://news.tvbs.com.tw/sports/2429115";
 const TVBS_HEIGHT = "https://news.tvbs.com.tw/amp/english/2615405";
@@ -37,6 +36,24 @@ const ESTIMATE = "本專案估算（非量測）";
 const FIT = "npm run fit:dome 擬合結果（超橢圓外框摘要、外圈留空 3 m）";
 const CONCERT = "演唱會暫定假設（每場演出不同，非場館屬性）";
 const PHOTO = "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）";
+const GDF = "https://gdf999.com/bigdomelazybag-sara240214/";
+const WAIHANN = "https://waihann.tw/1136/taipeidome-seatview/";
+const SEAT_MAP = "使用者提供的售票座位圖（只讀區號與相對位置，不描摹、不放進 repo）";
+
+/** 票面標籤（區、排、號）：球迷照片上的實際票面；模型裡一定要有這一席。 */
+export const TICKET_LABELS = [
+  ["113", 38, 7],
+  ["102", 23, 32],
+  ["103", 38, 9],
+  ["115", 38, 9],
+  ["133", 14, 6],
+  ["142", 9, 34],
+  ["201", 15, 15],
+  ["203", 18, 26],
+  ["205", 19, 10],
+] as const;
+/** 最後一排剛好幾席（201 第 15 排有 15 號、沒有 16 號）。 */
+const EXACT_LAST_ROW = { "201": 15 } as const;
 
 export const K = {
   // ── B：新聞報導 ──
@@ -48,16 +65,27 @@ export const K = {
     grade: "B",
     source: `${NOWNEWS}（335 呎；報導數字，非官方圖面）`,
   },
-  seatsLowerDecks: {
-    label: "內野一層＋外野一層席數（錨點）",
-    value: 17000,
+  officialSections: {
+    label: "官方票區（區號、層別、相鄰關係）",
+    value: "B1 內野 102–124；B1 外野 131–137、140–146（138、139 是打者之眼）；L2 內野 201–212、214–225（213 是灰色無編號的一塊）；102、201、146 在一壘側",
+    grade: "B",
+    source: `${GDF}；${WAIHANN}；${SEAT_MAP}`,
+  },
+  ticketLabels: {
+    label: "票面標籤（區/排/號；201 第 15 排沒有第 16 號）",
+    value: TICKET_LABELS.map(([id, row, seat]) => `${id}/${row}/${seat}`).join("、"),
+    grade: "B",
+    source: `使用者整理的票面標籤，來自公開視野圖文章裡的票面照片（例如 ${WAIHANN}）`,
+  },
+  layerSeats: {
+    label: "層總席數（B−：來源之間約有 500 席的內部不一致；只回報偏差，不拿來縮放）",
+    value: { b1Infield: 13423, b1Outfield: 3826, l2Infield: 9209 },
     unit: "席",
     grade: "B",
-    source: `推算：${TN_UPPER_DECK} 約 22,000 人 − 內野二層約 4,700 ≈ 17,300；${TN_FIRST_SALE} 首波 1.3 萬＋外野約 4,000 ≈ 17,000`,
+    source: GDF,
   },
-  seatsInfieldUpper: { label: "內野二層席數（錨點）", value: 4700, unit: "席", grade: "B", source: TN_UPPER_DECK },
   seatsTotal: { label: "總席位（不建模，只說明範圍）", value: 40000, unit: "席", grade: "B", source: TN_TOTAL },
-  tierNames: { label: "層名", value: "內野一層、內野二層、外野一層", grade: "B", source: `${TVBS} 等報導` },
+  tierNames: { label: "層名", value: "B1（內野、外野）、L2（內野、外野）、L3–L5", grade: "B", source: `${WAIHANN}；${TVBS} 等報導` },
   plateZ: {
     label: "本壘板 z 座標",
     value: 60.95,
@@ -104,10 +132,14 @@ export const K = {
     grade: "C",
     source: `${OSM}；最大內縮差距 0.95 m；npm run fit:dome -- --osm <Overpass 匯出檔> 可重算`,
   },
-  outlinePlacement: { label: "外框中心在模型座標的位置", value: { x: 1, z: 6.95 }, grade: "C", source: FIT },
+  outlinePlacement: {
+    label: "外框中心在模型座標的位置（場地往中外野移 5 m）",
+    value: { x: 1, z: 11.95 },
+    grade: "C",
+    source: `原擬合值 (1, 6.95) 只放得下 33 排；官方票區的 B1 內野有 38 排，本壘後方差 3.97 m，所以把場地往中外野移 5 m（${FIT}）`,
+  },
   outlineMargin: { label: "外圈留空（看台離外框的最小距離）", value: 3, unit: "m", grade: "C", source: ESTIMATE },
   headroom: { label: "上下兩層座位之間的垂直淨空", value: 2.5, unit: "m", grade: "C", source: ESTIMATE },
-  maxLowerRows: { label: "一層排數上限", value: 30, unit: "排", grade: "C", source: "經驗上限，不是量測值" },
   foulOffset: {
     label: "一層前緣離本壘與界外線的距離",
     value: 18.3,
@@ -117,24 +149,27 @@ export const K = {
   },
   rowDepth: { label: "看台排距", value: 0.85, unit: "m", grade: "C", source: ESTIMATE },
   seatPitch: { label: "座位寬（每排席數 = 長度 ÷ 座位寬取整）", value: 0.5, unit: "m", grade: "C", source: ESTIMATE },
-  lowerDeck: { label: "一層高度", value: { rowRise: 0.35, baseHeight: 3 }, grade: "C", source: ESTIMATE },
-  upperDeck: { label: "二層高度（baseHeight = 一層後排 + 淨空）", value: { rowRise: 0.5 }, grade: "C", source: ESTIMATE },
+  lowerDeck: { label: "B1（內野、外野）高度", value: { rowRise: 0.35, baseHeight: 3 }, grade: "C", source: ESTIMATE },
+  upperDeck: { label: "L2 內野高度（baseHeight = B1 內野最後一排 + 淨空）", value: { rowRise: 0.5 }, grade: "C", source: ESTIMATE },
   outfieldClearance: { label: "外野看台離外野牆的淨空", value: 3, unit: "m", grade: "C", source: ESTIMATE },
-  fittedLayout: {
-    label: "擬合出的看台參數",
+  officialLayout: {
+    label: "官方票區的排數與寬度規則",
     value: {
-      lowerRows: 30,
-      lowerLineLength: 57.5,
-      upperStartRow: 19,
-      upperRows: 14,
-      upperLineLength: 52.5,
-      outfieldInsetDeg: 32,
-      outfieldSideRows: 21,
-      outfieldCenterRows: 30,
+      b1Rows: 38,
+      outfieldRows: 14,
+      l2Rows: { "201": 15, "202": 16, "203": 18 },
+      l2DefaultRows: 19,
+      l2StartRow: 19,
+      endCap: 1.5,
+      farBackWidth: 2,
+      eyeHalfDeg: 5,
+      outfieldWidthRow: 9,
     },
     grade: "C",
-    source: FIT,
+    source:
+      "排數的下限來自球迷照片的票面標籤；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
+  concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
   shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
@@ -185,7 +220,7 @@ export const K = {
 } as const satisfies Record<string, Sourced>;
 
 export const DISCLAIMER =
-  "本模型為依公開報導與棒球規則推算的近似模型，非官方圖面；區、排、號為模型內部編號，不對應實際票面，不應作為購票依據。";
+  "本模型為依公開報導、公開座位圖的票區編號與棒球規則推算的近似模型，非官方圖面；區號採官方票區號，但每區形狀、排與號是模型推算，只保證少數票面標籤存在，不對應實際座位位置，不應作為購票依據。";
 
 /** 每區每排的隱含座位間距必須落在這個範圍（m），否則報錯。 */
 export const SEAT_SPACING = { min: 0.45, max: 0.65 };
@@ -195,31 +230,37 @@ export const OUTLINE: Superellipse = { center: K.outlinePlacement.value, ...K.ou
 
 export const FIELD = fieldGeometry(K.plateZ.value, K.foulPole.value, K.centerField.value);
 
-/** 方案 B 的看台參數（由 K 組成）。 */
-export const DEFAULT_LAYOUT: LayoutParams = {
+/** 直線區與外野「非最遠端」的區：它們的寬度由切分決定，所以票面標籤要轉成最小寬度；弧區平分、最遠端另有規則。 */
+const WIDTH_BY_SPLIT = new Set([
+  ...["103", "104", "105", "106", "120", "121", "122", "123"],
+  ...["202", "203", "204", "205", "206", "220", "221", "222", "223", "224"],
+  ...["132", "133", "134", "135", "136", "137", "140", "141", "142", "143", "144", "145"],
+]);
+
+/** 官方票區的看台參數（由 K 組成）。票面標籤要求的席數 × 座位寬 + 半個座位寬 = 最小寬度。 */
+export const DEFAULT_OFFICIAL: OfficialParams = {
   foulOffset: K.foulOffset.value,
   rowDepth: K.rowDepth.value,
   pitch: K.seatPitch.value,
-  lower: {
-    rows: K.fittedLayout.value.lowerRows,
-    lineLength: K.fittedLayout.value.lowerLineLength,
-    ...K.lowerDeck.value,
-  },
-  upper: {
-    startRow: K.fittedLayout.value.upperStartRow,
-    rows: K.fittedLayout.value.upperRows,
-    lineLength: K.fittedLayout.value.upperLineLength,
+  outlineMargin: K.outlineMargin.value,
+  outfieldClearance: K.outfieldClearance.value,
+  b1: { rows: K.officialLayout.value.b1Rows, ...K.lowerDeck.value },
+  outfield: { rows: K.officialLayout.value.outfieldRows, ...K.lowerDeck.value, eyeHalfDeg: K.officialLayout.value.eyeHalfDeg },
+  l2: {
+    startRow: K.officialLayout.value.l2StartRow,
+    rows: K.officialLayout.value.l2Rows,
+    defaultRows: K.officialLayout.value.l2DefaultRows,
     rowRise: K.upperDeck.value.rowRise,
     headroom: K.headroom.value,
   },
-  outfield: {
-    clearance: K.outfieldClearance.value,
-    insetDeg: K.fittedLayout.value.outfieldInsetDeg,
-    sideRows: K.fittedLayout.value.outfieldSideRows,
-    centerRows: K.fittedLayout.value.outfieldCenterRows,
-    rowRise: K.lowerDeck.value.rowRise,
-    baseHeight: K.lowerDeck.value.baseHeight,
-  },
+  endCap: K.officialLayout.value.endCap,
+  farBackWidth: K.officialLayout.value.farBackWidth,
+  exactLastRow: EXACT_LAST_ROW,
+  minWidth: Object.fromEntries(
+    TICKET_LABELS.filter(([id]) => WIDTH_BY_SPLIT.has(id)).map(([id, , seat]) => [id, seat * K.seatPitch.value + K.seatPitch.value / 2]),
+  ),
+  outfieldWidthRow: K.officialLayout.value.outfieldWidthRow,
+  concertClosed: [...K.concertClosed.value],
 };
 
 // ── 幾何 ──
@@ -351,12 +392,12 @@ function wallScreen(id: string, plate: PlanPoint, outline: PlanPoint[], offsetDe
   throw new Error(`${id} 螢幕放不進穹頂輪廓`);
 }
 
-/** 每排的隱含座位間距（排長 ÷ 席數）必須合理，否則報錯。 */
-function checkSpacing(section: StandSection | ReturnType<typeof floorSection>): void {
+/** 每排的隱含座位間距（這一排實際用的長度 ÷ 席數）必須合理，否則報錯。 */
+function checkSpacing(section: Section): void {
   const rowLength = (row: number) => {
-    if (section.type === "linear") return Math.hypot(section.to.x - section.from.x, section.to.z - section.from.z);
-    const arc = section as Extract<StandSection, { type: "arc" }>;
-    return (arc.innerRadius + arc.rowDepth * row) * Math.abs(arc.toDeg - arc.fromDeg) * DEG;
+    const [start, end] = section.rowSpans?.[row] ?? [0, 1];
+    if (section.type === "linear") return Math.hypot(section.to.x - section.from.x, section.to.z - section.from.z) * (end - start);
+    return (section.innerRadius + section.rowDepth * row) * Math.abs(section.toDeg - section.fromDeg) * DEG * (end - start);
   };
   for (let row = 0; row < section.rows; row++) {
     const seats = typeof section.seatsPerRow === "number" ? section.seatsPerRow : (section.seatsPerRow[row] ?? NaN);
@@ -367,7 +408,7 @@ function checkSpacing(section: StandSection | ReturnType<typeof floorSection>): 
   }
 }
 
-function floorSection(id: string, name: string, frontZ: number) {
+function floorSection(id: string, name: string, frontZ: number): Section {
   const { fromX, toX, rows, rowDepth, seatsPerRow } = K.floorBlocks.value;
   return {
     id,
@@ -389,11 +430,28 @@ function floorSection(id: string, name: string, frontZ: number) {
 
 /** 可以替換的 C 級參數；敏感度分析用。預設值就是 K 裡的估算。 */
 export interface ModelParams {
-  layout: LayoutParams;
+  official: OfficialParams;
   strikeZoneY: number;
 }
 
-export const DEFAULT_PARAMS: ModelParams = { layout: DEFAULT_LAYOUT, strikeZoneY: K.strikeZoneY.value };
+export const DEFAULT_PARAMS: ModelParams = { official: DEFAULT_OFFICIAL, strikeZoneY: K.strikeZoneY.value };
+
+/** 這一區的總席數。 */
+export const seatCount = (s: Section): number =>
+  typeof s.seatsPerRow === "number" ? s.seatsPerRow * s.rows : s.seatsPerRow.reduce((a, b) => a + b, 0);
+
+export type Layer = keyof typeof K.layerSeats.value;
+
+/** 依官方區號分層加總（F 區不算）；拿來跟 K.layerSeats 對照偏差，不拿來縮放。 */
+export function layerTotals(sections: Section[]): Record<Layer, number> {
+  const totals: Record<Layer, number> = { b1Infield: 0, b1Outfield: 0, l2Infield: 0 };
+  for (const s of sections) {
+    const n = Number(s.id);
+    const layer = n >= 102 && n <= 124 ? "b1Infield" : n >= 131 && n <= 146 ? "b1Outfield" : n >= 201 && n <= 225 ? "l2Infield" : null;
+    if (layer) totals[layer] += seatCount(s);
+  }
+  return totals;
+}
 
 export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
   const plate = point(0, K.plateZ.value);
@@ -404,8 +462,10 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
   const lineY = K.groundLayers.value.lineY;
   const shellOutline = superellipsePolygon(OUTLINE, K.shellOutlineStepDeg.value).map((p) => point(p.x, p.z));
   const [f1z, f2z, f3z] = K.floorBlocks.value.frontZ;
-  const sections = [
-    ...buildStands(FIELD, params.layout),
+  // 看台截斷用的外框：跟不變量測試用同一個取樣（1°），留空的判斷才一致
+  const clipOutline = superellipsePolygon(OUTLINE, 1);
+  const sections: Section[] = [
+    ...officialStands(FIELD, clipOutline, params.official),
     floorSection("F1", "搖滾區 1（模型分區）", f1z),
     floorSection("F2", "搖滾區 2", f2z),
     floorSection("F3", "搖滾區 3", f3z),

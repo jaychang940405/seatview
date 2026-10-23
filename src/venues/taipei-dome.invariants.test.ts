@@ -26,25 +26,42 @@ const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
 
-// 作業指令的規格
-const SECTION_IDS = ["I1-1B", "I1-HP", "I1-3B", "I2-1B", "I2-HP", "I2-3B", "O1-RF", "O1-CF", "O1-LF", "F1", "F2", "F3"];
-const I1 = ["I1-1B", "I1-HP", "I1-3B"];
-const I2 = ["I2-1B", "I2-HP", "I2-3B"];
-const O1 = ["O1-RF", "O1-CF", "O1-LF"];
+// 官方票區（區號、層別、相鄰關係、排數下限、票面標籤：B，來源見 docs/venue-taipei-dome.md）
+const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
+const B1_INFIELD = range(102, 124);
+const B1_OUTFIELD = [...range(131, 137), ...range(140, 146)]; // 138、139 是打者之眼
+const L2_INFIELD = [...range(201, 212), ...range(214, 225)]; // 213 在座位圖上是灰色無編號的一塊，不建
+const SECTION_IDS = [...B1_INFIELD, ...B1_OUTFIELD, ...L2_INFIELD, "F1", "F2", "F3"];
+/** 不建的區：打者之眼、L2 本壘正後方的空位、L2 外野、L3–L5 */
+const NOT_BUILT = ["138", "139", "213", "233", "244", "301", "417", "509"];
+/** 票面標籤（區、排、號）：模型裡一定要有這一席 */
+const TICKET_LABELS: [string, number, number][] = [
+  ["113", 38, 7],
+  ["102", 23, 32],
+  ["103", 38, 9],
+  ["115", 38, 9],
+  ["133", 14, 6],
+  ["142", 9, 34],
+  ["201", 15, 15],
+  ["203", 18, 26],
+  ["205", 19, 10],
+];
+/** 排數（C，下限來自球迷照片的票面標籤） */
+const ROWS = { b1Infield: 38, b1Outfield: 14, l2: { "201": 15, "202": 16, "203": 18 } as Record<string, number>, l2Default: 19 };
+/** 一壘側／三壘側（從座位圖讀到的相對位置） */
+const FIRST_BASE = { b1: range(102, 112), l2: range(201, 212), outfield: range(140, 146) };
+const THIRD_BASE = { b1: range(114, 124), l2: range(214, 225), outfield: range(131, 137) };
+/** 演唱會（外野端台）時在舞台正後方、不開放的外野區（C，暫定假設） */
+const CONCERT_CLOSED = ["136", "137", "140", "141"];
 const SEAT_SPACING = { min: 0.45, max: 0.65 };
 const WALL_CLEARANCE = 3;
 const HEADROOM = 2.5; // 上下兩層座位之間的垂直淨空門檻（C）
 const ROOF_HEIGHT = 74.5; // 球場面到屋頂外側：地面以上 64 m（OSM）＋地下 10.5 m（B，TVBS）；室內淨高 72 m
-const MAX_LOWER_ROWS = 30; // 一層排數的經驗上限（C，不是量測值）
 // 外框摘要：OSM 圓頂分件（way 1304278778）兩種本壘方位交集的內接超橢圓，最大內縮差距 0.95 m。
 // 資料 © OpenStreetMap contributors（ODbL）；C 級。形狀寫死在這裡，擺放位置是建模選擇，讀 K.outlinePlacement。
 const OUTLINE_SHAPE = { semiAxisX: 79.84, semiAxisZ: 102.52, exponent: 2.5, rotationDeg: 6.25 };
 const OUTLINE_MARGIN = 3;
-// 席數錨點（B 級推算）：不超過 +10%（不誇大容量）；寬鬆下限只當回歸保護
-const SEAT_ANCHORS = {
-  lower: { anchor: 17000, min: 17000 * 0.75, max: 17000 * 1.1 },
-  upper: { anchor: 4700, min: 4700 * 0.9, max: 4700 * 1.1 },
-};
+// 層總席數（B−）只在文件裡回報偏差，不當成測試目標：不為了湊數縮放
 
 // 每個測試各自 parse：資料是空殼或壞掉時，每個案例各自失敗
 const dome = () => parseVenue(taipeiDomeJson);
@@ -123,7 +140,7 @@ describe("taipei-dome：基本結構", () => {
     expect(Object.keys(dome().layouts).sort()).toEqual(["baseball", "concert"]);
   });
 
-  it("section id 與作業指令第 3 節一致", () => {
+  it("section id = 官方票區（B1 內野、B1 外野、L2 內野）＋演唱會搖滾區", () => {
     expect(dome().sections.map((s) => s.id)).toEqual(SECTION_IDS);
   });
 
@@ -268,34 +285,47 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
   });
 });
 
-describe("taipei-dome：席數（B 級推算的錨點）", () => {
-  it("一層（內野一層 + 外野一層）不超過 17,000 + 10%；下限 −25% 只當回歸保護", () => {
-    const count = seatCount(dome(), [...I1, ...O1]);
-    expect(count).toBeLessThanOrEqual(SEAT_ANCHORS.lower.max);
-    expect(count).toBeGreaterThanOrEqual(SEAT_ANCHORS.lower.min);
+describe("taipei-dome：官方票區", () => {
+  it.each(TICKET_LABELS)("票面標籤 %s 區 %s 排 %s 號存在", (sectionId, row, seat) => {
+    expect(() => seatPosition(dome(), sectionId, row, seat)).not.toThrow();
   });
 
-  it("二層（內野二層）不超過 4,700 + 10%；下限 −10%", () => {
-    const count = seatCount(dome(), I2);
-    expect(count).toBeLessThanOrEqual(SEAT_ANCHORS.upper.max);
-    expect(count).toBeGreaterThanOrEqual(SEAT_ANCHORS.upper.min);
+  it("201 區第 15 排剛好 15 席：第 16 號不存在 → SEAT_OUT_OF_RANGE", () => {
+    expectSeatError(() => seatPosition(dome(), "201", 15, 16), "SEAT_OUT_OF_RANGE");
   });
 
-  it("baseball 開放的座位 = 一層 + 二層（沒有漏算或重複算）", () => {
+  it.each(NOT_BUILT)("沒有建的 %s 區 → UNKNOWN_SECTION", (sectionId) => {
+    expectSeatError(() => seatPosition(dome(), sectionId, 1, 1), "UNKNOWN_SECTION");
+  });
+
+  it("排數：B1 內野 38、B1 外野 14；L2 的 201、202、203 是 15、16、18，其餘 19", () => {
+    const rows = Object.fromEntries(dome().sections.map((s) => [s.id, s.rows]));
+    for (const id of B1_INFIELD) expect(rows[id], id).toBe(ROWS.b1Infield);
+    for (const id of B1_OUTFIELD) expect(rows[id], id).toBe(ROWS.b1Outfield);
+    for (const id of L2_INFIELD) expect(rows[id], id).toBe(ROWS.l2[id] ?? ROWS.l2Default);
+  });
+
+  it("baseball 開放的座位 = B1 內野 + B1 外野 + L2 內野（沒有漏算或重複算）", () => {
     const venue = dome();
     const total = listSections(venue, "baseball").reduce((sum, s) => sum + s.seatsPerRow.reduce((a, b) => a + b, 0), 0);
-    expect(total).toBe(seatCount(venue, [...I1, ...I2, ...O1]));
+    expect(total).toBe(seatCount(venue, [...B1_INFIELD, ...B1_OUTFIELD, ...L2_INFIELD]));
   });
 });
 
 describe("taipei-dome：座位排列", () => {
-  it("每區第 1 排相鄰座位距離在 0.45–0.65 m", () => {
+  it("每區每一排的相鄰座位距離都在 0.45–0.65 m（被牆截短的排也一樣）", () => {
     const venue = dome();
+    const bad: string[] = [];
     for (const id of SECTION_IDS) {
-      const gap = distance3(seatPosition(venue, id, 1, 1), seatPosition(venue, id, 1, 2));
-      expect(gap, id).toBeGreaterThanOrEqual(SEAT_SPACING.min);
-      expect(gap, id).toBeLessThanOrEqual(SEAT_SPACING.max);
+      const seats = sectionSeats(venue, id);
+      for (let i = 1; i < seats.length; i++) {
+        const [a, b] = [seats[i - 1], seats[i]];
+        if (!a || !b || a.row !== b.row) continue;
+        const gap = distance3(a.position, b.position);
+        if (gap < SEAT_SPACING.min || gap > SEAT_SPACING.max) bad.push(`${id} 第 ${a.row} 排 ${a.seat}→${b.seat}：${gap.toFixed(3)} m`);
+      }
     }
+    expect(bad.slice(0, 5)).toEqual([]);
   });
 
   // 平面太近「而且」垂直淨空不足才算重疊：允許二層懸挑在一層上方。
@@ -359,16 +389,23 @@ describe("taipei-dome：座位排列", () => {
     expect(topSeat + 1).toBeLessThan(shell.wallHeight);
   });
 
-  it("看台下方結構：二層 I2-* 是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
+  it("看台下方結構：L2 內野是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
     for (const section of dome().sections) {
-      expect(section.structure, section.id).toBe(I2.includes(section.id) ? "tier" : undefined);
+      expect(section.structure, section.id).toBe(L2_INFIELD.includes(section.id) ? "tier" : undefined);
     }
   });
 
-  it("二層 baseHeight ≥ 一層最後一排高度 + 2.5 m", () => {
+  it("樓層 level：B1 內野與外野是 B1、L2 內野是 L2；搖滾區在場地上，不屬於任何樓層", () => {
+    for (const section of dome().sections) {
+      const expected = L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1";
+      expect(section.level, section.id).toBe(expected);
+    }
+  });
+
+  it("L2 baseHeight ≥ B1 內野最後一排高度 + 2.5 m", () => {
     const venue = dome();
-    const lowerTop = Math.max(...I1.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));
-    for (const section of venue.sections.filter((s) => I2.includes(s.id))) {
+    const lowerTop = Math.max(...B1_INFIELD.flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));
+    for (const section of venue.sections.filter((s) => L2_INFIELD.includes(s.id))) {
       expect(section.baseHeight, section.id).toBeGreaterThanOrEqual(lowerTop + HEADROOM);
     }
   });
@@ -396,65 +433,46 @@ describe("taipei-dome：座位排列", () => {
     expect(tightest.clearance, `最貼近外框的是 ${tightest.id}`).toBeGreaterThanOrEqual(OUTLINE_MARGIN);
   });
 
-  it("一層每區不超過 30 排（C 級經驗上限）", () => {
-    for (const section of dome().sections.filter((s) => [...I1, ...O1].includes(s.id))) {
-      expect(section.rows, section.id).toBeLessThanOrEqual(MAX_LOWER_ROWS);
-    }
-  });
 });
 
 describe("taipei-dome：水平偏角正負號（baseball，0° = 本壘正後方）", () => {
-  it("一壘側 I1-1B 全部 > 0、三壘側 I1-3B 全部 < 0", () => {
+  it("B1 內野：一壘側 102–112 全部 > 0、三壘側 114–124 全部 < 0；本壘正後方 113 第 1 排中央 ≈ 0", () => {
     const venue = dome();
-    for (const deg of horizontalDegs(venue, "baseball", "I1-1B")) expect(deg).toBeGreaterThan(0);
-    for (const deg of horizontalDegs(venue, "baseball", "I1-3B")) expect(deg).toBeLessThan(0);
+    for (const id of FIRST_BASE.b1) for (const deg of horizontalDegs(venue, "baseball", id)) expect(deg, id).toBeGreaterThan(0);
+    for (const id of THIRD_BASE.b1) for (const deg of horizontalDegs(venue, "baseball", id)) expect(deg, id).toBeLessThan(0);
+    expectCentered(venue, "baseball", "113", 1);
   });
 
-  it("本壘後方 I1-HP 第 1 排中央座位 ≈ 0", () => {
-    expectCentered(dome(), "baseball", "I1-HP", 1);
-  });
-
-  it("內野二層：I2-1B 全部 > 0、I2-3B 全部 < 0、I2-HP 第 1 排中央座位 ≈ 0", () => {
+  it("L2 內野：一壘側 201–212 全部 > 0、三壘側 214–225 全部 < 0", () => {
     const venue = dome();
-    for (const deg of horizontalDegs(venue, "baseball", "I2-1B")) expect(deg).toBeGreaterThan(0);
-    for (const deg of horizontalDegs(venue, "baseball", "I2-3B")) expect(deg).toBeLessThan(0);
-    expectCentered(venue, "baseball", "I2-HP", 1);
+    for (const id of FIRST_BASE.l2) for (const deg of horizontalDegs(venue, "baseball", id)) expect(deg, id).toBeGreaterThan(0);
+    for (const id of THIRD_BASE.l2) for (const deg of horizontalDegs(venue, "baseball", id)) expect(deg, id).toBeLessThan(0);
   });
 
-  it("中外野 O1-CF 所有座位 |角度| ≥ 150°", () => {
-    for (const deg of horizontalDegs(dome(), "baseball", "O1-CF")) expect(Math.abs(deg)).toBeGreaterThanOrEqual(150);
-  });
-
-  it("中外野 O1-CF 每一排的中央座位 ≈ 180° ± 5°（偶數席時最中間兩席）", () => {
+  it("B1 外野：右外野 140–146 在 90°–180°、左外野 131–137 在 −180°–−90°", () => {
     const venue = dome();
-    const section = venue.sections.find((s) => s.id === "O1-CF");
-    for (let row = 1; row <= (section?.rows ?? 0); row++) {
-      const count = sectionSeats(venue, "O1-CF").filter((p) => p.row === row).length;
-      const middle = count % 2 === 1 ? [(count + 1) / 2] : [count / 2, count / 2 + 1];
-      for (const seat of middle) {
-        // ±180° 是同一個方向，所以用 |角度| ≥ 175° 表示落在 180° ± 5° 內
-        const deg = getSeatView(venue, "baseball", "O1-CF", row, seat).metrics.horizontalDeg;
-        expect(Math.abs(deg), `第 ${row} 排 ${seat} 號：${deg.toFixed(2)}°`).toBeGreaterThanOrEqual(175);
+    for (const id of FIRST_BASE.outfield) {
+      for (const deg of horizontalDegs(venue, "baseball", id)) {
+        expect(deg, id).toBeGreaterThanOrEqual(90);
+        expect(deg, id).toBeLessThanOrEqual(180);
+      }
+    }
+    for (const id of THIRD_BASE.outfield) {
+      for (const deg of horizontalDegs(venue, "baseball", id)) {
+        expect(deg, id).toBeGreaterThanOrEqual(-180);
+        expect(deg, id).toBeLessThanOrEqual(-90);
       }
     }
   });
 
-  it("右外野 O1-RF 在 90°–180°、左外野 O1-LF 在 −180°–−90°", () => {
-    const venue = dome();
-    for (const deg of horizontalDegs(venue, "baseball", "O1-RF")) {
-      expect(deg).toBeGreaterThanOrEqual(90);
-      expect(deg).toBeLessThanOrEqual(180);
-    }
-    for (const deg of horizontalDegs(venue, "baseball", "O1-LF")) {
-      expect(deg).toBeGreaterThanOrEqual(-180);
-      expect(deg).toBeLessThanOrEqual(-90);
-    }
+  it("打者之眼兩側最靠中外野的 137、140：每一席 |角度| ≥ 150°", () => {
+    for (const id of ["137", "140"]) for (const deg of horizontalDegs(dome(), "baseball", id)) expect(Math.abs(deg), id).toBeGreaterThanOrEqual(150);
   });
 });
 
 describe("taipei-dome：演唱會（暫定假設：外野端台）", () => {
-  it("中外野 O1-CF 在舞台後方，不開放 → SECTION_NOT_IN_LAYOUT", () => {
-    expectSeatError(() => getSeatView(dome(), "concert", "O1-CF", 1, 1), "SECTION_NOT_IN_LAYOUT");
+  it.each(CONCERT_CLOSED)("外野 %s 區在舞台正後方，不開放 → SECTION_NOT_IN_LAYOUT", (sectionId) => {
+    expectSeatError(() => getSeatView(dome(), "concert", sectionId, 1, 1), "SECTION_NOT_IN_LAYOUT");
   });
 
   it("搖滾區只在演唱會：baseball 查詢 F1 → SECTION_NOT_IN_LAYOUT", () => {

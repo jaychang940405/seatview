@@ -26,6 +26,8 @@ export interface SeatView {
 export interface SectionSummary {
   id: string;
   name?: string;
+  /** 樓層（例如 B1、L2）；沒有樓層的區不附 */
+  level?: string;
   rows: number;
   /** 每排座位數，長度 = rows */
   seatsPerRow: number[];
@@ -91,6 +93,7 @@ export function listSections(venue: Venue, layoutId: string): SectionSummary[] {
     .map((section) => ({
       id: section.id,
       name: section.name,
+      ...(section.level !== undefined && { level: section.level }),
       rows: section.rows,
       seatsPerRow: Array.from({ length: section.rows }, (_, i) => seatsInRow(section, i + 1)),
     }));
