@@ -11,7 +11,7 @@
  * 座標（同 src/core/schema.ts）：m；Y 向上；場地 y = 0；平面 x 向右、z 向下；角度 0° = +x、90° = +z。
  * 原點 = 本壘到中外野牆連線的中點；本壘在 +z 側，中外野在 −z 側。
  */
-import { circleThrough, fieldGeometry } from "./dome-layout.ts";
+import { circleThrough, fieldGeometry } from "./dome-field.ts";
 import type { Screen, Section } from "../src/core/schema.ts";
 import { officialStands, type OfficialParams } from "./official-layout.ts";
 import { screenCorners } from "../src/core/shell.ts";

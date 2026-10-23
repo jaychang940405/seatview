@@ -9,7 +9,7 @@
  * 每一排沿自己的線走，被穹頂外框（留 margin）截斷，所以排的長度各不相同（rowSpans）。
  */
 import type { Section } from "../src/core/schema.ts";
-import type { Field } from "./dome-layout.ts";
+import type { Field } from "./dome-field.ts";
 import { signedDistance, type PlanPoint } from "./outline.ts";
 
 const DEG = Math.PI / 180;

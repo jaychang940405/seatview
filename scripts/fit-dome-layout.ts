@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Section, Venue } from "../src/core/schema.ts";
 import { sectionOutline } from "../src/core/stand.ts";
+import { outfieldArcAngles } from "./dome-field.ts";
 import {
   areaCentroid,
   fitInscribedSuperellipse,
@@ -97,8 +98,8 @@ function planSvg(venue: Venue): string {
   const layerOf = (s: Section) => (s.id.startsWith("2") ? "l2" : Number(s.id) >= 131 ? "outfield" : "b1");
   const color = { b1: "#4477aa", l2: "#ee7733", outfield: "#228833" };
   const wall: PlanPoint[] = [];
-  const right = (Math.atan2(FIELD.rightPole.z - FIELD.wallCenter.z, FIELD.rightPole.x - FIELD.wallCenter.x) * 180) / Math.PI;
-  for (let deg = -180 - right; deg <= right + 1e-9; deg += 2) {
+  const { right, left } = outfieldArcAngles(FIELD);
+  for (let deg = left; deg <= right + 1e-9; deg += 2) {
     wall.push({ x: FIELD.wallCenter.x + FIELD.wallRadius * Math.cos(deg * DEG), z: FIELD.wallCenter.z + FIELD.wallRadius * Math.sin(deg * DEG) });
   }
   const outline = superellipsePolygon(OUTLINE, 1);
