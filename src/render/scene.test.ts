@@ -94,7 +94,8 @@ describe("dispose", () => {
       }
     });
     // 3 區 × (InstancedMesh + geometry + material) + 舞台、地板、選位標記各 (geometry + material)
-    expect(spies).toHaveLength(3 * 3 + 3 * 2);
+    // + 升高的 A1、B1 各有看台與護欄 (geometry + material)；F1 在地面，沒有
+    expect(spies).toHaveLength(3 * 3 + 3 * 2 + 2 * 2 * 2);
 
     venueScene.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalled();

@@ -4,6 +4,7 @@ import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
 import { buildOverlay } from "./overlays";
 import { buildSectionMesh, CHAIR, type ColorMode, type SectionMesh } from "./seats";
+import { buildStands } from "./stands";
 
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
 export const SECTION_COLORS = ["#4477aa", "#66ccee", "#228833", "#ccbb44", "#aa3377", "#bbbbbb"];
@@ -52,6 +53,7 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
     sections.add(sectionMesh.mesh);
   });
   scene.add(sections);
+  scene.add(buildStands(venue, layoutId));
 
   const overlays = new THREE.Group();
   overlays.name = "overlays";
