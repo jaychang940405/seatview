@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { Venue } from "../core/schema";
 import type { SeatView } from "../core/view";
 import { applyCameraPose, createSeatCamera, DEFAULT_FOV, resizeSeatCamera } from "./camera";
@@ -7,6 +8,9 @@ import { toVector3 } from "./convert";
 import { buildVenueScene, MARKER_LAYER, type VenueScene } from "./scene";
 
 // 唯一碰 DOM 與 WebGL 的模組；其餘 render 模組都能在 Node 裡測試。
+
+/** 環境光照的強度；搭配場景裡的半球光與平行光，在瀏覽器裡目視調整。 */
+const ENVIRONMENT_INTENSITY = 0.4;
 
 export type CameraMode = "seat" | "overview";
 
@@ -23,7 +27,13 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
   const baseFov = opts.fov ?? DEFAULT_FOV;
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // 色調映射選色彩最忠實的 Neutral，不把畫面風格化
+  renderer.toneMapping = THREE.NeutralToneMapping;
   container.appendChild(renderer.domElement);
+  // three 內建的室內環境光照（程式產生，不是外部貼圖），讓面與面之間有自然的明暗
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
 
   const seatCamera = createSeatCamera(1, baseFov);
   const overviewCamera = new THREE.PerspectiveCamera(45, 1, 0.5, 2000);
@@ -80,6 +90,8 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
   return {
     showVenue(venue, layoutId) {
       const next = buildVenueScene(venue, layoutId);
+      next.scene.environment = environment;
+      next.scene.environmentIntensity = ENVIRONMENT_INTENSITY;
       next.setColorMode(mode);
       venueScene?.dispose();
       venueScene = next;
@@ -102,6 +114,7 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
       observer.disconnect();
       controls.dispose();
       venueScene?.dispose();
+      environment.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },

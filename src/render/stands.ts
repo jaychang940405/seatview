@@ -78,7 +78,7 @@ function buildBody(sectionId: string, treads: RowTread[]): THREE.Mesh {
     faces.quad([at(fFirst, bottom), at(bFirst, bottom), at(bFirst, top), at(fFirst, top)], toward(fSecond, fFirst), side);
     faces.quad([at(fLast, bottom), at(bLast, bottom), at(bLast, top), at(fLast, top)], toward(fBeforeLast, fLast), side);
   }
-  const mesh = new THREE.Mesh(faces.toGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const mesh = new THREE.Mesh(faces.toGeometry(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
   mesh.name = `stand:${sectionId}`;
   return mesh;
 }
@@ -93,12 +93,13 @@ function buildParapet(sectionId: string, first: RowTread): THREE.Mesh {
     // 朝向哪一側不重要（DoubleSide），隨便給一個水平方向
     faces.quad([at(p0, first.top), at(p1, first.top), at(p1, top), at(p0, top)], new THREE.Vector3(p1.z - p0.z, 0, p0.x - p1.x), color);
   }
-  const material = new THREE.MeshLambertMaterial({
+  const material = new THREE.MeshStandardMaterial({
     color,
     transparent: true,
     opacity: PARAPET.opacity,
     side: THREE.DoubleSide,
     depthWrite: false,
+    roughness: 0.3,
   });
   const mesh = new THREE.Mesh(faces.toGeometry(), material);
   mesh.name = `parapet:${sectionId}`;

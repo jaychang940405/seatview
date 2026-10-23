@@ -39,9 +39,10 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   const layout = findLayout(venue, layoutId);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#1b1d23");
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 2));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-  sun.position.set(30, 60, 20);
+  // 室內場館：屋頂燈光從上方均勻照下。半球光給整體漫射，平行光讓踏面比踢面亮；不開陰影（燈光分散、也太吃效能）
+  scene.add(new THREE.HemisphereLight("#e6ecf5", "#2a2c33", 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun.position.set(30, 80, 20);
   scene.add(sun);
 
   const sections = new THREE.Group();
@@ -127,7 +128,7 @@ function buildFloor(bounds: THREE.Box3): THREE.Mesh {
   const center = bounds.getCenter(new THREE.Vector3());
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(size.x + 2 * FLOOR_MARGIN, size.z + 2 * FLOOR_MARGIN),
-    new THREE.MeshLambertMaterial({ color: "#2c2f38" }),
+    new THREE.MeshStandardMaterial({ color: "#2c2f38", roughness: 0.95 }),
   );
   floor.rotation.x = -Math.PI / 2; // PlaneGeometry 預設在 XY 平面，轉成躺在地上
   floor.position.set(center.x, 0, center.z);

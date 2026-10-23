@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import { parseVenue } from "../core/schema";
 import demoArenaJson from "../venues/demo-arena.json";
+import taipeiDomeJson from "../venues/taipei-dome.json";
 import { expectColorClose, expectSeatError } from "../test/helpers";
 import { createSeatCamera } from "./camera";
 import { buildVenueScene, HIGHLIGHT_COLOR, MARKER_LAYER } from "./scene";
@@ -145,6 +146,31 @@ describe("highlightSeat", () => {
   it("這個 layout 沒有的座位：不報錯、什麼都不標", () => {
     const venueScene = buildVenueScene(demo(), "baseball");
     expect(() => venueScene.highlightSeat({ sectionId: "F1", row: 1, seat: 1 })).not.toThrow();
+  });
+});
+
+describe("光線與材質", () => {
+  it("有半球光（室內漫射）與一盞從上方照下的平行光", () => {
+    const { scene } = buildVenueScene(demo(), "concert");
+    const lights: THREE.Light[] = [];
+    scene.traverse((object) => {
+      if (object instanceof THREE.Light) lights.push(object);
+    });
+    expect(lights.some((light) => light instanceof THREE.HemisphereLight)).toBe(true);
+    const sun = lights.find((light): light is THREE.DirectionalLight => light instanceof THREE.DirectionalLight);
+    expect(sun?.position.y).toBeGreaterThan(0);
+  });
+
+  it("椅子、看台、護欄、地板、舞台都用會反應光線的 MeshStandardMaterial；只有選位標記不受光", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "concert");
+    const unlit: string[] = [];
+    scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const material = object.material as THREE.Material;
+      if (object.name === "seat-marker") return;
+      if (!(material instanceof THREE.MeshStandardMaterial)) unlit.push(`${object.name}（${material.type}）`);
+    });
+    expect(unlit).toEqual([]);
   });
 });
 

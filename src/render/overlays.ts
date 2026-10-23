@@ -12,7 +12,7 @@ export function buildOverlay(overlay: Overlay): THREE.Object3D {
       const { size } = overlay;
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(size.x, size.y, size.z),
-        new THREE.MeshLambertMaterial({ color: overlay.color ?? "#d9d9d9" }),
+        new THREE.MeshStandardMaterial({ color: overlay.color ?? "#d9d9d9", roughness: 0.8 }),
       );
       mesh.position.copy(toVector3(overlay.center));
       mesh.rotation.y = planYawToRotationY(overlay.yawDeg ?? 0);

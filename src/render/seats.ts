@@ -82,7 +82,7 @@ export function buildSectionMesh(
     overview: SEAT_NEUTRAL.clone().lerp(new THREE.Color(color), OVERVIEW_TINT),
   };
   // 顏色放在 instance color，材質用白色，這樣 highlight 時換的就是實際顏色
-  const material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
   const mesh = new THREE.InstancedMesh(chairGeometry(), material, placements.length);
   mesh.name = `section:${sectionId}`;
 
