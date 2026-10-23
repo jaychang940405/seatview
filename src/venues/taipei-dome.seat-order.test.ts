@@ -11,7 +11,9 @@ import taipeiDomeJson from "./taipei-dome.json";
  * 這不代表官方票區的真實座號方向；模型的區、排、號仍是內部編號，不對應實際票面。
  */
 
-const INFIELD = ["I1-1B", "I1-HP", "I1-3B", "I2-1B", "I2-HP", "I2-3B"];
+const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
+// 內野 = B1 內野 102–124、L2 內野 201–212、214–225（213 不建）
+const INFIELD = [...range(102, 124), ...range(201, 212), ...range(214, 225)];
 const DEG = Math.PI / 180;
 
 /** 座位朝向 yawDeg 時的左手邊（平面 x 向右、z 向下）。 */
