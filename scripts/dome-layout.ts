@@ -128,15 +128,19 @@ export function buildStands(field: Field, params: LayoutParams): StandSection[] 
     baseHeight,
     seatsPerRow: arcRows(radius, rows, 90, rowDepth, pitch),
   });
-  // side = 1：一壘側（+x），−1：三壘側；前緣從本壘後方弧的端點沿界外線往外野走 length 公尺
+  // side = 1：一壘側（+x），−1：三壘側；前緣從本壘後方弧的端點沿界外線往外野走 length 公尺。
+  // 座號慣例（C，照片佐證只有 113、114 區）：面向場地時往左增加。
+  // 一壘側的左手邊是本壘方向，所以從界外桿那端編起；三壘側的左手邊是界外桿方向，從本壘端編起。
   const line = (id: string, name: string, offset: number, length: number, rows: number, rowRise: number, baseHeight: number, side: 1 | -1): LinearStand => {
-    const from = point(plate.x + side * offset * S45, plate.z + offset * S45);
+    const homeEnd = point(plate.x + side * offset * S45, plate.z + offset * S45);
+    const poleEnd = point(homeEnd.x + side * length * S45, homeEnd.z - length * S45);
+    const [from, to] = side === 1 ? [poleEnd, homeEnd] : [homeEnd, poleEnd];
     return {
       id,
       name,
       type: "linear",
       from,
-      to: point(from.x + side * length * S45, from.z - length * S45),
+      to,
       facing: point(plate.x, plate.z),
       rows,
       rowDepth,
