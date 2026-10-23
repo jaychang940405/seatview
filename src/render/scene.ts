@@ -3,7 +3,7 @@ import type { Vec3, Venue } from "../core/schema";
 import { seatPosition } from "../core/seat";
 import { findLayout, listSections } from "../core/view";
 import { buildOverlay } from "./overlays";
-import { buildSectionMesh, SEAT_SIZE, type SectionMesh } from "./seats";
+import { buildSectionMesh, SEAT_SIZE, type ColorMode, type SectionMesh } from "./seats";
 
 /** 各區輪流使用的顏色（Paul Tol bright，扣掉留給選位的紅色）。 */
 export const SECTION_COLORS = ["#4477aa", "#66ccee", "#228833", "#ccbb44", "#aa3377", "#bbbbbb"];
@@ -28,6 +28,8 @@ export interface VenueScene {
   focus: Vec3;
   /** 把一個座位換成 HIGHLIGHT_COLOR；傳 null 或找不到的座位就只清除舊的 */
   highlightSeat(ref: SeatRef | null): void;
+  /** 座位視角用中性色，鳥瞰混入分區色；選中的座位維持 HIGHLIGHT_COLOR */
+  setColorMode(mode: ColorMode): void;
   dispose(): void;
 }
 
@@ -82,6 +84,9 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
       const seat = seatPosition(venue, ref.sectionId, ref.row, ref.seat);
       marker.position.set(seat.x, seat.y + SEAT_SIZE.height + MARKER.hover + MARKER.height / 2, seat.z);
       marker.visible = true;
+    },
+    setColorMode() {
+      throw new Error("not implemented");
     },
     dispose() {
       scene.traverse((object) => {

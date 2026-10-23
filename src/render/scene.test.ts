@@ -5,7 +5,7 @@ import demoArenaJson from "../venues/demo-arena.json";
 import { expectColorClose, expectSeatError } from "../test/helpers";
 import { createSeatCamera } from "./camera";
 import { buildVenueScene, HIGHLIGHT_COLOR, MARKER_LAYER } from "./scene";
-import { SEAT_SIZE } from "./seats";
+import { CHAIR, SEAT_NEUTRAL } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
 
@@ -60,7 +60,7 @@ describe("選位標記", () => {
     // A1 第 1 排 16 號的座位地面在 (0, 3, 30)
     expect(marker?.position.x).toBeCloseTo(0);
     expect(marker?.position.z).toBeCloseTo(30);
-    expect(marker?.position.y).toBeGreaterThan(3 + SEAT_SIZE.height);
+    expect(marker?.position.y).toBeGreaterThan(3 + CHAIR.backTop);
   });
 
   it("清除選取，或選到這個 layout 沒有的座位 → 隱藏", () => {
@@ -144,5 +144,35 @@ describe("highlightSeat", () => {
   it("這個 layout 沒有的座位：不報錯、什麼都不標", () => {
     const venueScene = buildVenueScene(demo(), "baseball");
     expect(() => venueScene.highlightSeat({ sectionId: "F1", row: 1, seat: 1 })).not.toThrow();
+  });
+});
+
+describe("setColorMode", () => {
+  it("座位視角：每一區都是中性色；鳥瞰：每一區混入自己的分區色，彼此不同", () => {
+    const venueScene = buildVenueScene(demo(), "concert");
+    const a1 = sectionMesh(venueScene.scene, "A1");
+    const b1 = sectionMesh(venueScene.scene, "B1");
+
+    venueScene.setColorMode("seat");
+    expectColorClose(colorAt(a1, 0), SEAT_NEUTRAL);
+    expectColorClose(colorAt(b1, 0), SEAT_NEUTRAL);
+
+    venueScene.setColorMode("overview");
+    expect(colorAt(a1, 0).equals(colorAt(b1, 0))).toBe(false);
+    expect(colorAt(a1, 0).equals(SEAT_NEUTRAL)).toBe(false);
+  });
+
+  it("切換模式後選中的座位仍是 HIGHLIGHT_COLOR；換選時，前一個恢復成目前模式的顏色", () => {
+    const venueScene = buildVenueScene(demo(), "concert");
+    const a1 = sectionMesh(venueScene.scene, "A1");
+    venueScene.highlightSeat({ sectionId: "A1", row: 1, seat: 1 });
+
+    venueScene.setColorMode("overview");
+    expectColorClose(colorAt(a1, 0), HIGHLIGHT_COLOR);
+    venueScene.setColorMode("seat");
+    expectColorClose(colorAt(a1, 0), HIGHLIGHT_COLOR);
+
+    venueScene.highlightSeat({ sectionId: "B1", row: 1, seat: 1 });
+    expectColorClose(colorAt(a1, 0), SEAT_NEUTRAL);
   });
 });
