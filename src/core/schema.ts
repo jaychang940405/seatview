@@ -81,6 +81,19 @@ const MetaSchema = z.object({
   provenance: z.array(ProvenanceSchema),
 });
 
+/** 穹頂外殼：底面輪廓（不重複起點）、牆頂高度、室內屋頂最高點（m）。 */
+const ShellSchema = z
+  .object({
+    outline: z.array(PlanPointSchema).min(3),
+    wallHeight: z.number().positive(),
+    roofHeight: z.number().positive(),
+  })
+  .superRefine((shell, ctx) => {
+    if (shell.roofHeight <= shell.wallHeight) {
+      ctx.addIssue({ code: "custom", path: ["roofHeight"], message: "屋頂最高點必須高於牆頂" });
+    }
+  });
+
 const LayoutSchema = z.object({
   name: z.string(),
   focus: FocusSchema,
@@ -95,6 +108,7 @@ export const VenueSchema = z
     sections: z.array(SectionSchema).min(1),
     layouts: z.record(z.string(), LayoutSchema),
     meta: MetaSchema.optional(),
+    shell: ShellSchema.optional(),
   })
   .superRefine((venue, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -143,6 +157,7 @@ export type Overlay = z.infer<typeof OverlaySchema>;
 export type Layout = z.infer<typeof LayoutSchema>;
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 export type VenueMeta = z.infer<typeof MetaSchema>;
+export type Shell = z.infer<typeof ShellSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
 
 /** 驗證場館 JSON；格式錯誤時丟 ZodError。 */

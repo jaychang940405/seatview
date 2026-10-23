@@ -127,6 +127,33 @@ describe("parseVenue：overlay 類型 polygon（球場地面、投手丘）", ()
   });
 });
 
+describe("parseVenue：選填的 shell（穹頂外殼：牆與屋頂）", () => {
+  const shell = {
+    outline: [
+      { x: -50, z: -50 },
+      { x: 50, z: -50 },
+      { x: 50, z: 50 },
+      { x: -50, z: 50 },
+    ],
+    wallHeight: 38,
+    roofHeight: 72,
+  };
+
+  it("沒寫就是 undefined；有寫就完整保留", () => {
+    expect(parseVenue(demoArenaJson).shell).toBeUndefined();
+    expect(parseVenue({ ...demoCopy(), shell }).shell).toEqual(shell);
+  });
+
+  it("屋頂不高於牆頂 → 驗證錯誤", () => {
+    expect(issuePaths({ ...demoCopy(), shell: { ...shell, roofHeight: 38 } })).toEqual(["shell.roofHeight"]);
+  });
+
+  it("輪廓少於 3 點、牆高不是正數 → 驗證錯誤", () => {
+    expect(issuePaths({ ...demoCopy(), shell: { ...shell, outline: shell.outline.slice(0, 2) } })).toEqual(["shell.outline"]);
+    expect(issuePaths({ ...demoCopy(), shell: { ...shell, wallHeight: 0 } })).toEqual(["shell.wallHeight"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();

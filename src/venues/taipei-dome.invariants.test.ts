@@ -4,7 +4,7 @@ import { parseVenue } from "../core/schema";
 import { sectionSeats, seatPosition } from "../core/seat";
 import { getSeatView, listSections } from "../core/view";
 import { expectSeatError } from "../test/helpers";
-import { signedDistance, superellipsePolygon } from "../../scripts/outline.ts";
+import { pointInPolygon, signedDistance, superellipsePolygon } from "../../scripts/outline.ts";
 import { K } from "../../scripts/taipei-dome-model.ts";
 import taipeiDomeJson from "./taipei-dome.json";
 
@@ -344,6 +344,19 @@ describe("taipei-dome：座位排列", () => {
       }
     }
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
+  });
+
+  it("穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 38 m 高於最高的座椅；所有座位在底面輪廓內", () => {
+    const venue = dome();
+    const shell = venue.shell;
+    if (!shell) throw new Error("沒有 shell");
+    expect(shell.roofHeight).toBe(72);
+    expect(shell.roofHeight).toBeLessThanOrEqual(ROOF_HEIGHT);
+    expect(shell.wallHeight).toBe(38);
+    const outside = venue.sections.flatMap((s) => sectionSeats(venue, s.id).filter((seat) => !pointInPolygon(shell.outline, seat.position)));
+    expect(outside).toHaveLength(0);
+    const topSeat = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((seat) => seat.position.y)));
+    expect(topSeat + 1).toBeLessThan(shell.wallHeight);
   });
 
   it("看台下方結構：二層 I2-* 是懸挑樓板（tier），其他區用預設的實心（solid）", () => {

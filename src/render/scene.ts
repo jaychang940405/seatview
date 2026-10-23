@@ -31,6 +31,8 @@ export interface VenueScene {
   highlightSeat(ref: SeatRef | null): void;
   /** 座位視角用中性色，鳥瞰混入分區色；選中的座位維持 HIGHLIGHT_COLOR */
   setColorMode(mode: ColorMode): void;
+  /** 鳥瞰（除錯）時藏起屋頂與格柵，才看得到裡面 */
+  setRoofVisible(visible: boolean): void;
   dispose(): void;
 }
 
@@ -90,6 +92,9 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
       const seat = seatPosition(venue, ref.sectionId, ref.row, ref.seat);
       marker.position.set(seat.x, seat.y + CHAIR.backTop + MARKER.hover + MARKER.height / 2, seat.z);
       marker.visible = true;
+    },
+    setRoofVisible() {
+      throw new Error("not implemented");
     },
     setColorMode(mode) {
       colorMode = mode;
