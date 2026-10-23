@@ -296,3 +296,38 @@
 - 文件寫法：席數寫成約為報導推算值的幾成，不寫成已湊齊；屋頂註明口徑；30 排是 C 級經驗上限。
 - 補三項測試：界外線終點、內野二層的偏角、分析腳本的對稱與雙算法。
 - 仍待確認：「O1-CF 的 |角度| > 170」的原意是中央座位還是全部座位（目前照中央座位檢查）。
+
+---
+
+## 2026-10-23｜MCP server（作業 bonus）
+
+**問題**：怎麼讓 AI 助理直接查座位視野，又不在 MCP 這一層重寫計算？
+
+**AI 建議**
+
+1. **放 `src/mcp`，不放 `packages/mcp`**：直接使用 `src/core`，共用 tsconfig、Vitest、typecheck；`main.ts` 沒有 import MCP，SDK 不會被打包進網頁。
+2. **執行方式：用 Node 直接跑 TypeScript，不需要 build**
+   - core 的相對 import 補上 `.ts`，只改 import 字串，函式一個都沒動。
+   - 另一個選項是 `vite build --ssr`，但改完程式碼要記得重新 build，不然會跑到舊版。
+3. **5 個 tool**：`list_venues`、`list_sections`、`get_seat_view`、`compare_seats`、`get_venue_provenance`。
+   - 處理函式（`tools.ts`）只用 core、不碰 SDK，方便單元測試；`server.ts` 只負責註冊。
+   - 輸入、輸出都用 zod schema；venue 用 enum 列出所有場館；全部標成唯讀。
+   - 成功回傳結構化資料加中文摘要；錯誤回傳 `isError`，附錯誤代碼與改正提示。
+   - 近似模型一定附上免責聲明。
+   - `get_venue_provenance` 讓 AI 能引用每個數字的 A／B／C 等級，避免把 C 級估算講成事實。
+4. **依賴**：只新增官方 SDK（1.32.1，MIT，支援 zod 4）。不加 `@types/node`，沿用小型宣告檔，補上 `readdirSync` 和 `process.stderr`。
+5. **方位標籤的「正後方」改成「背面」**：棒球的 0° 本來就叫「本壘正後方」，避免混淆。
+
+**過程中發現的問題**
+- **Vitest 會過、Node 卻跑不動**：`ToolFailure` 用了建構子參數屬性，Vitest 的編譯器支援，Node 的型別剝除不支援，`npm run mcp` 會直接報錯。
+  - 修正：改成明確宣告欄位。
+  - 預防：tsconfig 開 `erasableSyntaxOnly`，以後這類語法 typecheck 就會擋下（驗證過：放回參數屬性會出現 TS1294）。
+- **SDK 怎麼處理不合法的輸入**：先查了原始碼，確認輸入、輸出不符合 schema 時都回傳 `isError`，不會拋例外。所以端到端測試只要檢查 `isError` 不是 true，就能同時確認結構化資料符合 `outputSchema`。
+
+**驗證**
+- 測試先行：處理函式 26 項、server 端到端 7 項，都先看到紅燈（空殼丟出 not implemented）再實作。全專案 215 項通過。
+- 真正的 stdio：用 SDK 的 `StdioClientTransport` 啟動 `node src/mcp/main.ts`，244 ms 連上，5 個 tool 都回傳結構化資料；stdout 只有協定訊息，啟動訊息在 stderr。
+- 文件：`docs/mcp.md`。
+
+**我的取捨**
+- 放 `src/mcp`、執行方式 A（core 的 import 補 `.ts`）、5 個 tool 都做、不加 `@types/node`。

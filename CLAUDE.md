@@ -43,4 +43,5 @@
 - 測試：`npm test`（監看模式：`npm run test:watch`）
 - 型別檢查：`npm run typecheck`
 - 建置：`npm run build`
+- MCP server：`npm run mcp`（stdio；說明見 docs/mcp.md）
 - 版本：TypeScript 7、Vite 8、Vitest 5（Node 22）
