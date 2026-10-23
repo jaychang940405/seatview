@@ -311,11 +311,22 @@ describe("taipei-dome：水平偏角正負號（baseball，0° = 本壘正後方
     expectCentered(venue, "baseball", "I2-HP", 1);
   });
 
-  it("中外野 O1-CF 中央座位 |角度| > 170", () => {
+  it("中外野 O1-CF 所有座位 |角度| ≥ 150°", () => {
+    for (const deg of horizontalDegs(dome(), "baseball", "O1-CF")) expect(Math.abs(deg)).toBeGreaterThanOrEqual(150);
+  });
+
+  it("中外野 O1-CF 每一排的中央座位 ≈ 180° ± 5°（偶數席時最中間兩席）", () => {
     const venue = dome();
-    const count = sectionSeats(venue, "O1-CF").filter((p) => p.row === 1).length;
-    const seat = Math.ceil(count / 2);
-    expect(Math.abs(getSeatView(venue, "baseball", "O1-CF", 1, seat).metrics.horizontalDeg)).toBeGreaterThan(170);
+    const section = venue.sections.find((s) => s.id === "O1-CF");
+    for (let row = 1; row <= (section?.rows ?? 0); row++) {
+      const count = sectionSeats(venue, "O1-CF").filter((p) => p.row === row).length;
+      const middle = count % 2 === 1 ? [(count + 1) / 2] : [count / 2, count / 2 + 1];
+      for (const seat of middle) {
+        // ±180° 是同一個方向，所以用 |角度| ≥ 175° 表示落在 180° ± 5° 內
+        const deg = getSeatView(venue, "baseball", "O1-CF", row, seat).metrics.horizontalDeg;
+        expect(Math.abs(deg), `第 ${row} 排 ${seat} 號：${deg.toFixed(2)}°`).toBeGreaterThanOrEqual(175);
+      }
+    }
   });
 
   it("右外野 O1-RF 在 90°–180°、左外野 O1-LF 在 −180°–−90°", () => {
