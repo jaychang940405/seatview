@@ -21,7 +21,8 @@ const FOUL_POLE = 102.11; // 335 呎（B）
 const BASE_PATH = 27.43; // 90 呎（A）
 const PLATE_TO_PITCHER = 18.44; // 60 呎 6 吋（A）
 const PLATE_TO_SECOND = 38.8; // A
-const INFIELD_ARC = 28.96; // 內野紅土弧半徑 95 呎（規則值；外觀用）
+const INFIELD_ARC = 28.96; // 內野弧半徑 95 呎（規則值）；大巨蛋是人工草皮，弧只畫成白線
+const BASE_CUTOUT = 4.5; // 一壘、三壘紅土方塊邊長（C，依照片目視估計）
 const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
@@ -224,8 +225,25 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
   const polygons = () => (dome().layouts.baseball?.overlays ?? []).filter((o) => o.type === "polygon");
   const pitcher = { x: PLATE.x, z: PLATE.z - PLATE_TO_PITCHER };
 
-  it("七層地面，由下往上：界外地紅土、界內草皮、警戒區、內野紅土、內野草皮、本壘圓、投手丘", () => {
-    expect(polygons().map((o) => o.id)).toEqual(["field-dirt", "fair-grass", "warning-track", "infield-dirt", "infield-grass", "home-circle", "mound"]);
+  it("人工草皮內野，由下往上：界外地紅土、界內草皮、警戒區、一壘與三壘紅土方塊、本壘圓、投手丘（沒有整片內野紅土）", () => {
+    expect(polygons().map((o) => o.id)).toEqual(["field-dirt", "fair-grass", "warning-track", "first-base-dirt", "third-base-dirt", "home-circle", "mound"]);
+  });
+
+  it(`一壘、三壘紅土方塊：邊長 ${BASE_CUTOUT} m 的正方形，中心在壘包、邊與壘線平行`, () => {
+    const venue = dome();
+    const [, first, , third] = polyline(venue, "infield");
+    for (const [id, base] of [["first-base-dirt", first], ["third-base-dirt", third]] as const) {
+      const square = polygon(venue, id).points;
+      expect(square, id).toHaveLength(4);
+      expectWithin(planDistance(centroid(square), base ?? { x: NaN, z: NaN }), 0, 0.01);
+      for (let i = 0; i < 4; i++) {
+        const a = square[i] ?? { x: NaN, z: NaN };
+        const b = square[(i + 1) % 4] ?? { x: NaN, z: NaN };
+        expectWithin(planDistance(a, b), BASE_CUTOUT, 0.01);
+        // 壘線方向是 ±45°，所以每條邊的 |dx| = |dz|
+        expectWithin(Math.abs(Math.abs(b.x - a.x) - Math.abs(b.z - a.z)), 0, 0.01);
+      }
+    }
   });
 
   it("每個 polygon 的頂點與高度都是有限數", () => {
@@ -246,9 +264,9 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
     }
   });
 
-  it(`內野紅土：以投手板為圓心、半徑 ${INFIELD_ARC} m（95 呎）的弧，兩端落在界外線上`, () => {
-    const [first, ...arc] = polygon(dome(), "infield-dirt").points;
-    expect(first).toEqual(PLATE);
+  it(`內野弧是畫在草皮上的白線：以投手板為圓心、半徑 ${INFIELD_ARC} m（95 呎），兩端落在界外線上`, () => {
+    const arc = polyline(dome(), "infield-arc");
+    expect(arc.length).toBeGreaterThan(2);
     for (const p of arc) expectWithin(planDistance(p, pitcher), INFIELD_ARC, 0.01);
     expectWithin(Math.abs(angleFromCenterLine(arc[0] ?? PLATE)), 45, 0.01);
     expectWithin(Math.abs(angleFromCenterLine(arc.at(-1) ?? PLATE)), 45, 0.01);
@@ -278,7 +296,7 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
 
   it("線條畫在平面地面之上：界外線、內野線、外野牆的 y 都高於每一層平面 polygon", () => {
     const flatTop = Math.max(...polygons().flatMap((o) => (o.type === "polygon" && o.height === undefined ? [o.y ?? 0] : [])));
-    for (const id of ["foul-line-left", "foul-line-right", "infield", "outfield-wall"]) {
+    for (const id of ["foul-line-left", "foul-line-right", "infield", "infield-arc", "outfield-wall"]) {
       const line = overlay(dome(), "baseball", id);
       expect(line.type === "polyline" ? (line.y ?? 0) : Number.NaN, id).toBeGreaterThan(flatTop);
     }
