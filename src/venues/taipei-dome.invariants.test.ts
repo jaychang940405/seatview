@@ -26,6 +26,24 @@ const BASE_CUTOUT = 4.5; // 一壘、三壘紅土方塊邊長（C，依照片目
 const FENCE = { height: 2.5, thickness: 0.3 }; // 全壘打牆（C，依照片目視估計）
 const POLE_HEIGHT = 18; // 界外桿高（C，依照片目視估計）
 const EYE_HALF_DEG = 5; // 打者之眼：中外野 ±5°（C）
+const WALL_HEIGHT = 44; // 穹頂牆頂（C）：L5 示意量體要放得下，從 38 m 調高
+const L4_ROWS = 6; // L4 每區只有 6 排（B，NOWnews）；L3、L5 也先用 6 排（C）
+const UPPER_FLOOR_GAP = 4; // 上層看台一層疊一層的垂直間距（C）
+/** 示意量體：打者之眼、L2 外野、L3–L5 內野（L3 本壘後方是包廂，不畫座位） */
+const MASSING = {
+  "batters-eye": "B1",
+  "upper-L2-outfield-left": "L2",
+  "upper-L2-outfield-eye": "L2",
+  "upper-L2-outfield-right": "L2",
+  "upper-L3-1b": "L3",
+  "upper-L3-3b": "L3",
+  "upper-L4-1b": "L4",
+  "upper-L4-home": "L4",
+  "upper-L4-3b": "L4",
+  "upper-L5-1b": "L5",
+  "upper-L5-home": "L5",
+  "upper-L5-3b": "L5",
+} as Record<string, string>;
 const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
@@ -380,6 +398,37 @@ describe("taipei-dome：示意量體（只畫外觀，不能查詢）", () => {
     expect([eye.rows, eye.rowDepth, eye.rowRise, eye.baseHeight]).toEqual([outfield.rows, outfield.rowDepth, outfield.rowRise, outfield.baseHeight]);
   });
 
+  it("示意量體有哪些：打者之眼、L2 外野三段、L3 一三壘側、L4 與 L5 的一三壘側與本壘後方；樓層各自標好", () => {
+    const massing = dome().sections.filter((s) => s.massing === true);
+    expect(Object.fromEntries(massing.map((s) => [s.id, s.level]))).toEqual(MASSING);
+  });
+
+  it(`L3–L5 每層 ${L4_ROWS} 排，都是懸挑樓板；同一層的三段高度相同，上一層比下一層高 ${UPPER_FLOOR_GAP} m`, () => {
+    const venue = dome();
+    const base = (level: string) => {
+      const heights = venue.sections.filter((s) => s.massing && s.level === level).map((s) => s.baseHeight);
+      expect(new Set(heights).size, level).toBe(1);
+      return heights[0] ?? NaN;
+    };
+    for (const s of venue.sections.filter((x) => x.massing && /^L[345]$/.test(x.level ?? ""))) {
+      expect(s.rows, s.id).toBe(L4_ROWS);
+      expect(s.structure, s.id).toBe("tier");
+    }
+    expectWithin(base("L4") - base("L3"), UPPER_FLOOR_GAP, 1e-6);
+    expectWithin(base("L5") - base("L4"), UPPER_FLOOR_GAP, 1e-6);
+  });
+
+  it("L2 外野疊在 B1 外野上方：每一席的高度都比 B1 外野最後一排高，是懸挑樓板；中間一段是深色的打者之眼", () => {
+    const venue = dome();
+    const b1Top = Math.max(...sectionSeats(venue, "140").map((p) => p.position.y));
+    for (const id of ["upper-L2-outfield-left", "upper-L2-outfield-eye", "upper-L2-outfield-right"]) {
+      expect(Math.min(...sectionSeats(venue, id).map((p) => p.position.y)), id).toBeGreaterThan(b1Top);
+      expect(venue.sections.find((s) => s.id === id)?.structure, id).toBe("tier");
+    }
+    const eye = venue.sections.find((s) => s.id === "upper-L2-outfield-eye");
+    expect(eye?.seatColor).toBe(venue.sections.find((s) => s.id === "batters-eye")?.seatColor);
+  });
+
   it("量體的 id 不是官方票區號，查詢一律 UNKNOWN_SECTION（138、139 也還是）", () => {
     expect(massing().length).toBeGreaterThan(0);
     for (const s of massing()) {
@@ -480,28 +529,29 @@ describe("taipei-dome：座位排列", () => {
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
   });
 
-  it("穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 38 m 高於最高的座椅；所有座位在底面輪廓內", () => {
+  it(`穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 ${WALL_HEIGHT} m 高於最高的座椅（含示意量體）；所有座位在底面輪廓內`, () => {
     const venue = dome();
     const shell = venue.shell;
     if (!shell) throw new Error("沒有 shell");
     expect(shell.roofHeight).toBe(72);
     expect(shell.roofHeight).toBeLessThanOrEqual(ROOF_HEIGHT);
-    expect(shell.wallHeight).toBe(38);
+    expect(shell.wallHeight).toBe(WALL_HEIGHT);
     const outside = venue.sections.flatMap((s) => sectionSeats(venue, s.id).filter((seat) => !pointInPolygon(shell.outline, seat.position)));
     expect(outside).toHaveLength(0);
     const topSeat = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((seat) => seat.position.y)));
     expect(topSeat + 1).toBeLessThan(shell.wallHeight);
   });
 
-  it("看台下方結構：L2 內野是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
+  it("看台下方結構：L2 內野與上層示意量體是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
     for (const section of dome().sections) {
-      expect(section.structure, section.id).toBe(L2_INFIELD.includes(section.id) ? "tier" : undefined);
+      const tier = L2_INFIELD.includes(section.id) || section.id.startsWith("upper-");
+      expect(section.structure, section.id).toBe(tier ? "tier" : undefined);
     }
   });
 
   it("樓層 level：B1 內野與外野是 B1、L2 內野是 L2；搖滾區在場地上，不屬於任何樓層", () => {
     for (const section of dome().sections) {
-      const expected = L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1";
+      const expected = MASSING[section.id] ?? (L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1");
       expect(section.level, section.id).toBe(expected);
     }
   });
