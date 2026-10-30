@@ -44,6 +44,21 @@ export interface OfficialParams {
   concertClosed: string[];
   /** 打者之眼的座椅顏色（只畫外觀的示意量體） */
   eyeSeatColor: string;
+  /**
+   * 上層看台的示意量體（只畫外觀、不能查詢）：
+   * L3–L5 疊在 L2 第 overL2Row 排以後的正上方，每層 rows 排、往上 floorGap；noHomeArc 的層本壘後方不畫（包廂）。
+   * L2 外野疊在 B1 外野第 outfieldOverRow 排以後的正上方。
+   */
+  upper: {
+    levels: string[];
+    noHomeArc: string[];
+    overL2Row: number;
+    rows: number;
+    rowRise: number;
+    floorGap: number;
+    outfieldOverRow: number;
+    outfieldRows: number;
+  };
 }
 
 /** 同一個 key 只算一次：同一排的截斷長度每一區都要用，不用每區重算。 */
@@ -230,9 +245,13 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const radiusOf = (r: number) => innerRadius + (r - 1) * rowDepth;
   const ofPoint = (radius: number, deg: number) => ({ x: center.x + radius * Math.cos(deg * DEG), z: center.z + radius * Math.sin(deg * DEG) });
   const eye = params.outfield.eyeHalfDeg;
+  /** 外野某個半徑的一排，從打者之眼邊緣往界外桿方向，在外框內能走到的角度 */
+  const outfieldLimitOn = (sign: 1 | -1) =>
+    memo((radius: number) => -90 + sign * eye + sign * reach((d) => inside(ofPoint(radius, -90 + sign * eye + sign * d)), 75, 0.5));
+  const outfieldLimits = { 1: outfieldLimitOn(1), [-1]: outfieldLimitOn(-1) };
   const outfieldSide = (sign: 1 | -1, nearFromCenter: string[], farId: string) => {
     const eyeEdge = -90 + sign * eye;
-    const limit = memo((radius: number) => eyeEdge + sign * reach((d) => inside(ofPoint(radius, eyeEdge + sign * d)), 75, 0.5));
+    const limit = outfieldLimits[sign];
     const rows = params.outfield.rows;
     const front = limit(radiusOf(1));
     // 取到 0.001° 時往中外野那側取整：四捨五入可能讓最後一排少不到 1 mm，剛好放不下最後一席
@@ -308,7 +327,99 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     rowSpans: eyeSpans,
   };
 
+  // ── 上層看台的示意量體（只畫外觀、不能查詢；id 不用官方票區號）
+  const massing: Section[] = [battersEye];
+  const up = params.upper;
+  const tierBase = (id: string, level: string, rows: number, baseHeight: number) => ({
+    id,
+    level,
+    massing: true as const,
+    structure: "tier" as const,
+    rows,
+    rowDepth,
+    rowRise: up.rowRise,
+    baseHeight: mm(baseHeight),
+  });
+
+  // L3–L5：沿 L2 的線與弧，從 L2 第 overL2Row 排正上方開始，一層比一層高 floorGap
+  const upperOffset = (r: number) => layers.l2.firstOffset + (up.overL2Row - 1 + r - 1) * rowDepth;
+  const overL2Height = layers.l2.baseHeight + (up.overL2Row - 1) * layers.l2.rowRise;
+  const upperLine = (id: string, level: string, side: 1 | -1, baseHeight: number) => {
+    const reaches = Array.from({ length: up.rows }, (_, i) => lineReach(side, upperOffset(i + 1)));
+    const [s0, s1] = [0, Math.max(...reaches)];
+    const seatsPerRow: number[] = [];
+    const rowSpans: [number, number][] = [];
+    for (const r of reaches) {
+      const { seats, span } = centeredSpan([s0, r], pitch);
+      seatsPerRow.push(seats);
+      rowSpans.push(side === 1 ? [frac((s1 - span[1]) / (s1 - s0)), frac((s1 - span[0]) / (s1 - s0))] : [frac((span[0] - s0) / (s1 - s0)), frac((span[1] - s0) / (s1 - s0))]);
+    }
+    finish(id, seatsPerRow);
+    const [from, to] = side === 1 ? [linePoint(side, upperOffset(1), s1), linePoint(side, upperOffset(1), s0)] : [linePoint(side, upperOffset(1), s0), linePoint(side, upperOffset(1), s1)];
+    massing.push({
+      ...tierBase(id, level, up.rows, baseHeight),
+      type: "linear",
+      from: point(from.x, from.z),
+      to: point(to.x, to.z),
+      facing: point(plate.x, plate.z),
+      seatsPerRow,
+      rowSpans,
+    });
+  };
+  const upperArc = (id: string, level: string, baseHeight: number) => {
+    const seatsPerRow: number[] = [];
+    const rowSpans: [number, number][] = [];
+    for (let r = 1; r <= up.rows; r++) {
+      const radius = upperOffset(r);
+      const [lo, hi] = arcReach(radius);
+      const { seats, span } = centeredSpan([Math.max(45, lo) * DEG * radius, Math.min(135, hi) * DEG * radius], pitch);
+      seatsPerRow.push(seats);
+      rowSpans.push([frac((span[0] / radius / DEG - 45) / 90), frac((span[1] / radius / DEG - 45) / 90)]);
+    }
+    finish(id, seatsPerRow);
+    massing.push({ ...tierBase(id, level, up.rows, baseHeight), type: "arc", center: point(plate.x, plate.z), innerRadius: mm(upperOffset(1)), fromDeg: 45, toDeg: 135, seatsPerRow, rowSpans });
+  };
+  up.levels.forEach((level, k) => {
+    const baseHeight = overL2Height + (k + 1) * up.floorGap;
+    upperLine(`upper-${level}-1b`, level, 1, baseHeight);
+    if (!up.noHomeArc.includes(level)) upperArc(`upper-${level}-home`, level, baseHeight);
+    upperLine(`upper-${level}-3b`, level, -1, baseHeight);
+  });
+
+  // L2 外野：從 B1 外野第 outfieldOverRow 排正上方開始；左右兩段到外框，中間 ±eye 是深色的打者之眼
+  const outfieldRadius = (r: number) => radiusOf(up.outfieldOverRow + r - 1);
+  const outfieldBase = params.outfield.baseHeight + (up.outfieldOverRow - 1) * params.outfield.rowRise + up.floorGap;
+  const upperOutfield = (id: string, range: (radius: number) => [number, number], seatColor?: string) => {
+    const radii = Array.from({ length: up.outfieldRows }, (_, i) => outfieldRadius(i + 1));
+    const ranges = radii.map(range);
+    const from = mm(Math.min(...ranges.map(([a]) => a)));
+    const to = mm(Math.max(...ranges.map(([, b]) => b)));
+    const seatsPerRow: number[] = [];
+    const rowSpans: [number, number][] = [];
+    radii.forEach((radius, i) => {
+      const [a, b] = ranges[i] ?? [0, 0];
+      const { seats, span } = centeredSpan([Math.max(from, a) * DEG * radius, Math.min(to, b) * DEG * radius], pitch);
+      seatsPerRow.push(seats);
+      rowSpans.push([frac((span[0] / radius / DEG - from) / (to - from)), frac((span[1] / radius / DEG - from) / (to - from))]);
+    });
+    finish(id, seatsPerRow);
+    massing.push({
+      ...tierBase(id, "L2", up.outfieldRows, outfieldBase),
+      ...(seatColor !== undefined && { seatColor }),
+      type: "arc",
+      center,
+      innerRadius: mm(outfieldRadius(1)),
+      fromDeg: from,
+      toDeg: to,
+      seatsPerRow,
+      rowSpans,
+    });
+  };
+  upperOutfield("upper-L2-outfield-left", (radius) => [outfieldLimits[-1](radius), -90 - eye]);
+  upperOutfield("upper-L2-outfield-eye", () => [-90 - eye, -90 + eye], params.eyeSeatColor);
+  upperOutfield("upper-L2-outfield-right", (radius) => [-90 + eye, outfieldLimits[1](radius)]);
+
   // 輸出順序：B1 內野（102 → 124）、B1 外野（131 → 146）、L2 內野（201 → 225），示意量體放最後
   const order = (id: string) => Number(id);
-  return [...sections.sort((a, b) => order(a.id) - order(b.id)), battersEye];
+  return [...sections.sort((a, b) => order(a.id) - order(b.id)), ...massing];
 }

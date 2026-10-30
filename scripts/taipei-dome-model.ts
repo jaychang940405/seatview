@@ -186,7 +186,20 @@ export const K = {
     source: INTERIOR_PHOTO,
   },
   foulPoleMarker: { label: "界外桿（黃色）", value: { height: 18, width: 0.4, color: "#f0c419" }, grade: "C", source: INTERIOR_PHOTO },
-  shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
+  shellWallHeight: {
+    label: "穹頂牆頂高度（屋頂起拱處）",
+    value: 44,
+    unit: "m",
+    grade: "C",
+    source: `${PHOTO}；原本估 38 m，加上 L5 示意量體（最高一排約 39.5 m）後調高，${INTERIOR_PHOTO}`,
+  },
+  upperMassing: {
+    label: "上層看台示意量體（只畫外觀、不能查詢）",
+    value: { levels: ["L3", "L4", "L5"], noHomeArc: ["L3"], overL2Row: 14, rows: 6, rowRise: 0.5, floorGap: 4, outfieldOverRow: 8, outfieldRows: 10 },
+    grade: "C",
+    source:
+      "樓層與區號（L2 外野 233–244、L3 301–317、L4 401–417、L5 503–515）見 https://waihann.tw/1136/taipeidome-seatview/ ；L4 只有 6 排見 https://www.nownews.com/news/6534334 ；L3 中央是包廂見 https://uptogo.com.tw/?p=1729172 。外框留空讓本壘後方沒有水平空間，所以 L3–L5 疊在 L2 後段正上方；L3、L5 的排數、層間距、L2 外野的位置與排數都是估算",
+  },
   screens: {
     label: "牆上的大螢幕（依拍照目視估計，非量測值）",
     value: {
@@ -282,6 +295,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
   outfieldWidthRow: K.officialLayout.value.outfieldWidthRow,
   concertClosed: [...K.concertClosed.value],
   eyeSeatColor: K.battersEye.value.seatColor,
+  upper: { ...K.upperMassing.value, levels: [...K.upperMassing.value.levels], noHomeArc: [...K.upperMassing.value.noHomeArc] },
 };
 
 // ── 幾何 ──
