@@ -25,6 +25,7 @@ const INFIELD_ARC = 28.96; // 內野弧半徑 95 呎（規則值）；大巨蛋�
 const BASE_CUTOUT = 4.5; // 一壘、三壘紅土方塊邊長（C，依照片目視估計）
 const FENCE = { height: 2.5, thickness: 0.3 }; // 全壘打牆（C，依照片目視估計）
 const POLE_HEIGHT = 18; // 界外桿高（C，依照片目視估計）
+const EYE_HALF_DEG = 5; // 打者之眼：中外野 ±5°（C）
 const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
@@ -143,8 +144,8 @@ describe("taipei-dome：基本結構", () => {
     expect(Object.keys(dome().layouts).sort()).toEqual(["baseball", "concert"]);
   });
 
-  it("section id = 官方票區（B1 內野、B1 外野、L2 內野）＋演唱會搖滾區", () => {
-    expect(dome().sections.map((s) => s.id)).toEqual(SECTION_IDS);
+  it("能查詢的 section id = 官方票區（B1 內野、B1 外野、L2 內野）＋演唱會搖滾區（示意量體另外列）", () => {
+    expect(dome().sections.filter((s) => s.massing !== true).map((s) => s.id)).toEqual(SECTION_IDS);
   });
 
   it("meta 帶有免責聲明與數字來源", () => {
@@ -358,6 +359,33 @@ describe("taipei-dome：全壘打牆與界外桿（baseball 的 box overlays）"
 
   it("演唱會沒有全壘打牆與界外桿", () => {
     expect(boxes("concert").filter((o) => o.id.startsWith("outfield-fence-") || o.id.startsWith("foul-pole-"))).toHaveLength(0);
+  });
+});
+
+describe("taipei-dome：示意量體（只畫外觀，不能查詢）", () => {
+  const massing = () => dome().sections.filter((s) => s.massing === true);
+
+  it("打者之眼 batters-eye：B1 外野中間 ±5° 的深色座位，排數、排距與 B1 外野相同，棒球與演唱會都畫", () => {
+    const venue = dome();
+    const eye = venue.sections.find((s) => s.id === "batters-eye");
+    const outfield = venue.sections.find((s) => s.id === "140");
+    if (eye?.type !== "arc" || outfield?.type !== "arc") throw new Error("batters-eye 與 140 都應該是弧形區");
+    expect(eye.massing).toBe(true);
+    expect(eye.seatColor).toBeDefined();
+    expect(eye.layouts).toBeUndefined();
+    expectWithin(eye.fromDeg, -90 - EYE_HALF_DEG, 1e-6);
+    expectWithin(eye.toDeg, -90 + EYE_HALF_DEG, 1e-6);
+    expect(eye.center).toEqual(outfield.center);
+    expect(eye.innerRadius).toBe(outfield.innerRadius);
+    expect([eye.rows, eye.rowDepth, eye.rowRise, eye.baseHeight]).toEqual([outfield.rows, outfield.rowDepth, outfield.rowRise, outfield.baseHeight]);
+  });
+
+  it("量體的 id 不是官方票區號，查詢一律 UNKNOWN_SECTION（138、139 也還是）", () => {
+    expect(massing().length).toBeGreaterThan(0);
+    for (const s of massing()) {
+      expect(s.id, s.id).not.toMatch(/^\d+$/);
+      expectSeatError(() => getSeatView(dome(), "baseball", s.id, 1, 1), "UNKNOWN_SECTION");
+    }
   });
 });
 

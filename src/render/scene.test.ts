@@ -38,6 +38,15 @@ describe("buildVenueScene：場景內容", () => {
     expect(scene.getObjectByName("overlay:stage")).toBeUndefined();
   });
 
+  it("示意量體（massing）也畫：座椅與看台都有；有 seatColor 時每一席都是那個顏色", () => {
+    const venue = demo();
+    const massing = { ...venue, sections: venue.sections.map((s) => (s.id === "B1" ? { ...s, massing: true, seatColor: "#16181b" } : s)) };
+    const { scene } = buildVenueScene(massing, "concert");
+    const mesh = sectionMesh(scene, "B1");
+    expect(scene.getObjectByName("stand:B1")).toBeDefined();
+    for (let i = 0; i < mesh.count; i++) expectColorClose(colorAt(mesh, i), new THREE.Color("#16181b"));
+  });
+
   it("focus 來自 layout", () => {
     expect(buildVenueScene(demo(), "baseball").focus).toEqual({ x: 0, y: 1, z: -25 });
   });

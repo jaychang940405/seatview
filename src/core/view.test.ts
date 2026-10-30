@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import demoArenaJson from "../venues/demo-arena.json";
 import { expectSeatError, expectVec3Close } from "../test/helpers";
 import { parseVenue } from "./schema";
-import { getSeatView, listSections } from "./view";
+import { sectionSeats } from "./seat";
+import { sectionTreads } from "./stand";
+import { displaySections, getSeatView, listSections } from "./view";
 
 // 每個測試各自 parse，避免 parseVenue 失敗時整個檔案一起掛掉
 const demo = () => parseVenue(demoArenaJson);
@@ -84,5 +86,34 @@ describe("listSections", () => {
 
   it("不存在的 layout → UNKNOWN_LAYOUT", () => {
     expectSeatError(() => listSections(demo(), "opera"), "UNKNOWN_LAYOUT");
+  });
+});
+
+describe("示意量體（massing）：只畫外觀，不能查詢", () => {
+  /** 把 B1 改成示意量體的 demo-arena。 */
+  const withMassing = () => {
+    const venue = demo();
+    return { ...venue, sections: venue.sections.map((s) => (s.id === "B1" ? { ...s, massing: true } : s)) };
+  };
+
+  it("查詢回 UNKNOWN_SECTION，跟沒建的區一樣", () => {
+    expectSeatError(() => getSeatView(withMassing(), "concert", "B1", 1, 1), "UNKNOWN_SECTION");
+  });
+
+  it("listSections（選單、小地圖、MCP 用的）不列出量體", () => {
+    expect(listSections(withMassing(), "concert").map((s) => s.id)).toEqual(["A1", "F1"]);
+  });
+
+  it("displaySections（畫面用的）照資料順序列出這個 layout 要畫的區，含量體", () => {
+    expect(displaySections(withMassing(), "concert").map((s) => s.id)).toEqual(["A1", "B1", "F1"]);
+    expect(displaySections(withMassing(), "baseball").map((s) => s.id)).toEqual(["A1", "B1"]);
+    expectSeatError(() => displaySections(withMassing(), "opera"), "UNKNOWN_LAYOUT");
+  });
+
+  it("畫圖用的座位與踏面照樣算得出來", () => {
+    const venue = withMassing();
+    const b1 = venue.sections.find((s) => s.id === "B1");
+    expect(sectionSeats(venue, "B1")).toHaveLength(sectionSeats(demo(), "B1").length);
+    expect(sectionTreads(venue, "B1")).toHaveLength(b1?.rows ?? -1);
   });
 });

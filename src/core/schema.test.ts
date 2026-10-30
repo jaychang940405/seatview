@@ -221,6 +221,24 @@ describe("parseVenue：選填的 level（樓層，例如 B1、L2）", () => {
   });
 });
 
+describe("parseVenue：選填的 massing（只畫外觀的看台量體）與 seatColor", () => {
+  it("沒寫就是 undefined；有寫就保留", () => {
+    expect(parseVenue(demoArenaJson).sections[0]?.massing).toBeUndefined();
+    const json = demoCopy();
+    json.sections[0].massing = true;
+    json.sections[0].seatColor = "#16181b";
+    const section = parseVenue(json).sections[0];
+    expect(section?.massing).toBe(true);
+    expect(section?.seatColor).toBe("#16181b");
+  });
+
+  it("seatColor 是空字串 → 驗證錯誤", () => {
+    const json = demoCopy();
+    json.sections[0].seatColor = "";
+    expect(issuePaths(json)).toEqual(["sections.0.seatColor"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();
