@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { PlanPoint, Venue } from "../core/schema";
 import { sectionTreads, type RowTread } from "../core/stand";
-import { listSections } from "../core/view";
+import { displaySections } from "../core/view";
 
 /**
  * 看台第一排前緣的護欄（m）。C 級：一般看台護欄的高度量級。
@@ -22,7 +22,7 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 export function buildStands(venue: Venue, layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "stands";
-  for (const { id } of listSections(venue, layoutId)) {
+  for (const { id } of displaySections(venue, layoutId)) {
     const treads = sectionTreads(venue, id).filter((t) => t.top - t.bottom > 1e-6);
     const [first] = treads;
     if (!first) continue;

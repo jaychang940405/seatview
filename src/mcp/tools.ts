@@ -4,6 +4,7 @@
  */
 import { SeatViewError, type SeatViewErrorCode } from "../core/errors.ts";
 import type { Provenance, Vec3, Venue } from "../core/schema.ts";
+import { isQueryable } from "../core/seat.ts";
 import { findLayout, getSeatView, listSections } from "../core/view.ts";
 import { compareText, errorText, provenanceText, sectionsText, seatViewText, venuesText } from "./format.ts";
 import type { VenueRegistry } from "./venues.ts";
@@ -106,7 +107,7 @@ function hintFor(venue: Venue, layoutId: string, code: SeatViewErrorCode): strin
   const layouts = Object.keys(venue.layouts);
   if (code === "UNKNOWN_LAYOUT") return `可用的 layout：${layouts.join("、")}`;
   if (code === "UNKNOWN_SECTION" || code === "SECTION_NOT_IN_LAYOUT") {
-    const open = Object.hasOwn(venue.layouts, layoutId) ? listSections(venue, layoutId).map((s) => s.id) : venue.sections.map((s) => s.id);
+    const open = Object.hasOwn(venue.layouts, layoutId) ? listSections(venue, layoutId).map((s) => s.id) : venue.sections.filter(isQueryable).map((s) => s.id);
     return `${layoutId} 開放的區：${open.join("、")}`;
   }
   return "用 list_sections 查每區的排數與每排席數";
@@ -144,7 +145,7 @@ export function listVenues(registry: VenueRegistry): ToolOutcome<ListVenuesOutpu
     return {
       ...named(venue.id, venue.name),
       layouts: Object.entries(venue.layouts).map(([layoutId, layout]) => named(layoutId, layout.name)),
-      sectionCount: venue.sections.length,
+      sectionCount: venue.sections.filter(isQueryable).length,
       ...disclaimerOf(venue),
     };
   });

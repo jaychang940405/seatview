@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Vec3, Venue } from "../core/schema";
 import { seatPosition } from "../core/seat";
-import { findLayout, listSections } from "../core/view";
+import { displaySections, findLayout } from "../core/view";
 import { buildOverlay, GROUND_RENDER_ORDER } from "./overlays";
 import { buildSectionMesh, CHAIR, type ColorMode, type SectionMesh } from "./seats";
 import { buildShell } from "./shell";
@@ -51,7 +51,7 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   const sections = new THREE.Group();
   sections.name = "sections";
   const sectionMeshes = new Map<string, SectionMesh>();
-  listSections(venue, layoutId).forEach(({ id }, i) => {
+  displaySections(venue, layoutId).forEach(({ id }, i) => {
     const sectionMesh = buildSectionMesh(venue, id, SECTION_COLORS[i % SECTION_COLORS.length] ?? "#bbbbbb");
     sectionMeshes.set(id, sectionMesh);
     sections.add(sectionMesh.mesh);

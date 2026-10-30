@@ -12,7 +12,20 @@ export interface CameraPose {
   target: Vec3;
 }
 
+/** 能查詢的區：示意量體（massing）只畫外觀，查詢時當作沒有這一區。 */
+export const isQueryable = (section: Section): boolean => section.massing !== true;
+
+/** 查詢用：找不到或是示意量體 → UNKNOWN_SECTION。 */
 export function findSection(venue: Venue, sectionId: string): Section {
+  const section = findDrawableSection(venue, sectionId);
+  if (!isQueryable(section)) {
+    throw new SeatViewError("UNKNOWN_SECTION", `場館 ${venue.id} 沒有 ${sectionId} 區`);
+  }
+  return section;
+}
+
+/** 畫圖用：連示意量體也找得到（座位、踏面、輪廓）。 */
+export function findDrawableSection(venue: Venue, sectionId: string): Section {
   const section = venue.sections.find((s) => s.id === sectionId);
   if (!section) {
     throw new SeatViewError("UNKNOWN_SECTION", `場館 ${venue.id} 沒有 ${sectionId} 區`);
@@ -55,9 +68,9 @@ export interface SeatPlacement {
   yawDeg: number;
 }
 
-/** 整區所有座位，依排、號排序。 */
+/** 整區所有座位，依排、號排序（畫圖用，示意量體也算得出來）。 */
 export function sectionSeats(venue: Venue, sectionId: string): SeatPlacement[] {
-  const section = findSection(venue, sectionId);
+  const section = findDrawableSection(venue, sectionId);
   const seats: SeatPlacement[] = [];
   for (let row = 1; row <= section.rows; row++) {
     const count = seatsInRow(section, row);

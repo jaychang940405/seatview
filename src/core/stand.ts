@@ -1,6 +1,6 @@
 import { DEG, normalAwayFrom } from "./geometry.ts";
 import type { PlanPoint, Section, Venue } from "./schema.ts";
-import { findSection } from "./seat.ts";
+import { findDrawableSection } from "./seat.ts";
 
 /** 懸挑樓板（structure = tier）的厚度（m）。C 級：一般預鑄看台板的量級，不是量測值。 */
 export const TIER_SLAB_THICKNESS = 0.3;
@@ -24,7 +24,7 @@ export interface RowTread {
  * 第 r 排的後緣就是第 r+1 排的前緣。
  */
 export function sectionTreads(venue: Venue, sectionId: string): RowTread[] {
-  const section = findSection(venue, sectionId);
+  const section = findDrawableSection(venue, sectionId);
   const edge = edgeAt(section);
   const treads: RowTread[] = [];
   for (let row = 1; row <= section.rows; row++) {

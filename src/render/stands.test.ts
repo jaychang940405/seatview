@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { parseVenue } from "../core/schema";
 import { sectionTreads, TIER_SLAB_THICKNESS } from "../core/stand";
-import { listSections } from "../core/view";
+import { displaySections } from "../core/view";
 import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { expectColorClose } from "../test/helpers";
@@ -51,10 +51,11 @@ function facesOf(mesh: THREE.Mesh): Face[] {
 }
 
 describe("buildStands：每區一個看台實體", () => {
-  it("大巨蛋演唱會：八個看台區各有實體與護欄；搖滾區 F1–F3 在地面，沒有看台也沒有護欄", () => {
+  it("大巨蛋演唱會：每個升高的看台區（含示意量體）各有實體與護欄；搖滾區 F1–F3 在地面，沒有看台也沒有護欄", () => {
     const group = buildStands(dome(), "concert");
     const names = group.children.map((child) => child.name).sort();
-    const raised = listSections(dome(), "concert").map((s) => s.id).filter((id) => !id.startsWith("F"));
+    const raised = displaySections(dome(), "concert").map((s) => s.id).filter((id) => !id.startsWith("F"));
+    expect(raised).toContain("batters-eye");
     expect(names).toEqual([...raised.map((id) => `parapet:${id}`), ...raised.map((id) => `stand:${id}`)].sort());
   });
 

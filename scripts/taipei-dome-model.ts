@@ -171,6 +171,12 @@ export const K = {
       "排數的下限來自球迷照片的票面標籤；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
+  battersEye: {
+    label: "打者之眼（138、139 的位置）：深色座位的示意量體，不能查詢",
+    value: { seatColor: "#16181b" },
+    grade: "C",
+    source: INTERIOR_PHOTO,
+  },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
   outfieldFence: {
@@ -275,6 +281,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
   ),
   outfieldWidthRow: K.officialLayout.value.outfieldWidthRow,
   concertClosed: [...K.concertClosed.value],
+  eyeSeatColor: K.battersEye.value.seatColor,
 };
 
 // ── 幾何 ──

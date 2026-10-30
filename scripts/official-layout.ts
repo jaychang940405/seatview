@@ -42,6 +42,8 @@ export interface OfficialParams {
   /** 標籤 142 在第 9 排：外野的寬度在這一排的弧長上分配 */
   outfieldWidthRow: number;
   concertClosed: string[];
+  /** 打者之眼的座椅顏色（只畫外觀的示意量體） */
+  eyeSeatColor: string;
 }
 
 /** 同一個 key 只算一次：同一排的截斷長度每一區都要用，不用每區重算。 */
@@ -278,7 +280,35 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   outfieldSide(-1, ids(132, 137).reverse(), "131");
   outfieldSide(1, ids(140, 145), "146");
 
-  // 輸出順序：B1 內野（102 → 124）、B1 外野（131 → 146）、L2 內野（201 → 225）
+  // 打者之眼（138、139 的位置）：中外野 ±eye 的深色座位，只畫外觀、不能查詢，id 不用官方票區號
+  const eyeSeats: number[] = [];
+  const eyeSpans: [number, number][] = [];
+  for (let r = 1; r <= params.outfield.rows; r++) {
+    const radius = radiusOf(r);
+    const { seats, span } = centeredSpan([(-90 - eye) * DEG * radius, (-90 + eye) * DEG * radius], pitch);
+    eyeSeats.push(seats);
+    eyeSpans.push([frac((span[0] / radius / DEG + 90 + eye) / (2 * eye)), frac((span[1] / radius / DEG + 90 + eye) / (2 * eye))]);
+  }
+  finish("batters-eye", eyeSeats);
+  const battersEye: Section = {
+    id: "batters-eye",
+    level: "B1",
+    massing: true,
+    seatColor: params.eyeSeatColor,
+    type: "arc",
+    center,
+    innerRadius,
+    fromDeg: -90 - eye,
+    toDeg: -90 + eye,
+    rows: params.outfield.rows,
+    rowDepth,
+    rowRise: params.outfield.rowRise,
+    baseHeight: params.outfield.baseHeight,
+    seatsPerRow: eyeSeats,
+    rowSpans: eyeSpans,
+  };
+
+  // 輸出順序：B1 內野（102 → 124）、B1 外野（131 → 146）、L2 內野（201 → 225），示意量體放最後
   const order = (id: string) => Number(id);
-  return sections.sort((a, b) => order(a.id) - order(b.id));
+  return [...sections.sort((a, b) => order(a.id) - order(b.id)), battersEye];
 }
