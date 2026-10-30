@@ -38,6 +38,8 @@
       { "key": "concertClosed", "value": "演唱會時在舞台正後方、不開放的外野區：[\"136\",\"137\",\"140\",\"141\"]", "grade": "C", "source": "演唱會暫定假設（每場演出不同，非場館屬性）" },
       { "key": "wallSampleDeg", "value": "外野牆圓弧取樣間隔：5 °", "grade": "C", "source": "建模選擇" },
       { "key": "warningTrack", "value": "警戒區寬：4.5 m", "grade": "C", "source": "本專案估算（非量測）" },
+      { "key": "outfieldFence", "value": "全壘打牆（沿外野牆外側的護牆）：{\"height\":2.5,\"thickness\":0.3,\"color\":\"#1d3447\"}", "grade": "C", "source": "使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）" },
+      { "key": "foulPoleMarker", "value": "界外桿（黃色）：{\"height\":18,\"width\":0.4,\"color\":\"#f0c419\"}", "grade": "C", "source": "使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）" },
       { "key": "shellWallHeight", "value": "穹頂牆頂高度（屋頂起拱處）：38 m", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）" },
       { "key": "screens", "value": "牆上的大螢幕（依拍照目視估計，非量測值）：{\"centerField\":{\"width\":28,\"height\":9,\"bottom\":20},\"corners\":{\"width\":9,\"height\":5,\"bottom\":16,\"offsetDeg\":40},\"wallMargin\":0.6,\"litOn\":[\"baseball\"]}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；演唱會時全部熄滅" },
       { "key": "shellOutlineStepDeg", "value": "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）：2 °", "grade": "C", "source": "建模選擇" },
@@ -3262,6 +3264,244 @@
             { "x": -27.505, "z": 33.445 }
           ],
           "y": 0.08
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-1",
+          "center": { "x": -71.308, "y": 1.25, "z": -13.877 },
+          "size": { "x": 5.53, "y": 2.5, "z": 0.3 },
+          "yawDeg": -67.052,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-2",
+          "center": { "x": -68.688, "y": 1.25, "z": -19.439 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -62.496,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-3",
+          "center": { "x": -65.31, "y": 1.25, "z": -25.289 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -57.507,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-4",
+          "center": { "x": -61.435, "y": 1.25, "z": -30.823 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -52.496,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-5",
+          "center": { "x": -57.093, "y": 1.25, "z": -35.998 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -47.501,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-6",
+          "center": { "x": -52.316, "y": 1.25, "z": -40.775 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -42.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-7",
+          "center": { "x": -47.141, "y": 1.25, "z": -45.117 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -37.504,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-8",
+          "center": { "x": -41.608, "y": 1.25, "z": -48.992 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -32.493,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-9",
+          "center": { "x": -35.757, "y": 1.25, "z": -52.37 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -27.504,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-10",
+          "center": { "x": -29.634, "y": 1.25, "z": -55.225 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -22.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-11",
+          "center": { "x": -23.286, "y": 1.25, "z": -57.536 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -17.497,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-12",
+          "center": { "x": -16.761, "y": 1.25, "z": -59.284 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -12.505,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-13",
+          "center": { "x": -10.108, "y": 1.25, "z": -60.458 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": -7.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-14",
+          "center": { "x": -3.378, "y": 1.25, "z": -61.046 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": -2.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-15",
+          "center": { "x": 3.378, "y": 1.25, "z": -61.046 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 2.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-16",
+          "center": { "x": 10.108, "y": 1.25, "z": -60.458 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 7.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-17",
+          "center": { "x": 16.761, "y": 1.25, "z": -59.284 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 12.505,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-18",
+          "center": { "x": 23.286, "y": 1.25, "z": -57.536 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 17.497,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-19",
+          "center": { "x": 29.634, "y": 1.25, "z": -55.225 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 22.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-20",
+          "center": { "x": 35.757, "y": 1.25, "z": -52.37 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 27.504,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-21",
+          "center": { "x": 41.608, "y": 1.25, "z": -48.992 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 32.493,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-22",
+          "center": { "x": 47.141, "y": 1.25, "z": -45.117 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 37.504,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-23",
+          "center": { "x": 52.316, "y": 1.25, "z": -40.775 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 42.499,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-24",
+          "center": { "x": 57.093, "y": 1.25, "z": -35.998 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 47.501,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-25",
+          "center": { "x": 61.435, "y": 1.25, "z": -30.823 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 52.496,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-26",
+          "center": { "x": 65.31, "y": 1.25, "z": -25.289 },
+          "size": { "x": 6.742, "y": 2.5, "z": 0.3 },
+          "yawDeg": 57.507,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-27",
+          "center": { "x": 68.688, "y": 1.25, "z": -19.439 },
+          "size": { "x": 6.743, "y": 2.5, "z": 0.3 },
+          "yawDeg": 62.496,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "outfield-fence-28",
+          "center": { "x": 71.308, "y": 1.25, "z": -13.877 },
+          "size": { "x": 5.53, "y": 2.5, "z": 0.3 },
+          "yawDeg": 67.052,
+          "color": "#1d3447"
+        },
+        {
+          "type": "box",
+          "id": "foul-pole-left",
+          "center": { "x": -72.203, "y": 9, "z": -11.253 },
+          "size": { "x": 0.4, "y": 18, "z": 0.4 },
+          "color": "#f0c419"
+        },
+        {
+          "type": "box",
+          "id": "foul-pole-right",
+          "center": { "x": 72.203, "y": 9, "z": -11.253 },
+          "size": { "x": 0.4, "y": 18, "z": 0.4 },
+          "color": "#f0c419"
         },
         {
           "type": "polyline",

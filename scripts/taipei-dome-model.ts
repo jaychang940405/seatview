@@ -173,6 +173,13 @@ export const K = {
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
+  outfieldFence: {
+    label: "全壘打牆（沿外野牆外側的護牆）",
+    value: { height: 2.5, thickness: 0.3, color: "#1d3447" },
+    grade: "C",
+    source: INTERIOR_PHOTO,
+  },
+  foulPoleMarker: { label: "界外桿（黃色）", value: { height: 18, width: 0.4, color: "#f0c419" }, grade: "C", source: INTERIOR_PHOTO },
   shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
   screens: {
     label: "牆上的大螢幕（依拍照目視估計，非量測值）",
@@ -366,6 +373,45 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   ];
 }
 
+/**
+ * 全壘打牆：外野牆每一段弦一個 box，貼在牆線外側（中心往外推「弦到弧的距離 + 半個牆厚」），
+ * 加上兩根黃色界外桿。只在 baseball。
+ */
+function fenceAndPoles(wallArc: PlanPoint[]) {
+  const { height, thickness, color } = K.outfieldFence.value;
+  const { wallCenter } = FIELD;
+  const fence = wallArc.slice(1).map((b, i) => {
+    const a = wallArc[i] as PlanPoint;
+    const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    const r = Math.hypot(mid.x - wallCenter.x, mid.z - wallCenter.z);
+    const out = { x: (mid.x - wallCenter.x) / r, z: (mid.z - wallCenter.z) / r };
+    const sagitta = FIELD.wallRadius - r;
+    const push = sagitta + thickness / 2;
+    return {
+      type: "box" as const,
+      id: `outfield-fence-${i + 1}`,
+      center: { x: mm(mid.x + out.x * push), y: height / 2, z: mm(mid.z + out.z * push) },
+      size: { x: mm(Math.hypot(b.x - a.x, b.z - a.z)), y: height, z: thickness },
+      yawDeg: mm(angleAt(a, b)),
+      color,
+    };
+  });
+  const pole = K.foulPoleMarker.value;
+  const poles = (
+    [
+      ["foul-pole-left", wallArc[0]],
+      ["foul-pole-right", wallArc.at(-1)],
+    ] as const
+  ).map(([id, p]) => ({
+    type: "box" as const,
+    id,
+    center: { x: p?.x ?? NaN, y: pole.height / 2, z: p?.z ?? NaN },
+    size: { x: pole.width, y: pole.height, z: pole.width },
+    color: pole.color,
+  }));
+  return [...fence, ...poles];
+}
+
 /** 95 呎內野弧：大巨蛋是人工草皮，這條弧是畫在草皮上的白線，兩端落在界外線上。 */
 function infieldArcLine(plate: PlanPoint) {
   const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
@@ -525,6 +571,7 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
           { type: "polyline", id: "foul-line-right", points: [plate, rightPole], y: lineY },
           { type: "polyline", id: "outfield-wall", points: wallArc, y: lineY },
           infieldArcLine(plate),
+          ...fenceAndPoles(wallArc),
           {
             type: "polyline",
             id: "infield",
