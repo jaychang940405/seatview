@@ -23,6 +23,8 @@ const PLATE_TO_PITCHER = 18.44; // 60 呎 6 吋（A）
 const PLATE_TO_SECOND = 38.8; // A
 const INFIELD_ARC = 28.96; // 內野弧半徑 95 呎（規則值）；大巨蛋是人工草皮，弧只畫成白線
 const BASE_CUTOUT = 4.5; // 一壘、三壘紅土方塊邊長（C，依照片目視估計）
+const FENCE = { height: 2.5, thickness: 0.3 }; // 全壘打牆（C，依照片目視估計）
+const POLE_HEIGHT = 18; // 界外桿高（C，依照片目視估計）
 const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
@@ -300,6 +302,62 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
       const line = overlay(dome(), "baseball", id);
       expect(line.type === "polyline" ? (line.y ?? 0) : Number.NaN, id).toBeGreaterThan(flatTop);
     }
+  });
+});
+
+describe("taipei-dome：全壘打牆與界外桿（baseball 的 box overlays）", () => {
+  const boxes = (layoutId: string) =>
+    (dome().layouts[layoutId]?.overlays ?? []).flatMap((o) => (o.type === "box" ? [o] : []));
+  const fence = () => boxes("baseball").filter((o) => o.id.startsWith("outfield-fence-"));
+  /** 一段牆在平面上的兩端（沿 yaw 方向各半個長度）。 */
+  const ends = (o: ReturnType<typeof fence>[number]) => {
+    const yaw = ((o.yawDeg ?? 0) * Math.PI) / 180;
+    const half = o.size.x / 2;
+    return [
+      { x: o.center.x - half * Math.cos(yaw), z: o.center.z - half * Math.sin(yaw) },
+      { x: o.center.x + half * Math.cos(yaw), z: o.center.z + half * Math.sin(yaw) },
+    ];
+  };
+
+  it(`全壘打牆：沿外野牆一段一段、高 ${FENCE.height} m、厚 ${FENCE.thickness} m，從地面立起，緊貼在外野牆外側`, () => {
+    const wall = outfieldWallCircle();
+    const segments = fence();
+    expect(segments.length).toBeGreaterThan(10);
+    for (const o of segments) {
+      expectWithin(o.size.y, FENCE.height, 1e-6);
+      expectWithin(o.size.z, FENCE.thickness, 1e-6);
+      expectWithin(o.center.y, FENCE.height / 2, 1e-6);
+      const r = planDistance(o.center, wall.center);
+      expect(r, o.id).toBeGreaterThanOrEqual(wall.radius);
+      expect(r, o.id).toBeLessThanOrEqual(wall.radius + FENCE.thickness);
+    }
+  });
+
+  it("全壘打牆從左外野桿接到右外野桿，中間沒有缺口", () => {
+    const segments = fence().map(ends);
+    const leftPole = polyline(dome(), "foul-line-left").at(-1) ?? PLATE;
+    const rightPole = polyline(dome(), "foul-line-right").at(-1) ?? PLATE;
+    const all = segments.flat();
+    expect(Math.min(...all.map((p) => planDistance(p, leftPole)))).toBeLessThan(0.5);
+    expect(Math.min(...all.map((p) => planDistance(p, rightPole)))).toBeLessThan(0.5);
+    for (let i = 1; i < segments.length; i++) {
+      const gap = planDistance(segments[i - 1]?.[1] ?? PLATE, segments[i]?.[0] ?? { x: NaN, z: NaN });
+      expect(gap, `第 ${i} 段`).toBeLessThan(0.5);
+    }
+  });
+
+  it(`界外桿：左右各一根，立在界外線終點，高 ${POLE_HEIGHT} m`, () => {
+    for (const [id, line] of [["foul-pole-left", "foul-line-left"], ["foul-pole-right", "foul-line-right"]] as const) {
+      const pole = boxes("baseball").find((o) => o.id === id);
+      if (!pole) throw new Error(`沒有 ${id}`);
+      expectWithin(planDistance(pole.center, polyline(dome(), line).at(-1) ?? PLATE), 0, 0.01);
+      expectWithin(pole.size.y, POLE_HEIGHT, 1e-6);
+      expectWithin(pole.center.y, POLE_HEIGHT / 2, 1e-6);
+    }
+  });
+
+  it("演唱會沒有全壘打牆與界外桿", () => {
+    expect(boxes("concert").filter((o) => o.id.startsWith("outfield-fence-") || o.id.startsWith("foul-pole-"))).toHaveLength(0);
   });
 });
 
