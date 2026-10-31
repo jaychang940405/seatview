@@ -23,6 +23,8 @@ export function buildOverlay(overlay: Overlay, layer = 0): THREE.Object3D {
       );
       mesh.position.copy(toVector3(overlay.center));
       mesh.rotation.y = planYawToRotationY(overlay.yawDeg ?? 0);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       mesh.name = `overlay:${overlay.id}`;
       return mesh;
     }
@@ -58,6 +60,9 @@ export function buildOverlay(overlay: Overlay, layer = 0): THREE.Object3D {
       });
       const mesh = new THREE.Mesh(geometry, material);
       if (flat) mesh.renderOrder = GROUND_RENDER_ORDER + layer;
+      // 地面接受看台與牆的影子；投手丘這種有厚度的也會投影
+      mesh.receiveShadow = true;
+      mesh.castShadow = !flat;
       mesh.name = `overlay:${overlay.id}`;
       return mesh;
     }

@@ -37,6 +37,26 @@ export interface VenueScene {
   dispose(): void;
 }
 
+/**
+ * 主燈的陰影（C）：方向不變，平移到看台中心上方，正交陰影相機包住整個看台（取對角線，光斜照時也包得住）。
+ * 2048² 的陰影圖鋪在約 250 m 的範圍，一格約 12 cm：看得出看台與座椅的影子，細節靠之後的環境遮蔽。
+ */
+function fitShadow(light: THREE.DirectionalLight, bounds: THREE.Box3): void {
+  if (bounds.isEmpty()) return;
+  const center = bounds.getCenter(new THREE.Vector3());
+  const size = bounds.getSize(new THREE.Vector3());
+  const half = Math.hypot(size.x, size.z) / 2 + 5;
+  const direction = light.position.clone().normalize();
+  light.position.copy(center).addScaledVector(direction, 200);
+  light.target.position.copy(center);
+  light.castShadow = true;
+  light.shadow.mapSize.set(2048, 2048);
+  light.shadow.bias = -0.0005;
+  light.shadow.normalBias = 0.05;
+  Object.assign(light.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: 400 + size.y });
+  light.shadow.camera.updateProjectionMatrix();
+}
+
 /** 組出一個 layout 的場景：開放的區、overlays、地板、燈光。 */
 export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   const layout = findLayout(venue, layoutId);
@@ -48,17 +68,20 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   scene.add(new THREE.HemisphereLight("#e6ecf5", "#2a2c33", 1.2));
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(30, 80, 20);
-  scene.add(sun);
+  scene.add(sun, sun.target);
 
   const sections = new THREE.Group();
   sections.name = "sections";
   const sectionMeshes = new Map<string, SectionMesh>();
   displaySections(venue, layoutId).forEach(({ id }, i) => {
     const sectionMesh = buildSectionMesh(venue, id, SECTION_COLORS[i % SECTION_COLORS.length] ?? "#bbbbbb");
+    sectionMesh.mesh.castShadow = true;
+    sectionMesh.mesh.receiveShadow = true;
     sectionMeshes.set(id, sectionMesh);
     sections.add(sectionMesh.mesh);
   });
   scene.add(sections);
+  fitShadow(sun, new THREE.Box3().setFromObject(sections));
   scene.add(buildStands(venue, layoutId));
   const shell = venue.shell ? buildShell(venue.shell, layoutId) : null;
   if (shell) scene.add(shell);
