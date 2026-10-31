@@ -663,6 +663,43 @@ describe("taipei-dome：階梯走道與出入口（依臺北市都發局 104 年
   });
 });
 
+describe("taipei-dome：內外野在界外桿角落相連（官方座位圖上 102↔146、124↔131 相鄰）", () => {
+  const AISLE = 1.2;
+  const PITCH = 0.5;
+  /** 離界外線延長線多遠（m）：界外側為正。side = 1 一壘側、−1 三壘側 */
+  const foulSide = (side: 1 | -1, p: PlanPoint) => {
+    const d = { x: side * Math.SQRT1_2, z: -Math.SQRT1_2 }; // 本壘 → 界外桿
+    return side * (d.x * (p.z - PLATE.z) - d.z * (p.x - PLATE.x));
+  };
+  const nearest = (venue: Venue, a: string, b: string) => {
+    const [pa, pb] = [sectionSeats(venue, a), sectionSeats(venue, b)];
+    let min = Infinity;
+    for (const p of pa) for (const q of pb) min = Math.min(min, planDistance(p.position, q.position));
+    return min;
+  };
+
+  it("以界外線延長線為界：內野區的座位都在界外側，外野區的座位都在界內側", () => {
+    const venue = dome();
+    for (const [side, infield, outfield] of [
+      [1, [...range(102, 106), ...range(201, 206)], range(140, 146)],
+      [-1, [...range(120, 124), ...range(220, 225)], range(131, 137)],
+    ] as const) {
+      for (const id of infield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeGreaterThanOrEqual(0);
+      for (const id of outfield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeLessThanOrEqual(0);
+    }
+  });
+
+  it(`一壘側 102｜146 接在一起：最近兩席只隔一條階梯走道（${AISLE} m + 一個座位寬 ≤ 距離 ≤ 3 m）`, () => {
+    const gap = nearest(dome(), "102", "146");
+    expect(gap).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+    expect(gap).toBeLessThanOrEqual(3);
+  });
+
+  it("三壘側 124｜131 不重疊（角落被外框截斷，接不上是已知限制，見 docs/venue-taipei-dome.md）", () => {
+    expect(nearest(dome(), "124", "131")).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+  });
+});
+
 describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座位朝弧心）", () => {
   const S45 = Math.SQRT1_2;
   // 一壘側：u 是離開界外線、往看台的方向，d 是沿界外線往界外桿；三壘側左右相反
