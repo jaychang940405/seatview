@@ -617,6 +617,52 @@ describe("taipei-dome：座位排列", () => {
 
 });
 
+describe("taipei-dome：階梯走道與出入口（依臺北市都發局 104 年簡報的疏散設計）", () => {
+  const AISLE = 1.2; // 區與區之間的階梯走道寬（C）
+  const VOMITORY = 2.4; // 出入口寬（C）
+  // 簡報：觀眾 8 分鐘內離開觀眾席；出入口寬度依《Guide to Safety at Sports Grounds》：每公尺寬每分鐘 66 人
+  const EGRESS = { minutes: 8, perMetrePerMinute: 66 };
+  const PITCH = 0.5;
+  const GROUPS = [
+    { name: "B1 內野", runs: [range(102, 124)], vomitoryRows: [17, 18, 19] },
+    { name: "L2 內野", runs: [range(201, 212), range(214, 225)], vomitoryRows: [7, 8, 9] },
+    { name: "B1 外野", runs: [range(131, 137), range(140, 146)], vomitoryRows: [5, 6, 7] },
+  ];
+  /** 相鄰兩區在同一排的最近兩席距離（只看兩區都有的排） */
+  const gapAt = (venue: Venue, a: string, b: string, rows?: number[]) => {
+    const byRow = (id: string) => {
+      const map = new Map<number, Vec3[]>();
+      for (const p of sectionSeats(venue, id)) map.set(p.row, [...(map.get(p.row) ?? []), p.position]);
+      return map;
+    };
+    const [ra, rb] = [byRow(a), byRow(b)];
+    let min = Infinity;
+    for (const [row, seats] of ra) {
+      if (rows && !rows.includes(row)) continue;
+      for (const p of seats) for (const q of rb.get(row) ?? []) min = Math.min(min, planDistance(p, q));
+    }
+    return min;
+  };
+  const pairs = (runs: string[][]) => runs.flatMap((run) => run.slice(1).map((id, i) => [run[i] ?? "", id] as const));
+
+  it(`相鄰兩區之間有 ${AISLE} m 寬的階梯走道：同一排最近兩席的距離 ≥ 走道 + 一個座位寬`, () => {
+    const venue = dome();
+    for (const group of GROUPS) {
+      for (const [a, b] of pairs(group.runs)) expect(gapAt(venue, a, b), `${a}｜${b}`).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+    }
+  });
+
+  it(`出入口數量夠 8 分鐘疏散：每層的出入口（${VOMITORY} m 寬）合計寬度 ≥ 觀眾人數 ÷ (66 × 8)`, () => {
+    const venue = dome();
+    for (const group of GROUPS) {
+      const people = group.runs.flat().reduce((sum, id) => sum + sectionSeats(venue, id).length, 0);
+      const needed = Math.ceil(people / (EGRESS.perMetrePerMinute * EGRESS.minutes) / VOMITORY);
+      const openings = pairs(group.runs).filter(([a, b]) => gapAt(venue, a, b, group.vomitoryRows) >= VOMITORY + PITCH - 0.02).length;
+      expect(openings, `${group.name}：${people} 人需要 ${needed} 個`).toBeGreaterThanOrEqual(needed);
+    }
+  });
+});
+
 describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座位朝弧心）", () => {
   const S45 = Math.SQRT1_2;
   // 一壘側：u 是離開界外線、往看台的方向，d 是沿界外線往界外桿；三壘側左右相反
