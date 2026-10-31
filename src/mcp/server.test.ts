@@ -71,7 +71,7 @@ describe("MCP server（InMemoryTransport 端到端）", () => {
             venue: "taipei-dome",
             layout: "baseball",
             seats: [
-              { section: "113", row: 4, seat: 3 },
+              { section: "113", row: 4, seat: 2 },
               { section: "113", row: 4, seat: 999 },
             ],
           },
@@ -120,12 +120,12 @@ describe("MCP server（InMemoryTransport 端到端）", () => {
 });
 
 describe("MCP server × 大巨蛋資料（端到端）", () => {
-  it("get_seat_view 成功：113 區第 4 排 3 號（5 席的中間）正對本壘，距離 √(20.85² + 1.45²) ≈ 20.90 m，附免責聲明", async () => {
+  it("get_seat_view 成功：113 區第 4 排 2 號（3 席的中間）正對本壘，距離 √(20.85² + 1.45²) ≈ 20.90 m，附免責聲明", async () => {
     const { client, close } = await connect();
     try {
       const result = await client.callTool({
         name: "get_seat_view",
-        arguments: { venue: "taipei-dome", layout: "baseball", section: "113", row: 4, seat: 3 },
+        arguments: { venue: "taipei-dome", layout: "baseball", section: "113", row: 4, seat: 2 },
       });
       expect(result.isError, textOf(result)).toBeFalsy();
       const data = result.structuredContent as {

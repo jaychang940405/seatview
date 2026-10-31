@@ -147,7 +147,7 @@ describe("錯誤：附代碼與改正提示", () => {
   it("座號超出範圍 → SEAT_OUT_OF_RANGE，訊息說明這排有幾號", () => {
     const { error } = failed(getSeatViewTool(registry(), { venue: "taipei-dome", layout: "baseball", section: "113", row: 1, seat: 999 }));
     expect(error.code).toBe("SEAT_OUT_OF_RANGE");
-    expect(error.message).toContain("1–4");
+    expect(error.message).toContain("1–3");
   });
 });
 
@@ -159,7 +159,7 @@ describe("compare_seats", () => {
         layout: "baseball",
         seats: [
           { section: "140", row: 1, seat: 11 },
-          { section: "113", row: 4, seat: 3 },
+          { section: "113", row: 4, seat: 2 },
           { section: "113", row: 4, seat: 999 },
           { section: "105", row: 15, seat: 11 },
         ],
