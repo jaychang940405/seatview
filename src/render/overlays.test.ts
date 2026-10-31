@@ -74,6 +74,38 @@ describe("buildOverlay：polyline", () => {
   });
 });
 
+describe("buildOverlay：polygon 的地面材質（程式產生的紋理，不用外部貼圖）", () => {
+  const square = (surface?: "turf" | "dirt"): Overlay => ({
+    type: "polygon",
+    id: "ground",
+    points: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }],
+    color: "#5a9a3a",
+    ...(surface && { surface }),
+  });
+
+  it("沒有 surface：單色，沒有紋理", () => {
+    expect(asMesh(buildOverlay(square())).material.map).toBeNull();
+  });
+
+  it.each(["turf", "dirt"] as const)("%s：有一張重複鋪貼、以公尺為單位的紋理，顏色仍是 polygon 的 color", (surface) => {
+    const { material } = asMesh(buildOverlay(square(surface)));
+    const map = material.map;
+    if (!map) throw new Error("沒有紋理");
+    expect(map.wrapS).toBe(THREE.RepeatWrapping);
+    expect(map.wrapT).toBe(THREE.RepeatWrapping);
+    expect(map.repeat.x).toBeGreaterThan(0);
+    expect(map.repeat.x).toBeLessThan(1); // UV 是公尺，一張紋理鋪好幾公尺
+    expectColorClose(material.color, new THREE.Color("#5a9a3a"));
+  });
+
+  it("草皮與紅土是不同的紋理（草皮有條紋、紅土是顆粒）", () => {
+    const turf = asMesh(buildOverlay(square("turf"))).material.map;
+    const dirt = asMesh(buildOverlay(square("dirt"))).material.map;
+    expect(turf).not.toBe(dirt);
+    expect(turf?.repeat.x).not.toBe(dirt?.repeat.x);
+  });
+});
+
 describe("buildOverlay：polygon（球場地面、投手丘）", () => {
   const triangle = [
     { x: 0, z: 0 },

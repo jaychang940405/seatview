@@ -26,7 +26,10 @@ export function buildStands(venue: Venue, layoutId: string): THREE.Group {
     const treads = sectionTreads(venue, id).filter((t) => t.top - t.bottom > 1e-6);
     const [first] = treads;
     if (!first) continue;
-    group.add(buildBody(id, treads));
+    const body = buildBody(id, treads);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
     if (first.row === 1 && first.top > 0) group.add(buildParapet(id, first));
   }
   return group;

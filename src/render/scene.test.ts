@@ -47,6 +47,15 @@ describe("buildVenueScene：場景內容", () => {
     for (let i = 0; i < mesh.count; i++) expectColorClose(colorAt(mesh, i), new THREE.Color("#16181b"));
   });
 
+  it("室內的薄霧：指數霧，200 m 外大約淡 10%（不會把遠處蓋掉）", () => {
+    const { scene } = buildVenueScene(demo(), "concert");
+    const fog = scene.fog;
+    if (!(fog instanceof THREE.FogExp2)) throw new Error("沒有 FogExp2");
+    const at = (d: number) => 1 - Math.exp(-((fog.density * d) ** 2));
+    expect(at(200)).toBeGreaterThan(0.05);
+    expect(at(200)).toBeLessThan(0.15);
+  });
+
   it("focus 來自 layout", () => {
     expect(buildVenueScene(demo(), "baseball").focus).toEqual({ x: 0, y: 1, z: -25 });
   });
@@ -157,6 +166,30 @@ describe("highlightSeat", () => {
   it("這個 layout 沒有的座位：不報錯、什麼都不標", () => {
     const venueScene = buildVenueScene(demo(), "baseball");
     expect(() => venueScene.highlightSeat({ sectionId: "F1", row: 1, seat: 1 })).not.toThrow();
+  });
+});
+
+describe("陰影：一盞主燈投影", () => {
+  it("主燈（平行光）投影；陰影範圍包住整個看台", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
+    const casters = scene.children.filter((o): o is THREE.DirectionalLight => o instanceof THREE.DirectionalLight && o.castShadow);
+    expect(casters).toHaveLength(1);
+    const camera = casters[0]?.shadow.camera;
+    if (!camera) throw new Error("沒有陰影相機");
+    const stands = new THREE.Box3().setFromObject(scene.getObjectByName("sections") ?? new THREE.Object3D());
+    expect(camera.right - camera.left).toBeGreaterThanOrEqual(stands.max.x - stands.min.x);
+    expect(camera.top - camera.bottom).toBeGreaterThanOrEqual(stands.max.z - stands.min.z);
+  });
+
+  it("座椅與看台會投影也會接受陰影；地面只接受；穹頂外殼不投影（不然整個場館都在屋頂的影子裡）", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
+    const seats = scene.getObjectByName("section:113");
+    const stand = scene.getObjectByName("stand:113");
+    expect([seats?.castShadow, seats?.receiveShadow]).toEqual([true, true]);
+    expect([stand?.castShadow, stand?.receiveShadow]).toEqual([true, true]);
+    const grass = scene.getObjectByName("overlay:fair-grass");
+    expect([grass?.castShadow, grass?.receiveShadow]).toEqual([false, true]);
+    scene.getObjectByName("shell")?.traverse((o) => expect(o.castShadow, o.name).toBe(false));
   });
 });
 

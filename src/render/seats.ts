@@ -24,10 +24,11 @@ export const CHAIR = {
 export const SEAT_NEUTRAL = new THREE.Color("#3b4d61");
 
 /**
- * 座位視角的椅子顏色：黑、白、淺灰不規則配置。
- * 依使用者照片目視估計的顏色與「大約各 1/3」的比例都是 C 級，不是官方配色或量測值。
+ * 座位視角的椅子顏色：淺灰、白為主，夾雜少量深灰，不規則配置。
+ * 顏色與比例（50%、35%、15%）都是依照片目視估計的 C 級，不是官方配色或量測值。
  */
-export const SEAT_PALETTE = [new THREE.Color("#1f2124"), new THREE.Color("#e4e5e7"), new THREE.Color("#a9adb3")] as const;
+export const SEAT_PALETTE = [new THREE.Color("#b9bdc3"), new THREE.Color("#e6e7e9"), new THREE.Color("#2a2c30")] as const;
+export const SEAT_PALETTE_WEIGHTS = [0.5, 0.35, 0.15] as const;
 
 /** 這一席在 SEAT_PALETTE 裡的顏色：由 (區、排、號) 雜湊決定，每次都一樣。 */
 export function seatPaletteIndex(sectionId: string, row: number, seat: number): number {
@@ -42,7 +43,14 @@ export function seatPaletteIndex(sectionId: string, row: number, seat: number): 
   hash ^= hash >>> 13;
   hash = Math.imul(hash, 0xc2b2ae35);
   hash ^= hash >>> 16;
-  return (hash >>> 0) % SEAT_PALETTE.length;
+  // 雜湊換成 [0, 1) 再依比例切段
+  const u = (hash >>> 0) / 4294967296;
+  let cumulative = 0;
+  for (let i = 0; i < SEAT_PALETTE_WEIGHTS.length; i++) {
+    cumulative += SEAT_PALETTE_WEIGHTS[i] ?? 0;
+    if (u < cumulative) return i;
+  }
+  return SEAT_PALETTE.length - 1;
 }
 /** 鳥瞰時混入多少分區色（0 = 全中性、1 = 全分區色）。 */
 export const OVERVIEW_TINT = 0.5;

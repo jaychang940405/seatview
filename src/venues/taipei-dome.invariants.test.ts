@@ -267,6 +267,19 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
     }
   });
 
+  it("地面材質：界內草皮是 turf，其他紅土圖層（界外地、警戒區、壘包、本壘圓、投手丘）是 dirt", () => {
+    const surfaces = Object.fromEntries(polygons().map((o) => [o.id, o.type === "polygon" ? o.surface : undefined]));
+    expect(surfaces).toEqual({
+      "field-dirt": "dirt",
+      "fair-grass": "turf",
+      "warning-track": "dirt",
+      "first-base-dirt": "dirt",
+      "third-base-dirt": "dirt",
+      "home-circle": "dirt",
+      mound: "dirt",
+    });
+  });
+
   it("每個 polygon 的頂點與高度都是有限數", () => {
     for (const o of polygons()) {
       if (o.type !== "polygon") continue;

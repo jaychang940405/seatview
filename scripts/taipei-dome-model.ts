@@ -360,7 +360,14 @@ function toCircle(origin: PlanPoint, offsetDeg: number, center: PlanPoint, r: nu
 function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   const colors = K.fieldColors.value;
   const step = K.groundLayers.value.step;
-  const flat = (id: string, layer: number, color: string, points: PlanPoint[]) => ({ type: "polygon" as const, id, points, y: mm(step * layer), color });
+  const flat = (id: string, layer: number, color: string, points: PlanPoint[], surface: "turf" | "dirt") => ({
+    type: "polygon" as const,
+    id,
+    points,
+    y: mm(step * layer),
+    color,
+    surface,
+  });
 
   const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
 
@@ -376,15 +383,15 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   };
 
   return [
-    flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z))),
-    flat("fair-grass", 2, colors.grass, [plate, ...wallArc]),
+    flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z)), "dirt"),
+    flat("fair-grass", 2, colors.grass, [plate, ...wallArc], "turf"),
     flat("warning-track", 3, colors.track, [
       ...wallArc,
       ...arc(wallCenter, trackRadius, angleAt(wallCenter, trackRight), angleAt(wallCenter, trackLeft), K.wallSampleDeg.value),
-    ]),
-    flat("first-base-dirt", 4, colors.dirt, cutout(fromPlate(plate, K.basePath.value, 45))),
-    flat("third-base-dirt", 5, colors.dirt, cutout(fromPlate(plate, K.basePath.value, -45))),
-    flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value)),
+    ], "dirt"),
+    flat("first-base-dirt", 4, colors.dirt, cutout(fromPlate(plate, K.basePath.value, 45)), "dirt"),
+    flat("third-base-dirt", 5, colors.dirt, cutout(fromPlate(plate, K.basePath.value, -45)), "dirt"),
+    flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value), "dirt"),
     {
       type: "polygon" as const,
       id: "mound",
@@ -392,6 +399,7 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
       y: K.moundHeight.value,
       height: K.moundHeight.value,
       color: colors.dirt,
+      surface: "dirt" as const,
     },
   ];
 }

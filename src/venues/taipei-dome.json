@@ -3244,7 +3244,8 @@
             { "x": 81.698, "z": 6.307 }
           ],
           "y": 0.01,
-          "color": "#c9652b"
+          "color": "#c9652b",
+          "surface": "dirt"
         },
         {
           "type": "polygon",
@@ -3282,7 +3283,8 @@
             { "x": 72.203, "z": -11.253 }
           ],
           "y": 0.02,
-          "color": "#5a9a3a"
+          "color": "#5a9a3a",
+          "surface": "turf"
         },
         {
           "type": "polygon",
@@ -3349,7 +3351,8 @@
             { "x": -68.695, "z": -7.745 }
           ],
           "y": 0.03,
-          "color": "#c25f2a"
+          "color": "#c25f2a",
+          "surface": "dirt"
         },
         {
           "type": "polygon",
@@ -3361,7 +3364,8 @@
             { "x": 16.214, "z": 41.554 }
           ],
           "y": 0.04,
-          "color": "#c9652b"
+          "color": "#c9652b",
+          "surface": "dirt"
         },
         {
           "type": "polygon",
@@ -3373,7 +3377,8 @@
             { "x": -22.578, "z": 41.554 }
           ],
           "y": 0.05,
-          "color": "#c9652b"
+          "color": "#c9652b",
+          "surface": "dirt"
         },
         {
           "type": "polygon",
@@ -3429,7 +3434,8 @@
             { "x": 3.926, "z": 60.433 }
           ],
           "y": 0.06,
-          "color": "#c9652b"
+          "color": "#c9652b",
+          "surface": "dirt"
         },
         {
           "type": "polygon",
@@ -3486,7 +3492,8 @@
           ],
           "y": 0.254,
           "height": 0.254,
-          "color": "#c9652b"
+          "color": "#c9652b",
+          "surface": "dirt"
         },
         {
           "type": "polyline",
