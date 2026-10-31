@@ -57,6 +57,12 @@ export interface OfficialParams {
   homeHalfSpan: number;
   /** 過渡弧第 1 排的半徑（m），介於本壘後方的弧與兩側的大弧之間 */
   transitionRadius: number;
+  /** 區與區之間的階梯走道寬（m）：每區每排兩端各讓出一半 */
+  aisleWidth: number;
+  /** 出入口寬（m） */
+  vomitoryWidth: number;
+  /** 有出入口的區與它的排：這幾排兩端再各讓出 (vomitoryWidth − aisleWidth)，兩側的走道就變成出入口 */
+  vomitories: Record<string, number[]>;
   /** 標籤 142 在第 9 排：外野的寬度在這一排的弧長上分配 */
   outfieldWidthRow: number;
   concertClosed: string[];
@@ -139,6 +145,14 @@ function reach(inside: (t: number) => boolean, limit: number, step: number): num
 
 export function officialStands(field: Field, outline: PlanPoint[], params: OfficialParams): Section[] {
   const { foulOffset, rowDepth, pitch } = params;
+  /** 這一區這一排，兩端各要讓出多少（m）：半條階梯走道，出入口那幾排再多讓 (出入口 − 走道) */
+  const endTrim = (id: string, row: number) =>
+    params.aisleWidth / 2 + (params.vomitories[id]?.includes(row) ? params.vomitoryWidth - params.aisleWidth : 0);
+  /** 在 [a, b]（m，沿這一排的弧長）兩端讓出走道後置中排座位 */
+  const seatRow = (id: string, row: number, [a, b]: [number, number]) => {
+    const t = endTrim(id, row);
+    return centeredSpan([a + t, b - t], pitch);
+  };
   const plate = field.plate;
   const poleDistance = Math.hypot(field.rightPole.x - plate.x, field.rightPole.z - plate.z);
   const inside = (p: PlanPoint) => signedDistance(outline, p) >= params.outlineMargin + ROUNDING_ALLOWANCE;
@@ -187,7 +201,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const rowSpans: [number, number][] = [];
     for (let r = 1; r <= rows; r++) {
       const rho = sideRadiusAt(offset(r));
-      const { seats, span } = centeredSpan([p0 * rho, Math.min(p1, sidePhiReach(side, offset(r))) * rho], pitch);
+      const { seats, span } = seatRow(id, r, [p0 * rho, Math.min(p1, sidePhiReach(side, offset(r))) * rho]);
       seatsPerRow.push(seats);
       const [f0, f1] = [span[0] / rho, span[1] / rho];
       // 座號慣例：面向場地時往左增加 → 一壘側從界外桿那端編起，三壘側從本壘那端編起
@@ -239,7 +253,8 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     for (const [id, row, seat] of params.labels) {
       const isLayer = layer === "b1" ? id.startsWith("1") : id.startsWith("2");
       if (!isLayer) continue;
-      const angle = (seat * pitch + pitch / 2) / radiusOf(layers[layer].firstOffset + (row - 1) * rowDepth);
+      // 加上兩端讓出的走道（出入口那幾排更多）
+      const angle = (seat * pitch + pitch / 2 + 2 * endTrim(id, row)) / radiusOf(layers[layer].firstOffset + (row - 1) * rowDepth);
       out[id] = Math.max(out[id] ?? 0, angle);
     }
     return out;
@@ -253,15 +268,19 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const lineStands = (layer: "b1" | "l2", side: 1 | -1, nearFromHome: string[], farId: string) => {
     const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
     const farRows = rowsOf(farId, layer);
-    const farBack = params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth;
+    const lastTrim = 2 * endTrim(farId, farRows);
+    const farBack = (params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth) + lastTrim;
     // 端區從「最後一排還留 farBack」的角度開始
     const farStart = sidePhiReach(side, offset(farRows)) - farBack / sideRadiusAt(offset(farRows));
     // 角度平分，但有票面標籤的區至少要放得下標籤（在標籤那一排的半徑上換算）
-    const near = splitByMinWidth(nearFromHome, farStart, labelMinAngle(layer, (o) => sideRadiusAt(o)));
+    const minAngle = labelMinAngle(layer, (o) => sideRadiusAt(o));
+    const near = splitByMinWidth(nearFromHome, farStart, minAngle);
     const meanNear = farStart / nearFromHome.length;
+    // 端區前排最多 endCap 倍平均寬，但端區有票面標籤時至少放得下標籤
+    const farCap = Math.max(params.endCap * meanNear, minAngle[farId] ?? 0);
     const ranges: Record<string, [number, number]> = {
       ...near,
-      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + params.endCap * meanNear)],
+      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + farCap)],
     };
     for (const id of [...nearFromHome, farId]) {
       const rows = rowsOf(id, layer);
@@ -282,7 +301,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
       const at = (deg: number) => ({ x: c.x + rho * Math.cos(deg * DEG), z: c.z + rho * Math.sin(deg * DEG) });
       const along = reach((d) => inside(at(edge - side * d)), to - from, 0.5);
       const [a, b] = side === 1 ? [edge - along, edge] : [edge, edge + along];
-      const { seats, span } = centeredSpan([a * DEG * rho, b * DEG * rho], pitch);
+      const { seats, span } = seatRow(id, r, [a * DEG * rho, b * DEG * rho]);
       seatsPerRow.push(seats);
       rowSpans.push([frac((span[0] / rho / DEG - from) / (to - from)), frac((span[1] / rho / DEG - from) / (to - from))]);
     }
@@ -320,7 +339,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
         const [lo, hi] = arcReach(radius);
         const a = Math.max(from, lo);
         const b = Math.min(to, hi);
-        const { seats, span } = centeredSpan([a * DEG * radius, b * DEG * radius], pitch);
+        const { seats, span } = seatRow(id, r, [a * DEG * radius, b * DEG * radius]);
         seatsPerRow.push(seats);
         rowSpans.push([frac((span[0] / radius / DEG - from) / (to - from)), frac((span[1] / radius / DEG - from) / (to - from))]);
       }
@@ -370,7 +389,9 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const towardCenter = (deg: number) => (sign === 1 ? Math.floor(deg * 1000) : Math.ceil(deg * 1000)) / 1000;
     const farStart = towardCenter(limit(radiusOf(rows)) - (sign * (params.farBackWidth / radiusOf(rows))) / DEG);
     const widthRadius = radiusOf(params.outfieldWidthRow);
-    const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, params.minWidth);
+    // 標籤需要的寬度加上兩端的走道
+    const minWidth = Object.fromEntries(Object.entries(params.minWidth).map(([id, w]) => [id, w + 2 * endTrim(id, params.outfieldWidthRow)]));
+    const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, minWidth);
     const toAngle = (length: number) => eyeEdge + (sign * length) / widthRadius / DEG;
     const meanNear = Math.abs(farStart - eyeEdge) / nearFromCenter.length;
     const farEnd = sign === 1 ? Math.min(front, farStart + params.endCap * meanNear) : Math.max(front, farStart - params.endCap * meanNear);
@@ -385,7 +406,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
         const radius = radiusOf(r);
         const edge = limit(radius);
         const [a, b] = sign === 1 ? [from, Math.min(to, edge)] : [Math.max(from, edge), to];
-        const { seats, span } = centeredSpan([a * DEG * radius, b * DEG * radius], pitch);
+        const { seats, span } = seatRow(id, r, [a * DEG * radius, b * DEG * radius]);
         seatsPerRow.push(seats);
         rowSpans.push([frac((span[0] / radius / DEG - from) / (to - from)), frac((span[1] / radius / DEG - from) / (to - from))]);
       }

@@ -74,9 +74,9 @@ describe("panelOptions：面板的選項來自 core 的 listSections", () => {
     for (const id of ["136", "137", "140", "141"]) expect(ids).not.toContain(id);
   });
 
-  it("排數與這一排的席數：113 有 38 排，第 1 排 3 席、第 38 排 9 席", () => {
-    expect(panelOptions(VENUES, dome("baseball", "113", 1, 2))).toMatchObject({ rows: 38, seats: 3 });
-    expect(panelOptions(VENUES, dome("baseball", "113", 38, 7))).toMatchObject({ rows: 38, seats: 9 });
+  it("排數與這一排的席數：113 有 38 排，第 1 排 1 席、第 38 排 8 席", () => {
+    expect(panelOptions(VENUES, dome("baseball", "113", 1, 1))).toMatchObject({ rows: 38, seats: 1 });
+    expect(panelOptions(VENUES, dome("baseball", "113", 38, 7))).toMatchObject({ rows: 38, seats: 8 });
   });
 
   it("排號不合法（第 99 排、NaN）→ seats 為 null", () => {
@@ -132,21 +132,21 @@ describe("applyChange：換區（原本合法的排號才會被修正）", () =>
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 
-  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 26 號 → 105 只有 22 席", () => {
-    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 26), { kind: "section", sectionId: "105" });
-    expect(selection).toEqual(dome("baseball", "105", 30, 22));
+  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 25 號 → 105 只有 21 席", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 25), { kind: "section", sectionId: "105" });
+    expect(selection).toEqual(dome("baseball", "105", 30, 21));
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("1–22");
+    expect(notices[0]).toContain("1–21");
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 });
 
 describe("applyChange：換排、換號（自己輸入的值不修正）", () => {
-  it("換排讓原本合法的號數失效 → 改成這一排最後一號並提示：113 第 38 排 9 號 → 第 1 排只有 3 席", () => {
-    const { selection, notices } = applyChange(VENUES, dome("baseball", "113", 38, 9), { kind: "row", row: 1 });
-    expect(selection).toEqual(dome("baseball", "113", 1, 3));
+  it("換排讓原本合法的號數失效 → 改成這一排最後一號並提示：113 第 38 排 8 號 → 第 1 排只有 1 席", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "113", 38, 8), { kind: "row", row: 1 });
+    expect(selection).toEqual(dome("baseball", "113", 1, 1));
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("1–3");
+    expect(notices[0]).toContain("1–1");
   });
 
   it("自己輸入的排號超出範圍 → 不修正，交給 core 回報 ROW_OUT_OF_RANGE", () => {
