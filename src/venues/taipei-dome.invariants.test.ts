@@ -663,9 +663,12 @@ describe("taipei-dome：階梯走道與出入口（依臺北市都發局 104 年
   });
 });
 
-describe("taipei-dome：內外野在界外桿角落相連（官方座位圖上 102↔146、124↔131 相鄰）", () => {
+describe("taipei-dome：界外桿角落（官方座位圖上 102↔146、124↔131 相鄰）", () => {
   const AISLE = 1.2;
   const PITCH = 0.5;
+  const FOUL_CLEARANCE = 7; // 內野看台離界外線至少 7 m（同「兩側弧形看台」的前緣不變量）
+  // 加這條規則前（端區最多是鄰區平均寬的 1.5 倍）的角落缺口，m
+  const GAP_BEFORE = { "102|146": 45.85, "124|131": 53 };
   /** 離界外線延長線多遠（m）：界外側為正。side = 1 一壘側、−1 三壘側 */
   const foulSide = (side: 1 | -1, p: PlanPoint) => {
     const d = { x: side * Math.SQRT1_2, z: -Math.SQRT1_2 }; // 本壘 → 界外桿
@@ -678,25 +681,25 @@ describe("taipei-dome：內外野在界外桿角落相連（官方座位圖上 1
     return min;
   };
 
-  it("以界外線延長線為界：內野區的座位都在界外側，外野區的座位都在界內側", () => {
+  it(`以離界外線 ${FOUL_CLEARANCE} m 的平行線為界：內野區的座位都在線的外側（離界外線延長線 ≥ ${FOUL_CLEARANCE} m），外野區的座位都在線的場內側`, () => {
     const venue = dome();
     for (const [side, infield, outfield] of [
       [1, [...range(102, 106), ...range(201, 206)], range(140, 146)],
       [-1, [...range(120, 124), ...range(220, 225)], range(131, 137)],
     ] as const) {
-      for (const id of infield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeGreaterThanOrEqual(0);
-      for (const id of outfield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeLessThanOrEqual(0);
+      for (const id of infield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeGreaterThanOrEqual(FOUL_CLEARANCE);
+      for (const id of outfield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeLessThanOrEqual(FOUL_CLEARANCE);
     }
   });
 
-  it(`一壘側 102｜146 接在一起：最近兩席只隔一條階梯走道（${AISLE} m + 一個座位寬 ≤ 距離 ≤ 3 m）`, () => {
-    const gap = nearest(dome(), "102", "146");
-    expect(gap).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
-    expect(gap).toBeLessThanOrEqual(3);
-  });
-
-  it("三壘側 124｜131 不重疊（角落被外框截斷，接不上是已知限制，見 docs/venue-taipei-dome.md）", () => {
-    expect(nearest(dome(), "124", "131")).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+  it("角落的兩區不重疊，缺口比加這條規則前小一半以上（接不上是已知限制：內野要離界外線 7 m、外野被外框截斷，見 docs/venue-taipei-dome.md）", () => {
+    const venue = dome();
+    for (const [key, before] of Object.entries(GAP_BEFORE)) {
+      const [a, b] = key.split("|") as [string, string];
+      const gap = nearest(venue, a, b);
+      expect(gap, key).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+      expect(gap, key).toBeLessThan(before / 2);
+    }
   });
 });
 
