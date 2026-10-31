@@ -95,7 +95,7 @@ describe("sectionTreads：每一排的踏面", () => {
     }
   });
 
-  it(`折線點數：linear 是兩點直線（示範場館 B1）；弧形每段不超過 ${ARC_STEP_DEG}°、段數取最少（113 區每排用到 5.7°–6.9° → 3 或 4 段）`, () => {
+  it(`折線點數：linear 是兩點直線（示範場館 B1）；弧形每段不超過 ${ARC_STEP_DEG}°、段數取最少（113 區每排用到 1.6°–4.6° → 1 到 3 段）`, () => {
     const venue = dome();
     expect(sectionTreads(parseVenue(demoArenaJson), "B1").every((t) => t.front.length === 2 && t.back.length === 2)).toBe(true);
     const arc = venue.sections.find((s) => s.id === "113");
@@ -104,7 +104,7 @@ describe("sectionTreads：每一排的踏面", () => {
     sectionTreads(venue, "113").forEach((t, i) => {
       const [start, end] = arc.rowSpans?.[i] ?? [0, 1];
       const points = Math.ceil(((end - start) * sweep) / ARC_STEP_DEG) + 1;
-      expect([4, 5]).toContain(points);
+      expect([2, 3, 4]).toContain(points);
       expect(t.front.length, `第 ${t.row} 排`).toBe(points);
       expect(t.back.length, `第 ${t.row} 排`).toBe(points);
     });

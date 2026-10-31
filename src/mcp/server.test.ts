@@ -71,8 +71,8 @@ describe("MCP server（InMemoryTransport 端到端）", () => {
             venue: "taipei-dome",
             layout: "baseball",
             seats: [
-              { section: "113", row: 4, seat: 3 },
-              { section: "113", row: 4, seat: 999 },
+              { section: "113", row: 9, seat: 2 },
+              { section: "113", row: 9, seat: 999 },
             ],
           },
         },
@@ -120,12 +120,12 @@ describe("MCP server（InMemoryTransport 端到端）", () => {
 });
 
 describe("MCP server × 大巨蛋資料（端到端）", () => {
-  it("get_seat_view 成功：113 區第 4 排 3 號（5 席的中間）正對本壘，距離 √(20.85² + 1.45²) ≈ 20.90 m，附免責聲明", async () => {
+  it("get_seat_view 成功：113 區第 9 排 2 號（3 席的中間）正對本壘，距離 √(25.10² + 3.20²) ≈ 25.30 m，附免責聲明", async () => {
     const { client, close } = await connect();
     try {
       const result = await client.callTool({
         name: "get_seat_view",
-        arguments: { venue: "taipei-dome", layout: "baseball", section: "113", row: 4, seat: 3 },
+        arguments: { venue: "taipei-dome", layout: "baseball", section: "113", row: 9, seat: 2 },
       });
       expect(result.isError, textOf(result)).toBeFalsy();
       const data = result.structuredContent as {
@@ -133,8 +133,8 @@ describe("MCP server × 大巨蛋資料（端到端）", () => {
         direction: string;
         disclaimer?: string;
       };
-      // 第 4 排：離本壘 18.3 + 3 × 0.85 m；眼睛高 0（B1 第 1 排跟場地同高）+ 3 × 0.35 + 1.2 m，好球帶 0.8 m
-      expect(data.metrics.distance).toBeCloseTo(Math.hypot(18.3 + 3 * 0.85, 0 + 3 * 0.35 + 1.2 - 0.8), 3);
+      // 第 9 排：離本壘 18.3 + 8 × 0.85 m；眼睛高 0（B1 第 1 排跟場地同高）+ 8 × 0.35 + 1.2 m，好球帶 0.8 m
+      expect(data.metrics.distance).toBeCloseTo(Math.hypot(18.3 + 8 * 0.85, 0 + 8 * 0.35 + 1.2 - 0.8), 3);
       expect(data.metrics.horizontalDeg).toBeCloseTo(0, 6);
       expect(data.direction).toBe("正面");
       expect(data.disclaimer).toContain("不應作為購票依據");

@@ -50,8 +50,19 @@ export interface OfficialParams {
   labels: readonly (readonly [string, number, number])[];
   /** 本壘後方弧的弧心從本壘往二壘方向退多少（m）：0 = 以本壘為圓心；越大弧越扁、越寬 */
   homeCenterBack: number;
-  /** 本壘後方的弧從正後方往兩側各展開幾度（以它的弧心量）：45 = 交接處的切線跟界外線平行 */
+  /**
+   * 三心弧：本壘後方的弧從正後方往兩側各展開幾度（以它的弧心量）；從這裡到 45°（135°）由過渡弧接手，
+   * 過渡弧再在切線跟界外線平行的地方接上兩側的大弧。45 = 沒有過渡弧
+   */
   homeHalfSpan: number;
+  /** 過渡弧第 1 排的半徑（m），介於本壘後方的弧與兩側的大弧之間 */
+  transitionRadius: number;
+  /** 區與區之間的階梯走道寬（m）：每區每排兩端各讓出一半 */
+  aisleWidth: number;
+  /** 出入口寬（m） */
+  vomitoryWidth: number;
+  /** 有出入口的區與它的排：這幾排兩端再各讓出 (vomitoryWidth − aisleWidth)，兩側的走道就變成出入口 */
+  vomitories: Record<string, number[]>;
   /** 標籤 142 在第 9 排：外野的寬度在這一排的弧長上分配 */
   outfieldWidthRow: number;
   concertClosed: string[];
@@ -134,6 +145,14 @@ function reach(inside: (t: number) => boolean, limit: number, step: number): num
 
 export function officialStands(field: Field, outline: PlanPoint[], params: OfficialParams): Section[] {
   const { foulOffset, rowDepth, pitch } = params;
+  /** 這一區這一排，兩端各要讓出多少（m）：半條階梯走道，出入口那幾排再多讓 (出入口 − 走道) */
+  const endTrim = (id: string, row: number) =>
+    params.aisleWidth / 2 + (params.vomitories[id]?.includes(row) ? params.vomitoryWidth - params.aisleWidth : 0);
+  /** 在 [a, b]（m，沿這一排的弧長）兩端讓出走道後置中排座位 */
+  const seatRow = (id: string, row: number, [a, b]: [number, number]) => {
+    const t = endTrim(id, row);
+    return centeredSpan([a + t, b - t], pitch);
+  };
   const plate = field.plate;
   const poleDistance = Math.hypot(field.rightPole.x - plate.x, field.rightPole.z - plate.z);
   const inside = (p: PlanPoint) => signedDistance(outline, p) >= params.outlineMargin + ROUNDING_ALLOWANCE;
@@ -145,15 +164,25 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   // 本壘後方弧的弧心：在中線上、從本壘往二壘方向退 homeCenterBack。離本壘 o（在正後方量）的那一排，半徑 = homeCenterBack + o
   const homeCenter: PlanPoint = { x: plate.x, z: plate.z - params.homeCenterBack };
   const homeRadius = (offset: number) => params.homeCenterBack + offset;
-  // 側邊弧心 = 本壘後方弧心 + (homeCenterBack + foulOffset − sideRadius)·u：兩個弧心和 45°（135°）交接點共線，所以相切
+  // 三心弧：本壘後方的弧（到 90 ∓ homeHalfSpan）→ 過渡弧（到 45°／135°）→ 兩側的大弧。
+  // 每個交接處，相鄰兩段弧的弧心和交接點共線，所以相切；各段的半徑都是「第 1 排半徑 + (offset − foulOffset)」，各排同心
+  const homeEdge = (side: 1 | -1) => 90 - side * params.homeHalfSpan;
+  const unit = (deg: number) => ({ x: Math.cos(deg * DEG), z: Math.sin(deg * DEG) });
+  const transitionCenter = (side: 1 | -1): PlanPoint => {
+    const k = params.homeCenterBack + foulOffset - params.transitionRadius;
+    const u = unit(homeEdge(side));
+    return { x: homeCenter.x + k * u.x, z: homeCenter.z + k * u.z };
+  };
+  const transitionRadiusAt = (offset: number) => params.transitionRadius + (offset - foulOffset);
   const sideCenter = (side: 1 | -1): PlanPoint => {
-    const k = params.homeCenterBack + foulOffset - params.sideRadius;
-    const junction = (90 - side * params.homeHalfSpan) * DEG;
-    return { x: homeCenter.x + k * Math.cos(junction), z: homeCenter.z + k * Math.sin(junction) };
+    const t = transitionCenter(side);
+    const k = params.transitionRadius - params.sideRadius;
+    const u = unit(90 - side * 45);
+    return { x: t.x + k * u.x, z: t.z + k * u.z };
   };
   const sideRadiusAt = (offset: number) => params.sideRadius + (offset - foulOffset);
   /** 弧上的角度（度）：一壘側從 45° 往界外桿遞減，三壘側從 135° 遞增 */
-  const sideDeg = (side: 1 | -1, phi: number) => 90 - side * params.homeHalfSpan - (side * phi) / DEG;
+  const sideDeg = (side: 1 | -1, phi: number) => 90 - side * 45 - (side * phi) / DEG;
   const sidePoint = (side: 1 | -1, offset: number, s: number) => {
     const c = sideCenter(side);
     const rho = sideRadiusAt(offset);
@@ -172,7 +201,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const rowSpans: [number, number][] = [];
     for (let r = 1; r <= rows; r++) {
       const rho = sideRadiusAt(offset(r));
-      const { seats, span } = centeredSpan([p0 * rho, Math.min(p1, sidePhiReach(side, offset(r))) * rho], pitch);
+      const { seats, span } = seatRow(id, r, [p0 * rho, Math.min(p1, sidePhiReach(side, offset(r))) * rho]);
       seatsPerRow.push(seats);
       const [f0, f1] = [span[0] / rho, span[1] / rho];
       // 座號慣例：面向場地時往左增加 → 一壘側從界外桿那端編起，三壘側從本壘那端編起
@@ -224,7 +253,8 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     for (const [id, row, seat] of params.labels) {
       const isLayer = layer === "b1" ? id.startsWith("1") : id.startsWith("2");
       if (!isLayer) continue;
-      const angle = (seat * pitch + pitch / 2) / radiusOf(layers[layer].firstOffset + (row - 1) * rowDepth);
+      // 加上兩端讓出的走道（出入口那幾排更多）
+      const angle = (seat * pitch + pitch / 2 + 2 * endTrim(id, row)) / radiusOf(layers[layer].firstOffset + (row - 1) * rowDepth);
       out[id] = Math.max(out[id] ?? 0, angle);
     }
     return out;
@@ -238,15 +268,19 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const lineStands = (layer: "b1" | "l2", side: 1 | -1, nearFromHome: string[], farId: string) => {
     const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
     const farRows = rowsOf(farId, layer);
-    const farBack = params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth;
+    const lastTrim = 2 * endTrim(farId, farRows);
+    const farBack = (params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth) + lastTrim;
     // 端區從「最後一排還留 farBack」的角度開始
     const farStart = sidePhiReach(side, offset(farRows)) - farBack / sideRadiusAt(offset(farRows));
     // 角度平分，但有票面標籤的區至少要放得下標籤（在標籤那一排的半徑上換算）
-    const near = splitByMinWidth(nearFromHome, farStart, labelMinAngle(layer, (o) => sideRadiusAt(o)));
+    const minAngle = labelMinAngle(layer, (o) => sideRadiusAt(o));
+    const near = splitByMinWidth(nearFromHome, farStart, minAngle);
     const meanNear = farStart / nearFromHome.length;
+    // 端區前排最多 endCap 倍平均寬，但端區有票面標籤時至少放得下標籤
+    const farCap = Math.max(params.endCap * meanNear, minAngle[farId] ?? 0);
     const ranges: Record<string, [number, number]> = {
       ...near,
-      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + params.endCap * meanNear)],
+      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + farCap)],
     };
     for (const id of [...nearFromHome, farId]) {
       const rows = rowsOf(id, layer);
@@ -254,7 +288,33 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     }
   };
 
-  // ── 內野：本壘後方的弧（45° 一壘側 → 135° 三壘側；null 是空位）。平分，但有票面標籤的區至少要放得下標籤
+  // ── 內野：三心弧中間的過渡弧（一區）。一壘側從 45° 到本壘後方弧的邊，三壘側從本壘後方弧的邊到 135°；座號一樣從一壘側往三壘側
+  const transitionSection = (side: 1 | -1, offset: (r: number) => number, rows: number, id: string) => {
+    const c = transitionCenter(side);
+    const edge = homeEdge(side);
+    const [from, to] = side === 1 ? [45, mm(edge)] : [mm(edge), 135];
+    const seatsPerRow: number[] = [];
+    const rowSpans: [number, number][] = [];
+    for (let r = 1; r <= rows; r++) {
+      const rho = transitionRadiusAt(offset(r));
+      // 從本壘後方那端往兩側走，在外框內能走到哪裡
+      const at = (deg: number) => ({ x: c.x + rho * Math.cos(deg * DEG), z: c.z + rho * Math.sin(deg * DEG) });
+      const along = reach((d) => inside(at(edge - side * d)), to - from, 0.5);
+      const [a, b] = side === 1 ? [edge - along, edge] : [edge, edge + along];
+      const { seats, span } = seatRow(id, r, [a * DEG * rho, b * DEG * rho]);
+      seatsPerRow.push(seats);
+      rowSpans.push([frac((span[0] / rho / DEG - from) / (to - from)), frac((span[1] / rho / DEG - from) / (to - from))]);
+    }
+    finish(id, seatsPerRow);
+    return { type: "arc" as const, center: point(c.x, c.z), innerRadius: mm(transitionRadiusAt(offset(1))), fromDeg: from, toDeg: to, seatsPerRow, rowSpans };
+  };
+  const transitionStands = (layer: "b1" | "l2", side: 1 | -1, id: string) => {
+    const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
+    const rows = rowsOf(id, layer);
+    sections.push({ ...base(id, layer, rows), ...transitionSection(side, offset, rows, id) });
+  };
+
+  // ── 內野：本壘後方的弧（90 ∓ homeHalfSpan；null 是空位）。平分，但有票面標籤的區至少要放得下標籤
   const arcStands = (layer: "b1" | "l2", slots: (string | null)[]) => {
     const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
     const keys = slots.map((id, k) => id ?? `gap-${k}`);
@@ -279,7 +339,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
         const [lo, hi] = arcReach(radius);
         const a = Math.max(from, lo);
         const b = Math.min(to, hi);
-        const { seats, span } = centeredSpan([a * DEG * radius, b * DEG * radius], pitch);
+        const { seats, span } = seatRow(id, r, [a * DEG * radius, b * DEG * radius]);
         seatsPerRow.push(seats);
         rowSpans.push([frac((span[0] / radius / DEG - from) / (to - from)), frac((span[1] / radius / DEG - from) / (to - from))]);
       }
@@ -298,10 +358,14 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   };
 
   lineStands("b1", 1, ids(103, 106).reverse(), "102");
-  arcStands("b1", ids(107, 119));
+  transitionStands("b1", 1, "107");
+  arcStands("b1", ids(108, 118));
+  transitionStands("b1", -1, "119");
   lineStands("b1", -1, ids(120, 123), "124");
   lineStands("l2", 1, ids(202, 206).reverse(), "201");
-  arcStands("l2", [...ids(207, 212), null, ...ids(214, 219)]);
+  transitionStands("l2", 1, "207");
+  arcStands("l2", [...ids(208, 212), null, ...ids(214, 218)]);
+  transitionStands("l2", -1, "219");
   lineStands("l2", -1, ids(220, 224), "225");
 
   // ── B1 外野：與外野牆同心；右外野 140–146（146 靠界外桿）、左外野 131–137（131 靠界外桿）
@@ -325,7 +389,9 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const towardCenter = (deg: number) => (sign === 1 ? Math.floor(deg * 1000) : Math.ceil(deg * 1000)) / 1000;
     const farStart = towardCenter(limit(radiusOf(rows)) - (sign * (params.farBackWidth / radiusOf(rows))) / DEG);
     const widthRadius = radiusOf(params.outfieldWidthRow);
-    const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, params.minWidth);
+    // 標籤需要的寬度加上兩端的走道
+    const minWidth = Object.fromEntries(Object.entries(params.minWidth).map(([id, w]) => [id, w + 2 * endTrim(id, params.outfieldWidthRow)]));
+    const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, minWidth);
     const toAngle = (length: number) => eyeEdge + (sign * length) / widthRadius / DEG;
     const meanNear = Math.abs(farStart - eyeEdge) / nearFromCenter.length;
     const farEnd = sign === 1 ? Math.min(front, farStart + params.endCap * meanNear) : Math.max(front, farStart - params.endCap * meanNear);
@@ -340,7 +406,7 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
         const radius = radiusOf(r);
         const edge = limit(radius);
         const [a, b] = sign === 1 ? [from, Math.min(to, edge)] : [Math.max(from, edge), to];
-        const { seats, span } = centeredSpan([a * DEG * radius, b * DEG * radius], pitch);
+        const { seats, span } = seatRow(id, r, [a * DEG * radius, b * DEG * radius]);
         seatsPerRow.push(seats);
         rowSpans.push([frac((span[0] / radius / DEG - from) / (to - from)), frac((span[1] / radius / DEG - from) / (to - from))]);
       }
@@ -431,7 +497,9 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   up.levels.forEach((level, k) => {
     const baseHeight = overL2Height + (k + 1) * up.floorGap;
     upperLine(`upper-${level}-1b`, level, 1, baseHeight);
+    massing.push({ ...tierBase(`upper-${level}-1b-turn`, level, up.rows, baseHeight), ...transitionSection(1, upperOffset, up.rows, `upper-${level}-1b-turn`) });
     if (!up.noHomeArc.includes(level)) upperArc(`upper-${level}-home`, level, baseHeight);
+    massing.push({ ...tierBase(`upper-${level}-3b-turn`, level, up.rows, baseHeight), ...transitionSection(-1, upperOffset, up.rows, `upper-${level}-3b-turn`) });
     upperLine(`upper-${level}-3b`, level, -1, baseHeight);
   });
 

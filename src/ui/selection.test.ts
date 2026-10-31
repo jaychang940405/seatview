@@ -74,9 +74,9 @@ describe("panelOptions：面板的選項來自 core 的 listSections", () => {
     for (const id of ["136", "137", "140", "141"]) expect(ids).not.toContain(id);
   });
 
-  it("排數與這一排的席數：113 有 38 排，第 1 排 4 席、第 38 排 12 席", () => {
-    expect(panelOptions(VENUES, dome("baseball", "113", 1, 2))).toMatchObject({ rows: 38, seats: 4 });
-    expect(panelOptions(VENUES, dome("baseball", "113", 38, 7))).toMatchObject({ rows: 38, seats: 12 });
+  it("排數與這一排的席數：113 有 38 排，第 1 排 1 席、第 38 排 8 席", () => {
+    expect(panelOptions(VENUES, dome("baseball", "113", 1, 1))).toMatchObject({ rows: 38, seats: 1 });
+    expect(panelOptions(VENUES, dome("baseball", "113", 38, 7))).toMatchObject({ rows: 38, seats: 8 });
   });
 
   it("排號不合法（第 99 排、NaN）→ seats 為 null", () => {
@@ -92,10 +92,10 @@ describe("applyChange：換場館", () => {
     expect(notices).toEqual([]);
   });
 
-  it("換到大巨蛋 → 棒球、102、第 1 排 19 號（37 席的中間）", () => {
+  it("換到大巨蛋 → 棒球、102、第 1 排 15 號（30 席的中間）", () => {
     const start: Selection = { venueId: "demo-arena", layoutId: "concert", sectionId: "F1", row: 3, seat: 7, mode: "seat" };
     const { selection, notices } = applyChange(VENUES, start, { kind: "venue", venueId: "taipei-dome" });
-    expect(selection).toEqual(dome("baseball", "102", 1, 19));
+    expect(selection).toEqual(dome("baseball", "102", 1, 15));
     expect(notices).toEqual([]);
   });
 });
@@ -132,21 +132,21 @@ describe("applyChange：換區（原本合法的排號才會被修正）", () =>
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 
-  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 30 號 → 105 只有 27 席", () => {
-    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 30), { kind: "section", sectionId: "105" });
-    expect(selection).toEqual(dome("baseball", "105", 30, 27));
+  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 25 號 → 105 只有 21 席", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 25), { kind: "section", sectionId: "105" });
+    expect(selection).toEqual(dome("baseball", "105", 30, 21));
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("1–27");
+    expect(notices[0]).toContain("1–21");
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 });
 
 describe("applyChange：換排、換號（自己輸入的值不修正）", () => {
-  it("換排讓原本合法的號數失效 → 改成這一排最後一號並提示：113 第 38 排 12 號 → 第 1 排只有 4 席", () => {
-    const { selection, notices } = applyChange(VENUES, dome("baseball", "113", 38, 12), { kind: "row", row: 1 });
-    expect(selection).toEqual(dome("baseball", "113", 1, 4));
+  it("換排讓原本合法的號數失效 → 改成這一排最後一號並提示：113 第 38 排 8 號 → 第 1 排只有 1 席", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "113", 38, 8), { kind: "row", row: 1 });
+    expect(selection).toEqual(dome("baseball", "113", 1, 1));
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("1–4");
+    expect(notices[0]).toContain("1–1");
   });
 
   it("自己輸入的排號超出範圍 → 不修正，交給 core 回報 ROW_OUT_OF_RANGE", () => {
