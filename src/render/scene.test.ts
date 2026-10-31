@@ -169,6 +169,30 @@ describe("highlightSeat", () => {
   });
 });
 
+describe("陰影：一盞主燈投影", () => {
+  it("主燈（平行光）投影；陰影範圍包住整個看台", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
+    const casters = scene.children.filter((o): o is THREE.DirectionalLight => o instanceof THREE.DirectionalLight && o.castShadow);
+    expect(casters).toHaveLength(1);
+    const camera = casters[0]?.shadow.camera;
+    if (!camera) throw new Error("沒有陰影相機");
+    const stands = new THREE.Box3().setFromObject(scene.getObjectByName("sections") ?? new THREE.Object3D());
+    expect(camera.right - camera.left).toBeGreaterThanOrEqual(stands.max.x - stands.min.x);
+    expect(camera.top - camera.bottom).toBeGreaterThanOrEqual(stands.max.z - stands.min.z);
+  });
+
+  it("座椅與看台會投影也會接受陰影；地面只接受；穹頂外殼不投影（不然整個場館都在屋頂的影子裡）", () => {
+    const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
+    const seats = scene.getObjectByName("section:113");
+    const stand = scene.getObjectByName("stand:113");
+    expect([seats?.castShadow, seats?.receiveShadow]).toEqual([true, true]);
+    expect([stand?.castShadow, stand?.receiveShadow]).toEqual([true, true]);
+    const grass = scene.getObjectByName("overlay:fair-grass");
+    expect([grass?.castShadow, grass?.receiveShadow]).toEqual([false, true]);
+    scene.getObjectByName("shell")?.traverse((o) => expect(o.castShadow, o.name).toBe(false));
+  });
+});
+
 describe("地面的畫法", () => {
   it("地板最先畫、不寫深度；球場地面圖層接著依序畫在它上面", () => {
     const { scene } = buildVenueScene(parseVenue(taipeiDomeJson), "baseball");
