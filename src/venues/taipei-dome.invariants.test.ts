@@ -21,7 +21,29 @@ const FOUL_POLE = 102.11; // 335 呎（B）
 const BASE_PATH = 27.43; // 90 呎（A）
 const PLATE_TO_PITCHER = 18.44; // 60 呎 6 吋（A）
 const PLATE_TO_SECOND = 38.8; // A
-const INFIELD_ARC = 28.96; // 內野紅土弧半徑 95 呎（規則值；外觀用）
+const INFIELD_ARC = 28.96; // 內野弧半徑 95 呎（規則值）；大巨蛋是人工草皮，弧只畫成白線
+const BASE_CUTOUT = 4.5; // 一壘、三壘紅土方塊邊長（C，依照片目視估計）
+const FENCE = { height: 2.5, thickness: 0.3 }; // 全壘打牆（C，依照片目視估計）
+const POLE_HEIGHT = 18; // 界外桿高（C，依照片目視估計）
+const EYE_HALF_DEG = 5; // 打者之眼：中外野 ±5°（C）
+const WALL_HEIGHT = 44; // 穹頂牆頂（C）：L5 示意量體要放得下，從 38 m 調高
+const L4_ROWS = 6; // L4 每區只有 6 排（B，NOWnews）；L3、L5 也先用 6 排（C）
+const UPPER_FLOOR_GAP = 4; // 上層看台一層疊一層的垂直間距（C）
+/** 示意量體：打者之眼、L2 外野、L3–L5 內野（L3 本壘後方是包廂，不畫座位） */
+const MASSING = {
+  "batters-eye": "B1",
+  "upper-L2-outfield-left": "L2",
+  "upper-L2-outfield-eye": "L2",
+  "upper-L2-outfield-right": "L2",
+  "upper-L3-1b": "L3",
+  "upper-L3-3b": "L3",
+  "upper-L4-1b": "L4",
+  "upper-L4-home": "L4",
+  "upper-L4-3b": "L4",
+  "upper-L5-1b": "L5",
+  "upper-L5-home": "L5",
+  "upper-L5-3b": "L5",
+} as Record<string, string>;
 const HOME_CIRCLE = 3.96; // 本壘圓半徑 13 呎（A）
 const MOUND = { diameter: 5.49, height: 0.254 }; // 投手丘 18 呎、10 吋（A）
 const WARNING_TRACK = 4.5; // 警戒區寬（C）
@@ -140,8 +162,8 @@ describe("taipei-dome：基本結構", () => {
     expect(Object.keys(dome().layouts).sort()).toEqual(["baseball", "concert"]);
   });
 
-  it("section id = 官方票區（B1 內野、B1 外野、L2 內野）＋演唱會搖滾區", () => {
-    expect(dome().sections.map((s) => s.id)).toEqual(SECTION_IDS);
+  it("能查詢的 section id = 官方票區（B1 內野、B1 外野、L2 內野）＋演唱會搖滾區（示意量體另外列）", () => {
+    expect(dome().sections.filter((s) => s.massing !== true).map((s) => s.id)).toEqual(SECTION_IDS);
   });
 
   it("meta 帶有免責聲明與數字來源", () => {
@@ -224,8 +246,25 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
   const polygons = () => (dome().layouts.baseball?.overlays ?? []).filter((o) => o.type === "polygon");
   const pitcher = { x: PLATE.x, z: PLATE.z - PLATE_TO_PITCHER };
 
-  it("七層地面，由下往上：界外地紅土、界內草皮、警戒區、內野紅土、內野草皮、本壘圓、投手丘", () => {
-    expect(polygons().map((o) => o.id)).toEqual(["field-dirt", "fair-grass", "warning-track", "infield-dirt", "infield-grass", "home-circle", "mound"]);
+  it("人工草皮內野，由下往上：界外地紅土、界內草皮、警戒區、一壘與三壘紅土方塊、本壘圓、投手丘（沒有整片內野紅土）", () => {
+    expect(polygons().map((o) => o.id)).toEqual(["field-dirt", "fair-grass", "warning-track", "first-base-dirt", "third-base-dirt", "home-circle", "mound"]);
+  });
+
+  it(`一壘、三壘紅土方塊：邊長 ${BASE_CUTOUT} m 的正方形，中心在壘包、邊與壘線平行`, () => {
+    const venue = dome();
+    const [, first, , third] = polyline(venue, "infield");
+    for (const [id, base] of [["first-base-dirt", first], ["third-base-dirt", third]] as const) {
+      const square = polygon(venue, id).points;
+      expect(square, id).toHaveLength(4);
+      expectWithin(planDistance(centroid(square), base ?? { x: NaN, z: NaN }), 0, 0.01);
+      for (let i = 0; i < 4; i++) {
+        const a = square[i] ?? { x: NaN, z: NaN };
+        const b = square[(i + 1) % 4] ?? { x: NaN, z: NaN };
+        expectWithin(planDistance(a, b), BASE_CUTOUT, 0.01);
+        // 壘線方向是 ±45°，所以每條邊的 |dx| = |dz|
+        expectWithin(Math.abs(Math.abs(b.x - a.x) - Math.abs(b.z - a.z)), 0, 0.01);
+      }
+    }
   });
 
   it("每個 polygon 的頂點與高度都是有限數", () => {
@@ -246,9 +285,9 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
     }
   });
 
-  it(`內野紅土：以投手板為圓心、半徑 ${INFIELD_ARC} m（95 呎）的弧，兩端落在界外線上`, () => {
-    const [first, ...arc] = polygon(dome(), "infield-dirt").points;
-    expect(first).toEqual(PLATE);
+  it(`內野弧是畫在草皮上的白線：以投手板為圓心、半徑 ${INFIELD_ARC} m（95 呎），兩端落在界外線上`, () => {
+    const arc = polyline(dome(), "infield-arc");
+    expect(arc.length).toBeGreaterThan(2);
     for (const p of arc) expectWithin(planDistance(p, pitcher), INFIELD_ARC, 0.01);
     expectWithin(Math.abs(angleFromCenterLine(arc[0] ?? PLATE)), 45, 0.01);
     expectWithin(Math.abs(angleFromCenterLine(arc.at(-1) ?? PLATE)), 45, 0.01);
@@ -278,9 +317,123 @@ describe("taipei-dome：球場地面（baseball 的 polygon overlays）", () => 
 
   it("線條畫在平面地面之上：界外線、內野線、外野牆的 y 都高於每一層平面 polygon", () => {
     const flatTop = Math.max(...polygons().flatMap((o) => (o.type === "polygon" && o.height === undefined ? [o.y ?? 0] : [])));
-    for (const id of ["foul-line-left", "foul-line-right", "infield", "outfield-wall"]) {
+    for (const id of ["foul-line-left", "foul-line-right", "infield", "infield-arc", "outfield-wall"]) {
       const line = overlay(dome(), "baseball", id);
       expect(line.type === "polyline" ? (line.y ?? 0) : Number.NaN, id).toBeGreaterThan(flatTop);
+    }
+  });
+});
+
+describe("taipei-dome：全壘打牆與界外桿（baseball 的 box overlays）", () => {
+  const boxes = (layoutId: string) =>
+    (dome().layouts[layoutId]?.overlays ?? []).flatMap((o) => (o.type === "box" ? [o] : []));
+  const fence = () => boxes("baseball").filter((o) => o.id.startsWith("outfield-fence-"));
+  /** 一段牆在平面上的兩端（沿 yaw 方向各半個長度）。 */
+  const ends = (o: ReturnType<typeof fence>[number]) => {
+    const yaw = ((o.yawDeg ?? 0) * Math.PI) / 180;
+    const half = o.size.x / 2;
+    return [
+      { x: o.center.x - half * Math.cos(yaw), z: o.center.z - half * Math.sin(yaw) },
+      { x: o.center.x + half * Math.cos(yaw), z: o.center.z + half * Math.sin(yaw) },
+    ];
+  };
+
+  it(`全壘打牆：沿外野牆一段一段、高 ${FENCE.height} m、厚 ${FENCE.thickness} m，從地面立起，緊貼在外野牆外側`, () => {
+    const wall = outfieldWallCircle();
+    const segments = fence();
+    expect(segments.length).toBeGreaterThan(10);
+    for (const o of segments) {
+      expectWithin(o.size.y, FENCE.height, 1e-6);
+      expectWithin(o.size.z, FENCE.thickness, 1e-6);
+      expectWithin(o.center.y, FENCE.height / 2, 1e-6);
+      const r = planDistance(o.center, wall.center);
+      expect(r, o.id).toBeGreaterThanOrEqual(wall.radius);
+      expect(r, o.id).toBeLessThanOrEqual(wall.radius + FENCE.thickness);
+    }
+  });
+
+  it("全壘打牆從左外野桿接到右外野桿，中間沒有缺口", () => {
+    const segments = fence().map(ends);
+    const leftPole = polyline(dome(), "foul-line-left").at(-1) ?? PLATE;
+    const rightPole = polyline(dome(), "foul-line-right").at(-1) ?? PLATE;
+    const all = segments.flat();
+    expect(Math.min(...all.map((p) => planDistance(p, leftPole)))).toBeLessThan(0.5);
+    expect(Math.min(...all.map((p) => planDistance(p, rightPole)))).toBeLessThan(0.5);
+    for (let i = 1; i < segments.length; i++) {
+      const gap = planDistance(segments[i - 1]?.[1] ?? PLATE, segments[i]?.[0] ?? { x: NaN, z: NaN });
+      expect(gap, `第 ${i} 段`).toBeLessThan(0.5);
+    }
+  });
+
+  it(`界外桿：左右各一根，立在界外線終點，高 ${POLE_HEIGHT} m`, () => {
+    for (const [id, line] of [["foul-pole-left", "foul-line-left"], ["foul-pole-right", "foul-line-right"]] as const) {
+      const pole = boxes("baseball").find((o) => o.id === id);
+      if (!pole) throw new Error(`沒有 ${id}`);
+      expectWithin(planDistance(pole.center, polyline(dome(), line).at(-1) ?? PLATE), 0, 0.01);
+      expectWithin(pole.size.y, POLE_HEIGHT, 1e-6);
+      expectWithin(pole.center.y, POLE_HEIGHT / 2, 1e-6);
+    }
+  });
+
+  it("演唱會沒有全壘打牆與界外桿", () => {
+    expect(boxes("concert").filter((o) => o.id.startsWith("outfield-fence-") || o.id.startsWith("foul-pole-"))).toHaveLength(0);
+  });
+});
+
+describe("taipei-dome：示意量體（只畫外觀，不能查詢）", () => {
+  const massing = () => dome().sections.filter((s) => s.massing === true);
+
+  it("打者之眼 batters-eye：B1 外野中間 ±5° 的深色座位，排數、排距與 B1 外野相同，棒球與演唱會都畫", () => {
+    const venue = dome();
+    const eye = venue.sections.find((s) => s.id === "batters-eye");
+    const outfield = venue.sections.find((s) => s.id === "140");
+    if (eye?.type !== "arc" || outfield?.type !== "arc") throw new Error("batters-eye 與 140 都應該是弧形區");
+    expect(eye.massing).toBe(true);
+    expect(eye.seatColor).toBeDefined();
+    expect(eye.layouts).toBeUndefined();
+    expectWithin(eye.fromDeg, -90 - EYE_HALF_DEG, 1e-6);
+    expectWithin(eye.toDeg, -90 + EYE_HALF_DEG, 1e-6);
+    expect(eye.center).toEqual(outfield.center);
+    expect(eye.innerRadius).toBe(outfield.innerRadius);
+    expect([eye.rows, eye.rowDepth, eye.rowRise, eye.baseHeight]).toEqual([outfield.rows, outfield.rowDepth, outfield.rowRise, outfield.baseHeight]);
+  });
+
+  it("示意量體有哪些：打者之眼、L2 外野三段、L3 一三壘側、L4 與 L5 的一三壘側與本壘後方；樓層各自標好", () => {
+    const massing = dome().sections.filter((s) => s.massing === true);
+    expect(Object.fromEntries(massing.map((s) => [s.id, s.level]))).toEqual(MASSING);
+  });
+
+  it(`L3–L5 每層 ${L4_ROWS} 排，都是懸挑樓板；同一層的三段高度相同，上一層比下一層高 ${UPPER_FLOOR_GAP} m`, () => {
+    const venue = dome();
+    const base = (level: string) => {
+      const heights = venue.sections.filter((s) => s.massing && s.level === level).map((s) => s.baseHeight);
+      expect(new Set(heights).size, level).toBe(1);
+      return heights[0] ?? NaN;
+    };
+    for (const s of venue.sections.filter((x) => x.massing && /^L[345]$/.test(x.level ?? ""))) {
+      expect(s.rows, s.id).toBe(L4_ROWS);
+      expect(s.structure, s.id).toBe("tier");
+    }
+    expectWithin(base("L4") - base("L3"), UPPER_FLOOR_GAP, 1e-6);
+    expectWithin(base("L5") - base("L4"), UPPER_FLOOR_GAP, 1e-6);
+  });
+
+  it("L2 外野疊在 B1 外野上方：每一席的高度都比 B1 外野最後一排高，是懸挑樓板；中間一段是深色的打者之眼", () => {
+    const venue = dome();
+    const b1Top = Math.max(...sectionSeats(venue, "140").map((p) => p.position.y));
+    for (const id of ["upper-L2-outfield-left", "upper-L2-outfield-eye", "upper-L2-outfield-right"]) {
+      expect(Math.min(...sectionSeats(venue, id).map((p) => p.position.y)), id).toBeGreaterThan(b1Top);
+      expect(venue.sections.find((s) => s.id === id)?.structure, id).toBe("tier");
+    }
+    const eye = venue.sections.find((s) => s.id === "upper-L2-outfield-eye");
+    expect(eye?.seatColor).toBe(venue.sections.find((s) => s.id === "batters-eye")?.seatColor);
+  });
+
+  it("量體的 id 不是官方票區號，查詢一律 UNKNOWN_SECTION（138、139 也還是）", () => {
+    expect(massing().length).toBeGreaterThan(0);
+    for (const s of massing()) {
+      expect(s.id, s.id).not.toMatch(/^\d+$/);
+      expectSeatError(() => getSeatView(dome(), "baseball", s.id, 1, 1), "UNKNOWN_SECTION");
     }
   });
 });
@@ -376,28 +529,29 @@ describe("taipei-dome：座位排列", () => {
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
   });
 
-  it("穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 38 m 高於最高的座椅；所有座位在底面輪廓內", () => {
+  it(`穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 ${WALL_HEIGHT} m 高於最高的座椅（含示意量體）；所有座位在底面輪廓內`, () => {
     const venue = dome();
     const shell = venue.shell;
     if (!shell) throw new Error("沒有 shell");
     expect(shell.roofHeight).toBe(72);
     expect(shell.roofHeight).toBeLessThanOrEqual(ROOF_HEIGHT);
-    expect(shell.wallHeight).toBe(38);
+    expect(shell.wallHeight).toBe(WALL_HEIGHT);
     const outside = venue.sections.flatMap((s) => sectionSeats(venue, s.id).filter((seat) => !pointInPolygon(shell.outline, seat.position)));
     expect(outside).toHaveLength(0);
     const topSeat = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((seat) => seat.position.y)));
     expect(topSeat + 1).toBeLessThan(shell.wallHeight);
   });
 
-  it("看台下方結構：L2 內野是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
+  it("看台下方結構：L2 內野與上層示意量體是懸挑樓板（tier），其他區用預設的實心（solid）", () => {
     for (const section of dome().sections) {
-      expect(section.structure, section.id).toBe(L2_INFIELD.includes(section.id) ? "tier" : undefined);
+      const tier = L2_INFIELD.includes(section.id) || section.id.startsWith("upper-");
+      expect(section.structure, section.id).toBe(tier ? "tier" : undefined);
     }
   });
 
   it("樓層 level：B1 內野與外野是 B1、L2 內野是 L2；搖滾區在場地上，不屬於任何樓層", () => {
     for (const section of dome().sections) {
-      const expected = L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1";
+      const expected = MASSING[section.id] ?? (L2_INFIELD.includes(section.id) ? "L2" : section.id.startsWith("F") ? undefined : "B1");
       expect(section.level, section.id).toBe(expected);
     }
   });

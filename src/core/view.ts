@@ -1,7 +1,7 @@
 import { SeatViewError } from "./errors.ts";
 import { distance, elevationAngle, horizontalAngle, horizontalDistance } from "./geometry.ts";
 import type { Layout, Section, Vec3, Venue } from "./schema.ts";
-import { cameraPose, findSection, seatPosition, seatsInRow, type CameraPose } from "./seat.ts";
+import { cameraPose, findSection, isQueryable, seatPosition, seatsInRow, type CameraPose } from "./seat.ts";
 
 export interface SeatView {
   venueId: string;
@@ -31,6 +31,12 @@ export interface SectionSummary {
   rows: number;
   /** 每排座位數，長度 = rows */
   seatsPerRow: number[];
+}
+
+/** 這個 layout 畫面上要畫的區（含示意量體），照資料順序。 */
+export function displaySections(venue: Venue, layoutId: string): Section[] {
+  findLayout(venue, layoutId);
+  return venue.sections.filter((section) => isSectionInLayout(section, layoutId));
 }
 
 export function findLayout(venue: Venue, layoutId: string): Layout {
@@ -85,11 +91,11 @@ export function getSeatView(
   };
 }
 
-/** 某 layout 開放的區。 */
+/** 某 layout 開放、能查詢的區（不含示意量體）。 */
 export function listSections(venue: Venue, layoutId: string): SectionSummary[] {
   findLayout(venue, layoutId);
   return venue.sections
-    .filter((section) => isSectionInLayout(section, layoutId))
+    .filter((section) => isQueryable(section) && isSectionInLayout(section, layoutId))
     .map((section) => ({
       id: section.id,
       name: section.name,

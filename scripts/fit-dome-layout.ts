@@ -103,7 +103,8 @@ function planSvg(venue: Venue): string {
     wall.push({ x: FIELD.wallCenter.x + FIELD.wallRadius * Math.cos(deg * DEG), z: FIELD.wallCenter.z + FIELD.wallRadius * Math.sin(deg * DEG) });
   }
   const outline = superellipsePolygon(OUTLINE, 1);
-  const stands = venue.sections.filter((s) => !s.id.startsWith("F"));
+  // 只畫官方票區；示意量體（上層看台、打者之眼）疊在 L2 上方，畫進平面圖會看不清楚
+  const stands = venue.sections.filter((s) => !s.id.startsWith("F") && s.massing !== true);
   const totals = layerTotals(stands);
   const out = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width * scale} ${height * scale + 120}" font-family="system-ui, sans-serif">`,

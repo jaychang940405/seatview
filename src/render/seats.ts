@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Venue } from "../core/schema";
-import { sectionSeats } from "../core/seat";
+import { findDrawableSection, sectionSeats } from "../core/seat";
 import { planYawToRotationY, toVector3 } from "./convert";
 
 /**
@@ -99,6 +99,9 @@ export function buildSectionMesh(
   color: THREE.ColorRepresentation,
 ): SectionMesh {
   const placements = sectionSeats(venue, sectionId);
+  // 有 seatColor 的區（例如打者之眼）座位視角一律用那個顏色，不混色
+  const { seatColor } = findDrawableSection(venue, sectionId);
+  const fixed = seatColor === undefined ? null : new THREE.Color(seatColor);
   const colors: Record<ColorMode, THREE.Color> = {
     seat: SEAT_NEUTRAL.clone(),
     overview: SEAT_NEUTRAL.clone().lerp(new THREE.Color(color), OVERVIEW_TINT),
@@ -121,7 +124,7 @@ export function buildSectionMesh(
 
   const palette = Uint8Array.from(placements, ({ row, seat }) => seatPaletteIndex(sectionId, row, seat));
   const colorAt = (mode: ColorMode, index: number) =>
-    mode === "overview" ? colors.overview : (SEAT_PALETTE[palette[index] ?? 0] ?? colors.seat);
+    mode === "overview" ? colors.overview : (fixed ?? SEAT_PALETTE[palette[index] ?? 0] ?? colors.seat);
   const paint = (mode: ColorMode) => {
     for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colorAt(mode, i));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;

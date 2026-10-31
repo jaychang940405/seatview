@@ -36,6 +36,7 @@ const ESTIMATE = "本專案估算（非量測）";
 const FIT = "npm run fit:dome 擬合結果（超橢圓外框摘要、外圈留空 3 m）";
 const CONCERT = "演唱會暫定假設（每場演出不同，非場館屬性）";
 const PHOTO = "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）";
+const INTERIOR_PHOTO = "使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）";
 const GDF = "https://gdf999.com/bigdomelazybag-sara240214/";
 const WAIHANN = "https://waihann.tw/1136/taipeidome-seatview/";
 const SEAT_MAP = "使用者提供的售票座位圖（只讀區號與相對位置，不描摹、不放進 repo）";
@@ -115,7 +116,7 @@ export const K = {
   plateToSecond: { label: "本壘到二壘", value: 38.8, unit: "m", grade: "A", source: "棒球規則" },
   moundDiameter: { label: "投手丘直徑", value: 5.49, unit: "m", grade: "A", source: "棒球規則（18 呎）" },
   moundHeight: { label: "投手丘高度", value: 0.254, unit: "m", grade: "A", source: "棒球規則（10 吋）" },
-  infieldArc: { label: "內野紅土弧半徑（以投手板為圓心）", value: 28.96, unit: "m", grade: "A", source: "棒球規則（95 呎）；畫面外觀用" },
+  infieldArc: { label: "內野弧半徑（以投手板為圓心；大巨蛋是人工草皮，只畫成白線）", value: 28.96, unit: "m", grade: "A", source: "棒球規則（95 呎）；畫面外觀用" },
   homeCircle: { label: "本壘圓半徑", value: 3.96, unit: "m", grade: "A", source: "棒球規則（13 呎）" },
 
   // ── C：本專案估算 ──
@@ -170,9 +171,35 @@ export const K = {
       "排數的下限來自球迷照片的票面標籤；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
+  battersEye: {
+    label: "打者之眼（138、139 的位置）：深色座位的示意量體，不能查詢",
+    value: { seatColor: "#16181b" },
+    grade: "C",
+    source: INTERIOR_PHOTO,
+  },
   wallSampleDeg: { label: "外野牆圓弧取樣間隔", value: 5, unit: "°", grade: "C", source: "建模選擇" },
   warningTrack: { label: "警戒區寬", value: 4.5, unit: "m", grade: "C", source: ESTIMATE },
-  shellWallHeight: { label: "穹頂牆頂高度（屋頂起拱處）", value: 38, unit: "m", grade: "C", source: PHOTO },
+  outfieldFence: {
+    label: "全壘打牆（沿外野牆外側的護牆）",
+    value: { height: 2.5, thickness: 0.3, color: "#1d3447" },
+    grade: "C",
+    source: INTERIOR_PHOTO,
+  },
+  foulPoleMarker: { label: "界外桿（黃色）", value: { height: 18, width: 0.4, color: "#f0c419" }, grade: "C", source: INTERIOR_PHOTO },
+  shellWallHeight: {
+    label: "穹頂牆頂高度（屋頂起拱處）",
+    value: 44,
+    unit: "m",
+    grade: "C",
+    source: `${PHOTO}；原本估 38 m，加上 L5 示意量體（最高一排約 39.5 m）後調高，${INTERIOR_PHOTO}`,
+  },
+  upperMassing: {
+    label: "上層看台示意量體（只畫外觀、不能查詢）",
+    value: { levels: ["L3", "L4", "L5"], noHomeArc: ["L3"], overL2Row: 14, rows: 6, rowRise: 0.5, floorGap: 4, outfieldOverRow: 8, outfieldRows: 10 },
+    grade: "C",
+    source:
+      "樓層與區號（L2 外野 233–244、L3 301–317、L4 401–417、L5 503–515）見 https://waihann.tw/1136/taipeidome-seatview/ ；L4 只有 6 排見 https://www.nownews.com/news/6534334 ；L3 中央是包廂見 https://uptogo.com.tw/?p=1729172 。外框留空讓本壘後方沒有水平空間，所以 L3–L5 疊在 L2 後段正上方；L3、L5 的排數、層間距、L2 外野的位置與排數都是估算",
+  },
   screens: {
     label: "牆上的大螢幕（依拍照目視估計，非量測值）",
     value: {
@@ -185,12 +212,18 @@ export const K = {
     source: `${PHOTO}；演唱會時全部熄滅`,
   },
   shellOutlineStepDeg: { label: "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）", value: 2, unit: "°", grade: "C", source: "建模選擇" },
-  infieldGrassInset: { label: "內野草皮離壘線內縮", value: 1.2, unit: "m", grade: "C", source: "畫面外觀用" },
+  baseCutout: {
+    label: "一壘、三壘紅土方塊邊長（內野其餘是人工草皮；二壘在參考照片裡被打擊練習網擋住，不畫）",
+    value: 4.5,
+    unit: "m",
+    grade: "C",
+    source: INTERIOR_PHOTO,
+  },
   fieldColors: {
     label: "球場地面與線條顏色",
-    value: { grass: "#5f9a3c", dirt: "#b5663b", track: "#9e5934", line: "#f2f2f2" },
+    value: { grass: "#5a9a3a", dirt: "#c9652b", track: "#c25f2a", line: "#f2f2f2" },
     grade: "C",
-    source: PHOTO,
+    source: `${PHOTO}；橘色依 ${INTERIOR_PHOTO} 調亮`,
   },
   groundLayers: {
     label: "地面圖層高度",
@@ -261,6 +294,8 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
   ),
   outfieldWidthRow: K.officialLayout.value.outfieldWidthRow,
   concertClosed: [...K.concertClosed.value],
+  eyeSeatColor: K.battersEye.value.seatColor,
+  upper: { ...K.upperMassing.value, levels: [...K.upperMassing.value.levels], noHomeArc: [...K.upperMassing.value.noHomeArc] },
 };
 
 // ── 幾何 ──
@@ -316,8 +351,9 @@ function toCircle(origin: PlanPoint, offsetDeg: number, center: PlanPoint, r: nu
 }
 
 /**
- * 球場地面（由下往上）：界外地紅土、界內草皮、警戒區、內野紅土、內野草皮、本壘圓、投手丘。
- * 尺寸：內野弧、本壘圓、投手丘是規則值（A）；警戒區寬、內野草皮內縮、顏色是 C。
+ * 球場地面（由下往上）：界外地紅土、界內草皮、警戒區、一壘與三壘紅土方塊、本壘圓、投手丘。
+ * 大巨蛋內野是人工草皮：紅土只有本壘、投手丘和壘包周圍；95 呎內野弧畫成白線（infieldArcLine）。
+ * 尺寸：本壘圓、投手丘、壘間是規則值（A）；警戒區寬、壘包方塊、顏色是 C。
  */
 function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   const colors = K.fieldColors.value;
@@ -325,16 +361,17 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   const flat = (id: string, layer: number, color: string, points: PlanPoint[]) => ({ type: "polygon" as const, id, points, y: mm(step * layer), color });
 
   const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
-  const infieldRight = toCircle(plate, 45, pitcher, K.infieldArc.value);
-  const infieldLeft = toCircle(plate, -45, pitcher, K.infieldArc.value);
 
   const { wallCenter, wallRadius } = FIELD;
   const trackRadius = wallRadius - K.warningTrack.value;
   const trackRight = toCircle(plate, 45, wallCenter, trackRadius);
   const trackLeft = toCircle(plate, -45, wallCenter, trackRadius);
 
-  const diamondCenter = point(plate.x, plate.z - K.plateToSecond.value / 2);
-  const grassHalf = K.basePath.value / Math.SQRT2 - K.infieldGrassInset.value * Math.SQRT2;
+  // 壘包方塊：邊與壘線平行（±45°），所以頂點在壘包往上下左右各 邊長 / √2
+  const cutout = (base: PlanPoint) => {
+    const h = K.baseCutout.value / Math.SQRT2;
+    return [point(base.x, base.z + h), point(base.x + h, base.z), point(base.x, base.z - h), point(base.x - h, base.z)];
+  };
 
   return [
     flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z))),
@@ -343,13 +380,8 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
       ...wallArc,
       ...arc(wallCenter, trackRadius, angleAt(wallCenter, trackRight), angleAt(wallCenter, trackLeft), K.wallSampleDeg.value),
     ]),
-    flat("infield-dirt", 4, colors.dirt, [plate, ...arc(pitcher, K.infieldArc.value, angleAt(pitcher, infieldRight), angleAt(pitcher, infieldLeft), 3)]),
-    flat("infield-grass", 5, colors.grass, [
-      point(diamondCenter.x, diamondCenter.z + grassHalf),
-      point(diamondCenter.x + grassHalf, diamondCenter.z),
-      point(diamondCenter.x, diamondCenter.z - grassHalf),
-      point(diamondCenter.x - grassHalf, diamondCenter.z),
-    ]),
+    flat("first-base-dirt", 4, colors.dirt, cutout(fromPlate(plate, K.basePath.value, 45))),
+    flat("third-base-dirt", 5, colors.dirt, cutout(fromPlate(plate, K.basePath.value, -45))),
     flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value)),
     {
       type: "polygon" as const,
@@ -360,6 +392,58 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
       color: colors.dirt,
     },
   ];
+}
+
+/**
+ * 全壘打牆：外野牆每一段弦一個 box，貼在牆線外側（中心往外推「弦到弧的距離 + 半個牆厚」），
+ * 加上兩根黃色界外桿。只在 baseball。
+ */
+function fenceAndPoles(wallArc: PlanPoint[]) {
+  const { height, thickness, color } = K.outfieldFence.value;
+  const { wallCenter } = FIELD;
+  const fence = wallArc.slice(1).map((b, i) => {
+    const a = wallArc[i] as PlanPoint;
+    const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    const r = Math.hypot(mid.x - wallCenter.x, mid.z - wallCenter.z);
+    const out = { x: (mid.x - wallCenter.x) / r, z: (mid.z - wallCenter.z) / r };
+    const sagitta = FIELD.wallRadius - r;
+    const push = sagitta + thickness / 2;
+    return {
+      type: "box" as const,
+      id: `outfield-fence-${i + 1}`,
+      center: { x: mm(mid.x + out.x * push), y: height / 2, z: mm(mid.z + out.z * push) },
+      size: { x: mm(Math.hypot(b.x - a.x, b.z - a.z)), y: height, z: thickness },
+      yawDeg: mm(angleAt(a, b)),
+      color,
+    };
+  });
+  const pole = K.foulPoleMarker.value;
+  const poles = (
+    [
+      ["foul-pole-left", wallArc[0]],
+      ["foul-pole-right", wallArc.at(-1)],
+    ] as const
+  ).map(([id, p]) => ({
+    type: "box" as const,
+    id,
+    center: { x: p?.x ?? NaN, y: pole.height / 2, z: p?.z ?? NaN },
+    size: { x: pole.width, y: pole.height, z: pole.width },
+    color: pole.color,
+  }));
+  return [...fence, ...poles];
+}
+
+/** 95 呎內野弧：大巨蛋是人工草皮，這條弧是畫在草皮上的白線，兩端落在界外線上。 */
+function infieldArcLine(plate: PlanPoint) {
+  const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
+  const right = toCircle(plate, 45, pitcher, K.infieldArc.value);
+  const left = toCircle(plate, -45, pitcher, K.infieldArc.value);
+  return {
+    type: "polyline" as const,
+    id: "infield-arc",
+    points: arc(pitcher, K.infieldArc.value, angleAt(pitcher, right), angleAt(pitcher, left), 3),
+    y: K.groundLayers.value.lineY,
+  };
 }
 
 /**
@@ -507,6 +591,8 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
           { type: "polyline", id: "foul-line-left", points: [plate, leftPole], y: lineY },
           { type: "polyline", id: "foul-line-right", points: [plate, rightPole], y: lineY },
           { type: "polyline", id: "outfield-wall", points: wallArc, y: lineY },
+          infieldArcLine(plate),
+          ...fenceAndPoles(wallArc),
           {
             type: "polyline",
             id: "infield",

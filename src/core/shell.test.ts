@@ -36,10 +36,10 @@ describe("roofHeightAt：屋頂高度（拋物面，C 級外形）", () => {
     expect(roofHeightAt(shifted, center)).toBeCloseTo(72, 6);
   });
 
-  it("大巨蛋：最高點 72 m（室內淨高，B）、牆頂 38 m（C）", () => {
+  it("大巨蛋：最高點 72 m（室內淨高，B）、牆頂 44 m（C）", () => {
     const shell = domeShell();
     expect(roofHeightAt(shell, shellCenter(shell))).toBeCloseTo(72, 6);
-    for (const p of shell.outline.filter((_, i) => i % 15 === 0)) expect(roofHeightAt(shell, p)).toBeCloseTo(38, 2);
+    for (const p of shell.outline.filter((_, i) => i % 15 === 0)) expect(roofHeightAt(shell, p)).toBeCloseTo(44, 2);
   });
 });
 

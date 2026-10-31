@@ -1,5 +1,5 @@
 import type { Section, Venue } from "../core/schema";
-import { findSection, seatsInRow } from "../core/seat";
+import { findSection, isQueryable, seatsInRow } from "../core/seat";
 import { findLayout, isSectionInLayout, listSections } from "../core/view";
 import type { CameraMode } from "../render/viewer";
 import type { SeatQuery } from "./query";
@@ -157,7 +157,7 @@ function firstLayoutId(venue: Venue): string {
 }
 
 function firstSection(venue: Venue, layoutId: string): Section {
-  const section = venue.sections.find((s) => isSectionInLayout(s, layoutId));
+  const section = venue.sections.find((s) => isQueryable(s) && isSectionInLayout(s, layoutId));
   if (!section) throw new Error(`${venue.id} 的 ${layoutId} layout 沒有開放任何區`);
   return section;
 }
@@ -171,7 +171,7 @@ function venueDefaults(venue: Venue, mode: CameraMode): Selection {
 
 /** 區不存在或在這個 layout 沒開放 → 改成第一區並提示。 */
 function resolveSection(venue: Venue, layoutId: string, sectionId: string, notices: string[]): Section {
-  const section = venue.sections.find((s) => s.id === sectionId);
+  const section = venue.sections.find((s) => s.id === sectionId && isQueryable(s));
   if (section && isSectionInLayout(section, layoutId)) return section;
   const fallback = firstSection(venue, layoutId);
   notices.push(

@@ -31,7 +31,7 @@ describe("buildShell：穹頂外殼", () => {
     expect(group.children.map((c) => c.name).sort()).toEqual(["shell-lattice", "shell-lights", "shell-roof", "shell-screens", "shell-seams", "shell-wall"]);
   });
 
-  it("牆：從地面到牆頂（38 m），頂點都在底面輪廓上", () => {
+  it("牆：從地面到牆頂，頂點都在底面輪廓上", () => {
     const shell = domeShell();
     const wall = vertices(buildShell(shell, "baseball").getObjectByName("shell-wall"));
     const ys = wall.map((v) => v.y);

@@ -16,6 +16,13 @@ const SectionBaseSchema = z.object({
   rowRise: z.number().nonnegative(),
   baseHeight: z.number(),
   layouts: z.array(z.string()).optional(),
+  /**
+   * 只畫外觀的看台量體（例如打者之眼、沒有資料的上層看台）：畫面照樣畫座椅與看台，
+   * 但不能查詢（回 UNKNOWN_SECTION）、不在選單、小地圖與 MCP 的區列表裡。
+   */
+  massing: z.boolean().optional(),
+  /** 這一區的座椅都用同一個顏色（例如打者之眼的深色座位）；沒寫就照一般的混色 */
+  seatColor: z.string().min(1).optional(),
   /** 樓層（例如 B1、L2）：小地圖依此分圖層、面板依此分組；沒寫的區（例如場地上的搖滾區）不屬於任何樓層 */
   level: z.string().min(1).optional(),
   /** 看台下方：solid（預設）= 實心到地面；tier = 懸挑的階梯樓板，下方是空的（例如二層） */
