@@ -4,86 +4,198 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SeatView</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- 主題字型（OFL）：Oswald 給數字與英文標籤、Noto Sans TC 給中文；載不到就退回系統字型 -->
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&amp;family=Noto+Sans+TC:wght@400;700;900&amp;display=swap" rel="stylesheet" />
     <style>
+      /*
+       * 主題「票根 × 記分板」：版型共用，顏色依場地（html 的 data-layout）切換。
+       * 棒球 = 夜場：界外桿黃＋草皮綠；演唱會 = 舞台燈：螢光粉＋青色。設計稿見 docs/visuals.md。
+       */
+      :root {
+        --ground: #0e1116;
+        --panel: rgba(23, 28, 35, 0.92);
+        --line: #263040;
+        --field: #0e1116;
+        --control: #222a35;
+        --control-line: #344052;
+        --dash: #3a4555;
+        --board: rgba(7, 9, 12, 0.92);
+        --ink: #f4f1ea;
+        --soft: #c9ced6;
+        --muted: #a7afbc;
+        --accent: #f2c230;
+        --on-accent: #11161d;
+        --accent-2: #4cb873;
+        --on-accent-2: #0e1116;
+        --notice: #ffd166;
+        --error: #ff9b9b;
+        --font-body: "Noto Sans TC", system-ui, sans-serif;
+        --font-num: Oswald, "Noto Sans TC", system-ui, sans-serif;
+      }
+      :root[data-layout="concert"] {
+        --ground: #120e1f;
+        --panel: rgba(30, 23, 52, 0.92);
+        --line: #352a55;
+        --field: #120e1f;
+        --control: #2a2145;
+        --control-line: #44386a;
+        --dash: #4a3d72;
+        --board: rgba(10, 7, 20, 0.92);
+        --ink: #f6f1ff;
+        --soft: #d6cdeb;
+        --muted: #b9aed6;
+        --accent: #ff4f9a;
+        --on-accent: #140f22;
+        --accent-2: #3fd0e0;
+        --on-accent-2: #120e1f;
+      }
       html,
       body {
         margin: 0;
         height: 100%;
-        background: #1b1d23;
+        background: var(--ground);
       }
       #app {
         position: fixed;
         inset: 0;
       }
       .hud {
-        border-radius: 6px;
-        background: rgba(0, 0, 0, 0.6);
-        color: #f0f0f0;
-        font: 14px/1.5 system-ui, sans-serif;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--ink);
+        font: 14px/1.5 var(--font-body);
       }
       .hud button,
       .hud select,
       .hud input {
         font: inherit;
+        color: var(--ink);
+      }
+      .hud button {
+        border: 1px solid var(--control-line);
+        border-radius: 6px;
+        background: var(--control);
+        cursor: pointer;
+      }
+      .hud button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .hud select,
+      .hud input {
+        border: 1px solid var(--control-line);
+        border-radius: 6px;
+        background: var(--field);
+      }
+      .hud :focus-visible {
+        outline: 2px solid var(--accent-2);
+        outline-offset: 1px;
       }
       [hidden] {
         display: none !important;
       }
 
-      /* 左上：選位面板（可收合） */
+      /* 左上：選位面板 = 一張票根（票頭、區排號、打孔虛線、可收合的控制項） */
       #panel {
         position: fixed;
         top: 12px;
         left: 12px;
-        max-width: 380px;
-        padding: 8px 12px;
+        width: 340px;
+        max-width: calc(100% - 24px);
+        overflow: hidden;
       }
-      #panel .panel-head {
+      #panel .ticket-head {
         display: flex;
-        gap: 10px;
+        justify-content: space-between;
         align-items: center;
+        gap: 12px;
+        padding: 8px 14px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 700;
+      }
+      #panel .brand {
+        font-family: var(--font-num);
+        letter-spacing: 0.18em;
+      }
+      #panel .ticket-numbers {
+        display: flex;
+        align-items: flex-end;
+        gap: 18px;
+        padding: 10px 14px 8px;
+      }
+      #panel .ticket-numbers div {
+        display: flex;
+        flex-direction: column;
+      }
+      #panel .ticket-numbers span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      #panel .ticket-numbers b {
+        font-family: var(--font-num);
+        font-weight: 700;
+        font-size: 40px;
+        line-height: 1;
       }
       #panel-toggle {
-        padding: 2px 8px;
-        cursor: pointer;
-      }
-      #panel:not(.collapsed) .summary {
-        display: none;
+        margin-left: auto;
+        align-self: center;
+        min-height: 36px;
+        padding: 0 12px;
       }
       #panel .panel-body {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 6px 10px;
+        gap: 8px 12px;
         align-items: center;
-        margin-top: 8px;
+        margin: 0 14px;
+        padding: 12px 0 14px;
+        border-top: 2px dashed var(--dash);
+      }
+      #panel label {
+        color: var(--soft);
       }
       #panel select {
         width: 100%;
+        min-height: 40px;
+        padding: 0 8px;
       }
       #panel .stepper {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
       }
       #panel .stepper button {
-        width: 2em;
-        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
       }
       #panel input[type="number"] {
-        width: 4.5em;
+        width: 4.2em;
+        height: 40px;
+        box-sizing: border-box;
+        text-align: center;
+        font-family: var(--font-num);
+        font-size: 18px;
       }
       #panel input:invalid {
-        outline: 2px solid #ff6b6b;
+        outline: 2px solid var(--error);
       }
       #panel .hint {
-        margin-left: 4px;
-        color: #b8bcc6;
+        margin-left: 2px;
+        color: var(--muted);
+        font-size: 13px;
         white-space: nowrap;
       }
 
       /* 分段按鈕（radio）：場地切換、小地圖樓層 */
       .segmented {
         display: flex;
+        gap: 4px;
       }
       .segmented[hidden] {
         display: none;
@@ -91,8 +203,10 @@
       .segmented label {
         position: relative;
         padding: 4px 12px;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
+        color: var(--soft);
+        font-weight: 700;
       }
       .segmented input {
         position: absolute;
@@ -100,11 +214,11 @@
         pointer-events: none;
       }
       .segmented label:has(input:checked) {
-        background: #f0f0f0;
-        color: #111;
+        background: var(--accent);
+        color: var(--on-accent);
       }
       .segmented label:has(input:focus-visible) {
-        outline: 2px solid #8ab4f8;
+        outline: 2px solid var(--accent-2);
       }
 
       /* 右上：場地切換 */
@@ -112,10 +226,18 @@
         position: fixed;
         top: 12px;
         right: 12px;
-        padding: 3px;
+        padding: 4px;
+        border-radius: 999px;
+      }
+      #layout-switch label {
+        display: flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 18px;
+        border-radius: 999px;
       }
 
-      /* 下方：小地圖、視角工具、資訊列 */
+      /* 下方：小地圖、記分板、視角工具，最下面是提示與免責聲明 */
       #hud-bottom {
         position: fixed;
         left: 12px;
@@ -128,10 +250,12 @@
       }
       #hud-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: flex-end;
         gap: 8px;
       }
-      #hud-row > * {
+      #hud-row > *,
+      #info {
         pointer-events: auto;
       }
       #minimap {
@@ -144,16 +268,17 @@
       /* 小地圖左上角的樓層切換（B1／L2） */
       #minimap .levels {
         position: absolute;
-        top: 4px;
-        left: 4px;
+        top: 6px;
+        left: 6px;
         padding: 2px;
-        border-radius: 4px;
-        background: rgba(20, 22, 28, 0.85);
+        border-radius: 6px;
+        background: var(--board);
         font-size: 12px;
       }
       #minimap .levels label {
-        padding: 1px 7px;
-        border-radius: 3px;
+        padding: 1px 8px;
+        border-radius: 4px;
+        font-family: var(--font-num);
       }
       #minimap svg {
         display: block;
@@ -162,67 +287,102 @@
       }
       #minimap .lines path {
         fill: none;
-        stroke: #8fbf8f;
+        stroke: var(--accent-2);
         stroke-width: 1px;
       }
       #minimap .section {
-        fill: rgba(240, 240, 240, 0.22);
-        stroke: #c8ccd4;
+        fill: rgba(240, 240, 240, 0.16);
+        stroke: var(--muted);
         stroke-width: 1px;
         cursor: pointer;
       }
       #minimap .section:hover,
       #minimap .section:focus-visible {
-        fill: rgba(240, 240, 240, 0.5);
+        fill: rgba(240, 240, 240, 0.4);
         outline: none;
-        stroke: #ffffff;
+        stroke: var(--ink);
       }
       #minimap .section.current {
-        fill: rgba(238, 102, 119, 0.55);
+        fill: color-mix(in srgb, var(--accent) 55%, transparent);
       }
       #minimap .seat-dot {
-        fill: #ff3b4f;
-        stroke: #ffffff;
+        fill: var(--accent);
+        stroke: var(--ground);
         stroke-width: 1.5;
       }
+
+      /* 記分板：距離、俯角、水平偏角 */
+      #scoreboard {
+        flex: 999 1 360px;
+        min-width: 0;
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        background: var(--board);
+      }
+      #scoreboard .cell {
+        flex: 1 1 110px;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 16px;
+      }
+      #scoreboard .cell + .cell {
+        border-left: 1px solid var(--line);
+      }
+      #scoreboard .label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      #scoreboard .value {
+        font-family: var(--font-num);
+        font-weight: 700;
+        font-size: 30px;
+        line-height: 1.15;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
       #view-tools {
-        margin-left: auto;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
         align-items: center;
-        padding: 6px 10px;
+        padding: 8px 12px;
         font-size: 13px;
       }
       #view-tools button {
-        padding: 2px 10px;
-        cursor: pointer;
+        min-height: 36px;
+        padding: 0 12px;
+        font-family: var(--font-num);
+        font-weight: 700;
       }
       #zoom-presets {
         display: flex;
-        gap: 4px;
+        gap: 6px;
       }
       #view-tools button[aria-pressed="true"] {
-        background: #f0f0f0;
-        color: #111;
-        font-weight: 600;
+        border-color: transparent;
+        background: var(--accent-2);
+        color: var(--on-accent-2);
       }
       #view-hint {
         flex-basis: 100%;
-        color: #b8bcc6;
+        color: var(--muted);
         font-size: 12px;
       }
       #info {
         padding: 8px 12px;
       }
+      #info .seat-line {
+        color: var(--soft);
+      }
       #info .notice {
-        color: #ffd166;
+        color: var(--notice);
       }
       #info .error {
-        color: #ff9b9b;
+        color: var(--error);
       }
       #info .disclaimer {
-        color: #b8bcc6;
+        color: var(--muted);
         font-size: 12px;
       }
 
@@ -235,14 +395,20 @@
           top: 8px;
           right: 8px;
         }
+        #layout-switch label {
+          min-height: 32px;
+          padding: 0 12px;
+        }
         #panel {
-          top: 52px;
+          top: 60px;
           left: 8px;
           right: 8px;
-          max-width: none;
-          max-height: calc(33vh - 52px);
+          width: auto;
+          max-height: calc(33vh - 60px);
           overflow-y: auto;
-          padding: 6px 10px;
+        }
+        #panel .ticket-numbers b {
+          font-size: 28px;
         }
         #panel .panel-body {
           gap: 4px 8px;
@@ -256,6 +422,18 @@
           width: 120px;
           height: 120px;
         }
+        /* 三格擠在一行，不要折成兩行蓋住畫面 */
+        #scoreboard {
+          flex-wrap: nowrap;
+        }
+        #scoreboard .cell {
+          flex: 1 1 0;
+          min-width: 0;
+          padding: 6px 10px;
+        }
+        #scoreboard .value {
+          font-size: 22px;
+        }
       }
     </style>
   </head>
@@ -266,6 +444,7 @@
     <div id="hud-bottom">
       <div id="hud-row">
         <div id="minimap" class="hud"></div>
+        <div id="scoreboard" class="hud" aria-live="polite" hidden></div>
         <div id="view-tools" class="hud" hidden>
           <span id="zoom-presets" role="group" aria-label="倍數"></span>
           <button type="button" id="reset-view" hidden>回正</button>

@@ -18,10 +18,17 @@ export interface PanelElements {
 const NARROW_SCREEN = "(max-width: 600px)";
 
 export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (change: Change) => void): Panel {
+  // 面板是一張票根：票頭（場館）、大字的區排號（收合時也看得到）、打孔虛線下面是控制項
   form.innerHTML = `
-    <div class="panel-head">
+    <div class="ticket-head">
+      <span class="brand">SEATVIEW</span>
+      <span id="ticket-venue"></span>
+    </div>
+    <div class="ticket-numbers">
+      <div><span>區</span><b id="ticket-section"></b></div>
+      <div><span>排</span><b id="ticket-row"></b></div>
+      <div><span>號</span><b id="ticket-seat"></b></div>
       <button type="button" id="panel-toggle" aria-controls="panel-body"></button>
-      <span id="panel-summary" class="summary"></span>
     </div>
     <div id="panel-body" class="panel-body">
       <label for="pick-venue">場館</label>
@@ -48,7 +55,12 @@ export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (ch
   layoutSwitch.setAttribute("aria-label", "場地");
 
   const toggle = part<HTMLButtonElement>(form, "#panel-toggle");
-  const summary = part<HTMLSpanElement>(form, "#panel-summary");
+  const ticket = {
+    venue: part<HTMLSpanElement>(form, "#ticket-venue"),
+    section: part<HTMLElement>(form, "#ticket-section"),
+    row: part<HTMLElement>(form, "#ticket-row"),
+    seat: part<HTMLElement>(form, "#ticket-seat"),
+  };
   const body = part<HTMLDivElement>(form, "#panel-body");
   const venue = part<HTMLSelectElement>(form, "#pick-venue");
   const section = part<HTMLSelectElement>(form, "#pick-section");
@@ -70,7 +82,7 @@ export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (ch
     body.hidden = collapsed;
     form.classList.toggle("collapsed", collapsed);
     toggle.setAttribute("aria-expanded", String(!collapsed));
-    toggle.textContent = collapsed ? "▸ 選位" : "▾ 選位";
+    toggle.textContent = collapsed ? "選位 ▸" : "收合 ▾";
   };
   setCollapsed(window.matchMedia(NARROW_SCREEN).matches);
   toggle.addEventListener("click", () => setCollapsed(!body.hidden));
@@ -114,7 +126,10 @@ export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (ch
       steppers.seatDown.disabled = selection.seat <= 1;
       steppers.seatUp.disabled = options.seats !== null && selection.seat >= options.seats;
 
-      summary.textContent = `${selection.sectionId} 第 ${numberText(selection.row) || "?"} 排 ${numberText(selection.seat) || "?"} 號`;
+      ticket.venue.textContent = options.venues.find((v) => v.id === selection.venueId)?.label.replace(/（.*）$/, "") ?? "";
+      ticket.section.textContent = selection.sectionId;
+      ticket.row.textContent = numberText(selection.row) || "?";
+      ticket.seat.textContent = numberText(selection.seat) || "?";
     },
   };
 }
