@@ -36,6 +36,12 @@ const MASSING = {
   "upper-L2-outfield-eye": "L2",
   "upper-L2-outfield-right": "L2",
   "upper-L3-1b": "L3",
+  "upper-L3-1b-turn": "L3",
+  "upper-L3-3b-turn": "L3",
+  "upper-L4-1b-turn": "L4",
+  "upper-L4-3b-turn": "L4",
+  "upper-L5-1b-turn": "L5",
+  "upper-L5-3b-turn": "L5",
   "upper-L3-3b": "L3",
   "upper-L4-1b": "L4",
   "upper-L4-home": "L4",
@@ -634,13 +640,34 @@ describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座�
     }
   });
 
-  it("跟本壘後方的弧相切：側邊弧心、本壘後方弧心與 45°（三壘側 135°）交接點在同一直線上，兩段弧在交接處方向一致", () => {
+  it("三心弧：本壘後方的弧 → 過渡弧（107、119、207、219）→ 兩側的大弧，過渡弧的半徑介於兩者之間", () => {
     const venue = dome();
-    const home = arcOf(venue, "113").center;
+    const home = arcOf(venue, "113");
+    for (const [turnId, sideId] of [["107", "103"], ["119", "121"], ["207", "203"], ["219", "221"]] as const) {
+      const turn = arcOf(venue, turnId);
+      const side = arcOf(venue, sideId);
+      expect(planDistance(turn.center, home.center), turnId).toBeGreaterThan(1);
+      expect(planDistance(turn.center, side.center), turnId).toBeGreaterThan(1);
+      const homeR = turnId.startsWith("1") ? home.innerRadius : arcOf(venue, "212").innerRadius;
+      expect(turn.innerRadius, turnId).toBeGreaterThan(homeR);
+      expect(turn.innerRadius, turnId).toBeLessThan(side.innerRadius);
+      expect(Math.abs(turn.toDeg - turn.fromDeg), turnId).toBeGreaterThan(5);
+    }
+  });
+
+  it("每個交接處都相切：相鄰兩段弧的弧心和交接點在同一直線上（方向一致，沒有轉角）", () => {
+    const venue = dome();
+    const home = arcOf(venue, "113");
+    const angleOf = (from: PlanPoint, to: PlanPoint) => Math.atan2(to.z - from.z, to.x - from.x);
+    const parallel = (a: number, b: number) => Math.abs(Math.sin(a - b));
     for (const side of SIDES) {
-      const c = arcOf(venue, side.ids[0] ?? "").center;
-      // 兩個弧心的連線方向就是 u（垂直界外線）：沿界外線的分量是 0
-      expectWithin((c.x - home.x) * side.d.x + (c.z - home.z) * side.d.z, 0, 0.01);
+      const [turnId, homeEdgeDeg] = side.name === "一壘側" ? ["107", arcOf(venue, "108").fromDeg] : ["119", arcOf(venue, "118").toDeg];
+      const turn = arcOf(venue, turnId).center;
+      const sideCenter = arcOf(venue, side.ids[0] ?? "").center;
+      // 本壘後方弧 ↔ 過渡弧：兩個弧心的連線就是交接角度的方向
+      expect(parallel(angleOf(home.center, turn), (homeEdgeDeg * Math.PI) / 180), side.name).toBeLessThan(1e-4);
+      // 過渡弧 ↔ 兩側大弧：在 45°（135°）交接，連線垂直界外線，所以沿界外線的分量是 0
+      expectWithin((sideCenter.x - turn.x) * side.d.x + (sideCenter.z - turn.z) * side.d.z, 0, 0.01);
     }
   });
 
