@@ -53,6 +53,26 @@ export const TICKET_LABELS = [
   ["203", 18, 26],
   ["205", 19, 10],
 ] as const;
+/**
+ * 視野文章照片說明裡的區排號（B）：https://waihann.tw/2291/taipeidome-seatview-ifb1-3/ （102–110）、
+ * https://waihann.tw/2282/taipeidome-seatview-ifb1-2/ （111–115）。跟文章標題對不上的兩張不列入。
+ */
+export const CAPTION_LABELS = [
+  ["102", 23, 32], ["102", 23, 1], ["102", 27, 18], ["102", 32, 7], ["102", 36, 13],
+  ["103", 12, 22], ["103", 13, 22], ["103", 17, 16], ["103", 25, 21], ["103", 33, 1], ["103", 38, 9],
+  ["104", 7, 22], ["104", 13, 10], ["104", 21, 3], ["104", 28, 20], ["104", 36, 11],
+  ["105", 2, 17], ["105", 4, 5], ["105", 11, 1], ["105", 20, 8], ["105", 32, 22], ["105", 38, 5],
+  ["106", 3, 8], ["106", 15, 20], ["106", 29, 8], ["106", 36, 22],
+  ["107", 6, 10], ["107", 35, 10],
+  ["108", 12, 6], ["108", 17, 1], ["108", 26, 20], ["108", 34, 10],
+  ["109", 11, 11], ["109", 22, 13],
+  ["110", 9, 11], ["110", 17, 12],
+  ["111", 32, 1], ["111", 38, 17],
+  ["112", 21, 5], ["112", 29, 3], ["112", 37, 7],
+  ["113", 8, 13], ["113", 16, 13], ["113", 28, 16], ["113", 35, 5],
+  ["114", 10, 3], ["114", 25, 10], ["114", 34, 17], ["114", 38, 4],
+  ["115", 25, 6], ["115", 29, 19], ["115", 33, 16], ["115", 34, 1], ["115", 38, 8], ["115", 38, 9],
+] as const;
 /** 最後一排剛好幾席（201 第 15 排有 15 號、沒有 16 號）。 */
 const EXACT_LAST_ROW = { "201": 15 } as const;
 
@@ -150,7 +170,8 @@ export const K = {
   },
   rowDepth: { label: "看台排距", value: 0.85, unit: "m", grade: "C", source: ESTIMATE },
   seatPitch: { label: "座位寬（每排席數 = 長度 ÷ 座位寬取整）", value: 0.5, unit: "m", grade: "C", source: ESTIMATE },
-  lowerDeck: { label: "B1（內野、外野）高度", value: { rowRise: 0.35, baseHeight: 3 }, grade: "C", source: ESTIMATE },
+  lowerDeck: { label: "B1（內野、外野）高度；外野第 1 排在全壘打牆之上", value: { rowRise: 0.35, baseHeight: 3 }, grade: "C", source: ESTIMATE },
+  b1FrontHeight: { label: "B1 內野第 1 排高度：跟場地（球員站的地方）同高", value: 0, unit: "m", grade: "C", source: "使用者說明：B1 第一排跟球場同高度" },
   upperDeck: { label: "L2 內野高度（baseHeight = B1 內野最後一排 + 淨空）", value: { rowRise: 0.5 }, grade: "C", source: ESTIMATE },
   outfieldClearance: { label: "外野看台離外野牆的淨空", value: 3, unit: "m", grade: "C", source: ESTIMATE },
   officialLayout: {
@@ -164,12 +185,14 @@ export const K = {
       endCap: 1.5,
       farBackWidth: 2,
       sideRadius: 300,
+      homeCenterBack: 0,
+      homeHalfSpan: 45,
       eyeHalfDeg: 5,
       outfieldWidthRow: 9,
     },
     grade: "C",
     source:
-      "排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
+      "本壘後方的弧心仍在本壘（homeCenterBack 0 m）、往兩側展開 45°：2026-11-01 掃過弧心後退 0–40 m、展開 45–70°、留空 0–3 m、場地再移 0–12 m、座椅 0.45–0.5 m，視野文章照片說明的座位在左右對稱下仍放不下，所以照片說明只回報（npm run fit:dome）；排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
   battersEye: {
@@ -278,7 +301,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
   pitch: K.seatPitch.value,
   outlineMargin: K.outlineMargin.value,
   outfieldClearance: K.outfieldClearance.value,
-  b1: { rows: K.officialLayout.value.b1Rows, ...K.lowerDeck.value },
+  b1: { rows: K.officialLayout.value.b1Rows, rowRise: K.lowerDeck.value.rowRise, baseHeight: K.b1FrontHeight.value },
   outfield: { rows: K.officialLayout.value.outfieldRows, ...K.lowerDeck.value, eyeHalfDeg: K.officialLayout.value.eyeHalfDeg },
   l2: {
     startRow: K.officialLayout.value.l2StartRow,
@@ -288,6 +311,9 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
     headroom: K.headroom.value,
   },
   endCap: K.officialLayout.value.endCap,
+  labels: TICKET_LABELS,
+  homeCenterBack: K.officialLayout.value.homeCenterBack,
+  homeHalfSpan: K.officialLayout.value.homeHalfSpan,
   sideRadius: K.officialLayout.value.sideRadius,
   farBackWidth: K.officialLayout.value.farBackWidth,
   exactLastRow: EXACT_LAST_ROW,

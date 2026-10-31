@@ -452,6 +452,15 @@ describe("taipei-dome：示意量體（只畫外觀，不能查詢）", () => {
 });
 
 describe("taipei-dome：官方票區", () => {
+  it("B1 內野第 1 排跟場地（球員站的地方）同高；外野 B1 仍在全壘打牆之上", () => {
+    const venue = dome();
+    for (const id of B1_INFIELD) {
+      const first = sectionSeats(venue, id).filter((p) => p.row === 1);
+      for (const p of first) expectWithin(p.position.y, 0, 1e-6);
+    }
+    expect(Math.min(...sectionSeats(venue, "140").map((p) => p.position.y))).toBeGreaterThanOrEqual(FENCE.height);
+  });
+
   it.each(TICKET_LABELS)("票面標籤 %s 區 %s 排 %s 號存在", (sectionId, row, seat) => {
     expect(() => seatPosition(dome(), sectionId, row, seat)).not.toThrow();
   });
@@ -625,16 +634,18 @@ describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座�
     }
   });
 
-  it("跟本壘後方的弧相切：弧心在本壘往 45°（三壘側 135°）交接點那條線上，所以兩段弧在交接處方向一致", () => {
+  it("跟本壘後方的弧相切：側邊弧心、本壘後方弧心與 45°（三壘側 135°）交接點在同一直線上，兩段弧在交接處方向一致", () => {
     const venue = dome();
+    const home = arcOf(venue, "113").center;
     for (const side of SIDES) {
       const c = arcOf(venue, side.ids[0] ?? "").center;
-      // 弧心相對本壘的位置沒有沿界外線的分量
-      expectWithin(along(c, side.d), 0, 0.01);
+      // 兩個弧心的連線方向就是 u（垂直界外線）：沿界外線的分量是 0
+      expectWithin((c.x - home.x) * side.d.x + (c.z - home.z) * side.d.z, 0, 0.01);
     }
   });
 
-  it("B1 看台前緣（第 1 排）離界外線：交接處約 18.3 m，往界外桿越來越近，最近仍有 7 m 以上", () => {
+
+  it("B1 看台前緣（第 1 排）離界外線：交接處至少 18.3 m，往界外桿越來越近，最近仍有 7 m 以上", () => {
     const venue = dome();
     for (const side of SIDES) {
       const front = side.ids

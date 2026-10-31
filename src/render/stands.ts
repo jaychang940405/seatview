@@ -23,14 +23,17 @@ export function buildStands(venue: Venue, layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "stands";
   for (const { id } of displaySections(venue, layoutId)) {
-    const treads = sectionTreads(venue, id).filter((t) => t.top - t.bottom > 1e-6);
-    const [first] = treads;
-    if (!first) continue;
+    const all = sectionTreads(venue, id);
+    // 跟地面同高的排（B1 第 1 排、搖滾區）沒有看台實體，它就是地面
+    const treads = all.filter((t) => t.top - t.bottom > 1e-6);
+    if (treads.length === 0) continue;
     const body = buildBody(id, treads);
     body.castShadow = true;
     body.receiveShadow = true;
     group.add(body);
-    if (first.row === 1 && first.top > 0) group.add(buildParapet(id, first));
+    // 前緣護欄：只要這一區會往上升（不是平的搖滾區），第 1 排前面就有，即使第 1 排跟場地同高
+    const first = all[0];
+    if (first && first.row === 1) group.add(buildParapet(id, first));
   }
   return group;
 }
