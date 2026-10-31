@@ -182,7 +182,7 @@ export const K = {
       l2Rows: { "201": 15, "202": 16, "203": 18 },
       l2DefaultRows: 19,
       l2StartRow: 19,
-      endCap: 1.5,
+      foulClearance: 7,
       farBackWidth: 2,
       sideRadius: 300,
       homeCenterBack: 0,
@@ -193,7 +193,7 @@ export const K = {
     },
     grade: "C",
     source:
-      "三心弧：本壘後方的弧以本壘為圓心、往兩側各展開 35°（原本 30°；加了階梯走道後 30° 時 108 區第 1 排放不下座位），接半徑 40 m 的過渡弧（107、119、207、219）到 45°／135°，再接兩側半徑 300 m 的大弧，每個交接處都相切（2026-11-01 掃過展開 20–35°、過渡弧 40–100 m，只有 40 m 讓所有票面標籤都放得下、前緣離界外線 ≥ 7 m）；本壘後方的弧心仍在本壘（homeCenterBack 0 m）：2026-11-01 掃過弧心後退 0–40 m、展開 45–70°、留空 0–3 m、場地再移 0–12 m、座椅 0.45–0.5 m，視野文章照片說明的座位在左右對稱下仍放不下，所以照片說明只回報（npm run fit:dome）；排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍（有票面標籤時至少放得下標籤）；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
+      "三心弧：本壘後方的弧以本壘為圓心、往兩側各展開 35°（原本 30°；加了階梯走道後 30° 時 108 區第 1 排放不下座位），接半徑 40 m 的過渡弧（107、119、207、219）到 45°／135°，再接兩側半徑 300 m 的大弧，每個交接處都相切（2026-11-01 掃過展開 20–35°、過渡弧 40–100 m，只有 40 m 讓所有票面標籤都放得下、前緣離界外線 ≥ 7 m）；本壘後方的弧心仍在本壘（homeCenterBack 0 m）：2026-11-01 掃過弧心後退 0–40 m、展開 45–70°、留空 0–3 m、場地再移 0–12 m、座椅 0.45–0.5 m，視野文章照片說明的座位在左右對稱下仍放不下，所以照片說明只回報（npm run fit:dome）；排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、一路排到離界外線 7 m 的平行線或外框（內外野在界外桿角落以這條線為界；7 m 是看台前緣離界外線的下限，同不變量）；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   egress: {
     label: "階梯走道與出入口（依疏散設計推算）",
@@ -329,7 +329,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
     rowRise: K.upperDeck.value.rowRise,
     headroom: K.headroom.value,
   },
-  endCap: K.officialLayout.value.endCap,
+  foulClearance: K.officialLayout.value.foulClearance,
   labels: TICKET_LABELS,
   homeCenterBack: K.officialLayout.value.homeCenterBack,
   homeHalfSpan: K.officialLayout.value.homeHalfSpan,

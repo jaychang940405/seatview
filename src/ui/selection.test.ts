@@ -92,10 +92,10 @@ describe("applyChange：換場館", () => {
     expect(notices).toEqual([]);
   });
 
-  it("換到大巨蛋 → 棒球、102、第 1 排 15 號（30 席的中間）", () => {
+  it("換到大巨蛋 → 棒球、102、第 1 排 39 號（78 席的中間）", () => {
     const start: Selection = { venueId: "demo-arena", layoutId: "concert", sectionId: "F1", row: 3, seat: 7, mode: "seat" };
     const { selection, notices } = applyChange(VENUES, start, { kind: "venue", venueId: "taipei-dome" });
-    expect(selection).toEqual(dome("baseball", "102", 1, 15));
+    expect(selection).toEqual(dome("baseball", "102", 1, 39));
     expect(notices).toEqual([]);
   });
 });

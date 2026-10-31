@@ -30,8 +30,6 @@ export interface OfficialParams {
   b1: { rows: number; rowRise: number; baseHeight: number };
   outfield: { rows: number; rowRise: number; baseHeight: number; eyeHalfDeg: number };
   l2: { startRow: number; rows: Record<string, number>; defaultRows: number; rowRise: number; headroom: number };
-  /** 靠界外桿那一區最多是鄰區平均寬的幾倍 */
-  endCap: number;
   /**
    * 一三壘側第 1 排的弧半徑（m）：兩側不是直線，而是跟本壘後方的弧相切的大弧，
    * 弧心在場內；越往界外桿，看台越靠近界外線，座位也越往本壘轉
@@ -57,6 +55,8 @@ export interface OfficialParams {
   homeHalfSpan: number;
   /** 過渡弧第 1 排的半徑（m），介於本壘後方的弧與兩側的大弧之間 */
   transitionRadius: number;
+  /** 內野看台離界外線（含延長線）至少多遠（m）；也是界外桿角落內外野的分界 */
+  foulClearance: number;
   /** 區與區之間的階梯走道寬（m）：每區每排兩端各讓出一半 */
   aisleWidth: number;
   /** 出入口寬（m） */
@@ -156,6 +156,13 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const plate = field.plate;
   const poleDistance = Math.hypot(field.rightPole.x - plate.x, field.rightPole.z - plate.z);
   const inside = (p: PlanPoint) => signedDistance(outline, p) >= params.outlineMargin + ROUNDING_ALLOWANCE;
+  // 界外桿角落（官方座位圖上 102↔146、124↔131 相鄰）以離界外線 foulClearance 的平行線為界：
+  // 內野看台每一排都停在離界外線（延長線）foulClearance 以外，外野看台排到這條線為止，兩邊各自在端點讓出半條走道
+  const foulSide = (side: 1 | -1, p: PlanPoint) => {
+    const pole = side === 1 ? field.rightPole : field.leftPole;
+    const d = { x: (pole.x - plate.x) / poleDistance, z: (pole.z - plate.z) / poleDistance };
+    return side * (d.x * (p.z - plate.z) - d.z * (p.x - plate.x));
+  };
 
   // ── 一三壘側的大弧（side = +1：一壘側（+x）；−1：三壘側）
   // 弧心在本壘往 45°（135°）交接點那條線上、界外線的另一邊（場內），所以跟本壘後方的弧在交接處相切。
@@ -189,7 +196,13 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const theta = sideDeg(side, s / rho) * DEG;
     return { x: c.x + rho * Math.cos(theta), z: c.z + rho * Math.sin(theta) };
   };
-  const sideReachOn = (side: 1 | -1) => memo((offset: number) => reach((s) => inside(sidePoint(side, offset, s)), poleDistance, 1));
+  const sideReachOn = (side: 1 | -1) =>
+    memo((offset: number) =>
+      reach((s) => {
+        const p = sidePoint(side, offset, s);
+        return inside(p) && foulSide(side, p) >= params.foulClearance;
+      }, poleDistance, 1),
+    );
   const sideReaches = { 1: sideReachOn(1), [-1]: sideReachOn(-1) };
   /** 這一排在外框內能走到的角度（弧度，從交接處算） */
   const sidePhiReach = (side: 1 | -1, offset: number) => sideReaches[side](offset) / sideRadiusAt(offset);
@@ -275,12 +288,10 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     // 角度平分，但有票面標籤的區至少要放得下標籤（在標籤那一排的半徑上換算）
     const minAngle = labelMinAngle(layer, (o) => sideRadiusAt(o));
     const near = splitByMinWidth(nearFromHome, farStart, minAngle);
-    const meanNear = farStart / nearFromHome.length;
-    // 端區前排最多 endCap 倍平均寬，但端區有票面標籤時至少放得下標籤
-    const farCap = Math.max(params.endCap * meanNear, minAngle[farId] ?? 0);
+    // 端區一路排到離界外線 foulClearance 的線（或外框），往外野的端區靠過去
     const ranges: Record<string, [number, number]> = {
       ...near,
-      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + farCap)],
+      [farId]: [farStart, sidePhiReach(side, offset(1))],
     };
     for (const id of [...nearFromHome, farId]) {
       const rows = rowsOf(id, layer);
@@ -378,7 +389,16 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const eye = params.outfield.eyeHalfDeg;
   /** 外野某個半徑的一排，從打者之眼邊緣往界外桿方向，在外框內能走到的角度 */
   const outfieldLimitOn = (sign: 1 | -1) =>
-    memo((radius: number) => -90 + sign * eye + sign * reach((d) => inside(ofPoint(radius, -90 + sign * eye + sign * d)), 75, 0.5));
+    memo(
+      (radius: number) =>
+        -90 +
+        sign * eye +
+        sign *
+          reach((d) => {
+            const p = ofPoint(radius, -90 + sign * eye + sign * d);
+            return inside(p) && foulSide(sign, p) <= params.foulClearance;
+          }, 75, 0.5),
+    );
   const outfieldLimits = { 1: outfieldLimitOn(1), [-1]: outfieldLimitOn(-1) };
   const outfieldSide = (sign: 1 | -1, nearFromCenter: string[], farId: string) => {
     const eyeEdge = -90 + sign * eye;
@@ -393,9 +413,8 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const minWidth = Object.fromEntries(Object.entries(params.minWidth).map(([id, w]) => [id, w + 2 * endTrim(id, params.outfieldWidthRow)]));
     const near = splitByMinWidth(nearFromCenter, (Math.abs(farStart - eyeEdge) * DEG) * widthRadius, minWidth);
     const toAngle = (length: number) => eyeEdge + (sign * length) / widthRadius / DEG;
-    const meanNear = Math.abs(farStart - eyeEdge) / nearFromCenter.length;
-    const farEnd = sign === 1 ? Math.min(front, farStart + params.endCap * meanNear) : Math.max(front, farStart - params.endCap * meanNear);
-    const angles: Record<string, [number, number]> = { [farId]: [farStart, farEnd] };
+    // 端區一路排到離界外線 foulClearance 的線（或外框），往內野的端區靠過去
+    const angles: Record<string, [number, number]> = { [farId]: [farStart, front] };
     for (const id of nearFromCenter) angles[id] = [toAngle(near[id]![0]), toAngle(near[id]![1])];
     for (const id of [...nearFromCenter, farId]) {
       const [a0, a1] = angles[id]!;
