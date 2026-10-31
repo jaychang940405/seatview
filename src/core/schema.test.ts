@@ -239,6 +239,23 @@ describe("parseVenue：選填的 massing（只畫外觀的看台量體）與 sea
   });
 });
 
+describe("parseVenue：polygon overlay 選填的 surface（地面材質：turf 草皮、dirt 紅土）", () => {
+  const withPolygon = (surface: unknown) => {
+    const json = demoCopy();
+    json.layouts.baseball.overlays = [{ type: "polygon", id: "grass", points: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 0, z: 1 }], surface }];
+    return json;
+  };
+
+  it.each(["turf", "dirt"])("%s 會保留下來", (surface) => {
+    const overlay = parseVenue(withPolygon(surface)).layouts.baseball?.overlays?.[0];
+    expect(overlay?.type === "polygon" ? overlay.surface : null).toBe(surface);
+  });
+
+  it("其他值 → 驗證錯誤", () => {
+    expect(issuePaths(withPolygon("marble"))).toEqual(["layouts.baseball.overlays.0.surface"]);
+  });
+});
+
 describe("parseVenue：選填的 structure（看台下方的結構）", () => {
   it("沒寫就是 undefined（代表預設的 solid）", () => {
     expect(parseVenue(demoArenaJson).sections[0]?.structure).toBeUndefined();

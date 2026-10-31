@@ -5,7 +5,7 @@ import { DEFAULT_EYE_HEIGHT, sectionSeats } from "../core/seat";
 import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { expectColorClose, expectSeatError, expectVec3Close } from "../test/helpers";
-import { buildSectionMesh, CHAIR, chairGeometry, OVERVIEW_TINT, SEAT_NEUTRAL, SEAT_PALETTE, seatPaletteIndex } from "./seats";
+import { buildSectionMesh, CHAIR, chairGeometry, OVERVIEW_TINT, SEAT_NEUTRAL, SEAT_PALETTE, SEAT_PALETTE_WEIGHTS, seatPaletteIndex } from "./seats";
 
 const demo = () => parseVenue(demoArenaJson);
 const VENUES = [demo(), parseVenue(taipeiDomeJson)];
@@ -162,7 +162,15 @@ describe("buildSectionMesh", () => {
   });
 });
 
-describe("座椅混色（座位視角）：黑、白、淺灰，依 (區、排、號) 雜湊決定（比例是 C 級）", () => {
+describe("座椅混色（座位視角）：淺灰、白、深灰，依 (區、排、號) 雜湊決定（比例是 C 級）", () => {
+  it("以淺灰、白為主：比例 50%、35%、15%，加起來是 1；淺灰與白比深灰亮", () => {
+    expect(SEAT_PALETTE_WEIGHTS).toEqual([0.5, 0.35, 0.15]);
+    const luminance = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    const [grey, white, dark] = SEAT_PALETTE.map(luminance) as [number, number, number];
+    expect(white).toBeGreaterThan(grey);
+    expect(grey).toBeGreaterThan(dark * 3);
+  });
+
   const ALL = VENUES.flatMap((venue) => venue.sections.map((section) => ({ venue, id: section.id })));
 
   it("同一個座位每次都是同一個顏色（重建也一樣）", () => {
@@ -173,22 +181,23 @@ describe("座椅混色（座位視角）：黑、白、淺灰，依 (區、排�
     for (let i = 0; i < a.mesh.count; i++) expect(a.colorAt("seat", i).equals(b.colorAt("seat", i))).toBe(true);
   });
 
-  // 雜湊是隨機抽樣：n 席的比例會自然擺動 σ = √(1/3 × 2/3 ÷ n)。
-  // 幾千席的區用 ±5%；官方票區有只有兩、三百席的小區，±5% 只有 1.8σ，所以容許值取 ±5% 與 4σ 的較大者
-  const tolerance = (n: number) => Math.max(0.05, 4 * Math.sqrt((1 / 3) * (2 / 3) / n));
+  // 雜湊是隨機抽樣：比例 p 的顏色在 n 席裡會自然擺動 σ = √(p(1 − p) ÷ n)。
+  // 幾千席的區用 ±5%；兩、三百席的小區 ±5% 不到 2σ，所以容許值取 ±5% 與 4σ 的較大者
+  const tolerance = (p: number, n: number) => Math.max(0.05, 4 * Math.sqrt((p * (1 - p)) / n));
 
-  it("每一區三種顏色各占 1/3（±5%，小區用 4σ 的抽樣誤差）", () => {
+  it("每一區三種顏色接近設定的比例（±5%，小區用 4σ 的抽樣誤差）", () => {
     for (const { venue, id } of ALL) {
       const counts = [0, 0, 0];
       const seats = sectionSeats(venue, id);
       for (const { row, seat } of seats) counts[seatPaletteIndex(id, row, seat)] = (counts[seatPaletteIndex(id, row, seat)] ?? 0) + 1;
-      for (const count of counts) {
-        expect(Math.abs(count / seats.length - 1 / 3), `${venue.id}/${id}：${counts.join("/")}`).toBeLessThanOrEqual(tolerance(seats.length));
-      }
+      counts.forEach((count, i) => {
+        const p = SEAT_PALETTE_WEIGHTS[i] ?? NaN;
+        expect(Math.abs(count / seats.length - p), `${venue.id}/${id}：${counts.join("/")}`).toBeLessThanOrEqual(tolerance(p, seats.length));
+      });
     }
   });
 
-  it("整個場館加起來三種顏色各占 1/3 ± 1%", () => {
+  it("整個場館加起來三種顏色接近設定的比例 ± 1%", () => {
     for (const venue of VENUES) {
       const counts = [0, 0, 0];
       let total = 0;
@@ -198,7 +207,7 @@ describe("座椅混色（座位視角）：黑、白、淺灰，依 (區、排�
           total++;
         }
       }
-      for (const count of counts) expect(Math.abs(count / total - 1 / 3), `${venue.id}：${counts.join("/")}`).toBeLessThanOrEqual(0.01);
+      counts.forEach((count, i) => expect(Math.abs(count / total - (SEAT_PALETTE_WEIGHTS[i] ?? NaN)), `${venue.id}：${counts.join("/")}`).toBeLessThanOrEqual(0.01));
     }
   });
 
