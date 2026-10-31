@@ -13,7 +13,6 @@ import type { Field } from "./dome-field.ts";
 import { signedDistance, type PlanPoint } from "./outline.ts";
 
 const DEG = Math.PI / 180;
-const S45 = Math.SQRT1_2;
 /** 截斷時再多留 1 cm：輸出四捨五入到 mm 之後，外框淨空仍不小於 margin。 */
 const ROUNDING_ALLOWANCE = 0.01;
 const mm = (v: number) => Math.round(v * 1000) / 1000;
@@ -44,6 +43,15 @@ export interface OfficialParams {
   exactLastRow: Record<string, number>;
   /** 票面標籤要求的最小寬度（m）：直線區用長度、外野用標籤那一排的弧長 */
   minWidth: Record<string, number>;
+  /**
+   * 內野的票面標籤（區、排、號）：每區的寬度至少要放得下，在標籤那一排的半徑上換算成角度。
+   * 本壘後方各區因此不一定等寬。
+   */
+  labels: readonly (readonly [string, number, number])[];
+  /** 本壘後方弧的弧心從本壘往二壘方向退多少（m）：0 = 以本壘為圓心；越大弧越扁、越寬 */
+  homeCenterBack: number;
+  /** 本壘後方的弧從正後方往兩側各展開幾度（以它的弧心量）：45 = 交接處的切線跟界外線平行 */
+  homeHalfSpan: number;
   /** 標籤 142 在第 9 排：外野的寬度在這一排的弧長上分配 */
   outfieldWidthRow: number;
   concertClosed: string[];
@@ -134,13 +142,18 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   // 弧心在本壘往 45°（135°）交接點那條線上、界外線的另一邊（場內），所以跟本壘後方的弧在交接處相切。
   // 離界外線 offset 的那一排半徑 = sideRadius + (offset − foulOffset)：各排、各層同心，排與排保持平行。
   // s 是那一排從交接處往界外桿走的弧長。
+  // 本壘後方弧的弧心：在中線上、從本壘往二壘方向退 homeCenterBack。離本壘 o（在正後方量）的那一排，半徑 = homeCenterBack + o
+  const homeCenter: PlanPoint = { x: plate.x, z: plate.z - params.homeCenterBack };
+  const homeRadius = (offset: number) => params.homeCenterBack + offset;
+  // 側邊弧心 = 本壘後方弧心 + (homeCenterBack + foulOffset − sideRadius)·u：兩個弧心和 45°（135°）交接點共線，所以相切
   const sideCenter = (side: 1 | -1): PlanPoint => {
-    const k = foulOffset - params.sideRadius;
-    return { x: plate.x + k * side * S45, z: plate.z + k * S45 };
+    const k = params.homeCenterBack + foulOffset - params.sideRadius;
+    const junction = (90 - side * params.homeHalfSpan) * DEG;
+    return { x: homeCenter.x + k * Math.cos(junction), z: homeCenter.z + k * Math.sin(junction) };
   };
   const sideRadiusAt = (offset: number) => params.sideRadius + (offset - foulOffset);
   /** 弧上的角度（度）：一壘側從 45° 往界外桿遞減，三壘側從 135° 遞增 */
-  const sideDeg = (side: 1 | -1, phi: number) => (side === 1 ? 45 : 135) - (side * phi) / DEG;
+  const sideDeg = (side: 1 | -1, phi: number) => 90 - side * params.homeHalfSpan - (side * phi) / DEG;
   const sidePoint = (side: 1 | -1, offset: number, s: number) => {
     const c = sideCenter(side);
     const rho = sideRadiusAt(offset);
@@ -178,10 +191,11 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
       rowSpans,
     };
   };
-  const arcPoint = (radius: number, deg: number) => ({ x: plate.x + radius * Math.cos(deg * DEG), z: plate.z + radius * Math.sin(deg * DEG) });
+  const arcPoint = (radius: number, deg: number) => ({ x: homeCenter.x + radius * Math.cos(deg * DEG), z: homeCenter.z + radius * Math.sin(deg * DEG) });
   /** 本壘後方的弧：從 90° 往兩側在外框內的角度範圍（最多到 45°／135°） */
-  const arcLow = memo((radius: number) => 90 - reach((d) => inside(arcPoint(radius, 90 - d)), 45, 1));
-  const arcHigh = memo((radius: number) => 90 + reach((d) => inside(arcPoint(radius, 90 + d)), 45, 1));
+  const span = params.homeHalfSpan;
+  const arcLow = memo((radius: number) => 90 - reach((d) => inside(arcPoint(radius, 90 - d)), span, 1));
+  const arcHigh = memo((radius: number) => 90 + reach((d) => inside(arcPoint(radius, 90 + d)), span, 1));
   const arcReach = (radius: number): [number, number] => [arcLow(radius), arcHigh(radius)];
   const rowsOf = (id: string, layer: "b1" | "l2") => (layer === "b1" ? params.b1.rows : (params.l2.rows[id] ?? params.l2.defaultRows));
 
@@ -201,6 +215,20 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     baseHeight: layers[layer].baseHeight,
     ...(layers[layer].tier ? { structure: "tier" as const } : {}),
   });
+  /**
+   * 每區的票面標籤最少要多大的角度（弧度）：標籤要第 seat 號 → 那一排至少 seat × pitch + pitch/2 長，
+   * 再除以那一排的半徑（radiusOf 吃「離本壘多遠」的 offset）。
+   */
+  const labelMinAngle = (layer: "b1" | "l2", radiusOf: (offset: number) => number): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const [id, row, seat] of params.labels) {
+      const isLayer = layer === "b1" ? id.startsWith("1") : id.startsWith("2");
+      if (!isLayer) continue;
+      const angle = (seat * pitch + pitch / 2) / radiusOf(layers[layer].firstOffset + (row - 1) * rowDepth);
+      out[id] = Math.max(out[id] ?? 0, angle);
+    }
+    return out;
+  };
   const finish = (id: string, seats: number[]) => {
     const empty = seats.findIndex((n) => n === 0);
     if (empty >= 0) throw new Error(`${id} 區第 ${empty + 1} 排放不下任何座位`);
@@ -213,12 +241,11 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const farBack = params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth;
     // 端區從「最後一排還留 farBack」的角度開始
     const farStart = sidePhiReach(side, offset(farRows)) - farBack / sideRadiusAt(offset(farRows));
-    // 寬度在第 1 排的弧長上切分（後排半徑較大、比較長，所以票面標籤需要的寬度在後排一定夠）
-    const ref = sideRadiusAt(offset(1));
-    const near = splitByMinWidth(nearFromHome, farStart * ref, params.minWidth);
+    // 角度平分，但有票面標籤的區至少要放得下標籤（在標籤那一排的半徑上換算）
+    const near = splitByMinWidth(nearFromHome, farStart, labelMinAngle(layer, (o) => sideRadiusAt(o)));
     const meanNear = farStart / nearFromHome.length;
     const ranges: Record<string, [number, number]> = {
-      ...Object.fromEntries(nearFromHome.map((id) => [id, [near[id]![0] / ref, near[id]![1] / ref]])),
+      ...near,
       [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + params.endCap * meanNear)],
     };
     for (const id of [...nearFromHome, farId]) {
@@ -227,19 +254,28 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     }
   };
 
-  // ── 內野：本壘後方的弧（45° 一壘側 → 135° 三壘側平分；null 是空位）
+  // ── 內野：本壘後方的弧（45° 一壘側 → 135° 三壘側；null 是空位）。平分，但有票面標籤的區至少要放得下標籤
   const arcStands = (layer: "b1" | "l2", slots: (string | null)[]) => {
     const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
-    const step = 90 / slots.length;
+    const keys = slots.map((id, k) => id ?? `gap-${k}`);
+    // 本壘後方左右對稱（C）：第 k 格與倒數第 k 格取兩邊需要的寬度中較大的那個，所以正中間那格正對本壘
+    const minRad = labelMinAngle(layer, homeRadius);
+    const minDeg: Record<string, number> = {};
+    keys.forEach((key, k) => {
+      const mirror = keys[keys.length - 1 - k]!;
+      minDeg[key] = Math.max(minRad[key] ?? 0, minRad[mirror] ?? 0) / DEG;
+    });
+    const parts = splitByMinWidth(keys, 2 * span, minDeg);
     slots.forEach((id, k) => {
       if (id === null) return;
+      const part = parts[keys[k]!]!;
       // 先取到 mm，比例才跟輸出的 fromDeg／toDeg 對得上
-      const [from, to] = [mm(45 + k * step), mm(45 + (k + 1) * step)];
+      const [from, to] = [mm(90 - span + part[0]), mm(90 - span + part[1])];
       const rows = rowsOf(id, layer);
       const seatsPerRow: number[] = [];
       const rowSpans: [number, number][] = [];
       for (let r = 1; r <= rows; r++) {
-        const radius = offset(r);
+        const radius = homeRadius(offset(r));
         const [lo, hi] = arcReach(radius);
         const a = Math.max(from, lo);
         const b = Math.min(to, hi);
@@ -251,8 +287,8 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
       sections.push({
         ...base(id, layer, rows),
         type: "arc",
-        center: point(plate.x, plate.z),
-        innerRadius: mm(layers[layer].firstOffset),
+        center: point(homeCenter.x, homeCenter.z),
+        innerRadius: mm(homeRadius(layers[layer].firstOffset)),
         fromDeg: from,
         toDeg: to,
         seatsPerRow,
@@ -383,14 +419,14 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     const seatsPerRow: number[] = [];
     const rowSpans: [number, number][] = [];
     for (let r = 1; r <= up.rows; r++) {
-      const radius = upperOffset(r);
+      const radius = homeRadius(upperOffset(r));
       const [lo, hi] = arcReach(radius);
-      const { seats, span } = centeredSpan([Math.max(45, lo) * DEG * radius, Math.min(135, hi) * DEG * radius], pitch);
+      const { seats, span: used } = centeredSpan([Math.max(90 - span, lo) * DEG * radius, Math.min(90 + span, hi) * DEG * radius], pitch);
       seatsPerRow.push(seats);
-      rowSpans.push([frac((span[0] / radius / DEG - 45) / 90), frac((span[1] / radius / DEG - 45) / 90)]);
+      rowSpans.push([frac((used[0] / radius / DEG - (90 - span)) / (2 * span)), frac((used[1] / radius / DEG - (90 - span)) / (2 * span))]);
     }
     finish(id, seatsPerRow);
-    massing.push({ ...tierBase(id, level, up.rows, baseHeight), type: "arc", center: point(plate.x, plate.z), innerRadius: mm(upperOffset(1)), fromDeg: 45, toDeg: 135, seatsPerRow, rowSpans });
+    massing.push({ ...tierBase(id, level, up.rows, baseHeight), type: "arc", center: point(homeCenter.x, homeCenter.z), innerRadius: mm(homeRadius(upperOffset(1))), fromDeg: mm(90 - span), toDeg: mm(90 + span), seatsPerRow, rowSpans });
   };
   up.levels.forEach((level, k) => {
     const baseHeight = overL2Height + (k + 1) * up.floorGap;

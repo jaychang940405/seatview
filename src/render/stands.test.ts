@@ -69,7 +69,8 @@ describe("buildStands：每區一個看台實體", () => {
     const venue = dome();
     const group = buildStands(venue, "baseball");
     for (const id of ["113", "105", "212", "140"]) {
-      const treads = sectionTreads(venue, id);
+      // 跟地面同高的排沒有實體（B1 第 1 排），只比有高度的踏面
+      const treads = sectionTreads(venue, id).filter((t) => t.top - t.bottom > 1e-6);
       const points = treads.flatMap((t) => [...t.front, ...t.back]);
       const box = boundsOf(meshNamed(group, `stand:${id}`));
       // 頂點存成 Float32Array，比到 0.1 mm
@@ -94,7 +95,8 @@ describe("buildStands：每區一個看台實體", () => {
     const venue = dome();
     const faces = facesOf(meshNamed(buildStands(venue, "baseball"), "stand:113"));
     const up = faces.filter((f) => f.normal.y > 0.999);
-    expect(up).toHaveLength(sectionTreads(venue, "113").reduce((sum, t) => sum + (t.front.length - 1) * 2, 0));
+    const raised = sectionTreads(venue, "113").filter((t) => t.top - t.bottom > 1e-6);
+    expect(up).toHaveLength(raised.reduce((sum, t) => sum + (t.front.length - 1) * 2, 0));
     for (const face of faces) expectColorClose(face.color, face.normal.y > 0.999 ? STAND_COLORS.tread : STAND_COLORS.side);
     // 其餘的面不是朝正下方就是垂直面（踢面、牆、兩端）
     for (const face of faces.filter((f) => f.normal.y <= 0.999)) expect(face.normal.y < -0.999 || Math.abs(face.normal.y) < 1e-6).toBe(true);

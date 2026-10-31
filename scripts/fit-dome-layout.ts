@@ -17,7 +17,7 @@ import {
   superellipsePolygon,
   type PlanPoint,
 } from "./outline.ts";
-import { buildTaipeiDome, FIELD, K, layerTotals, OUTLINE, type Layer } from "./taipei-dome-model.ts";
+import { buildTaipeiDome, CAPTION_LABELS, FIELD, K, layerTotals, OUTLINE, type Layer } from "./taipei-dome-model.ts";
 
 const DEG = Math.PI / 180;
 const args = process.argv.slice(2);
@@ -82,6 +82,16 @@ if (osmPath) {
     console.log(`${label}：模型 ${totals[layer]} 席、來源約 ${reference} 席（${Number(pct) >= 0 ? "+" : ""}${pct}%）`);
   }
   console.log(`來源：${K.layerSeats.source}`);
+  // 視野文章照片說明的區排號（B）只回報：模型目前的排法放不下一部分（見 docs/venue-taipei-dome.md）
+  const sections = buildTaipeiDome().sections;
+  const seatsAt = (id: string, row: number) => {
+    const section = sections.find((s) => s.id === id);
+    if (section === undefined) return 0;
+    return typeof section.seatsPerRow === "number" ? section.seatsPerRow : (section.seatsPerRow[row - 1] ?? 0);
+  };
+  const misfits = CAPTION_LABELS.filter(([id, row, seat]) => seatsAt(id, row) < seat);
+  console.log(`視野文章照片說明：${CAPTION_LABELS.length - misfits.length}/${CAPTION_LABELS.length} 個座位模型裡有；放不下的：`);
+  for (const [id, row, seat] of misfits) console.log(`  ${id} 區 ${row} 排 ${seat} 號（模型那一排只有 ${seatsAt(id, row)} 席）`);
 }
 
 /** 平面圖：外框摘要（含留空線）、看台輪廓、界外線、外野牆、本壘與界外桿。只畫摘要，不含 OSM 原始座標。 */
