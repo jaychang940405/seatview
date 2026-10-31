@@ -92,10 +92,10 @@ describe("applyChange：換場館", () => {
     expect(notices).toEqual([]);
   });
 
-  it("換到大巨蛋 → 棒球、102、第 1 排 17 號（34 席的中間）", () => {
+  it("換到大巨蛋 → 棒球、102、第 1 排 19 號（37 席的中間）", () => {
     const start: Selection = { venueId: "demo-arena", layoutId: "concert", sectionId: "F1", row: 3, seat: 7, mode: "seat" };
     const { selection, notices } = applyChange(VENUES, start, { kind: "venue", venueId: "taipei-dome" });
-    expect(selection).toEqual(dome("baseball", "102", 1, 17));
+    expect(selection).toEqual(dome("baseball", "102", 1, 19));
     expect(notices).toEqual([]);
   });
 });
@@ -132,11 +132,11 @@ describe("applyChange：換區（原本合法的排號才會被修正）", () =>
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 
-  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 26 號 → 105 只有 22 席", () => {
-    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 26), { kind: "section", sectionId: "105" });
-    expect(selection).toEqual(dome("baseball", "105", 30, 22));
+  it("新區這一排席數不夠 → 改成最後一號並提示：120 第 30 排 30 號 → 105 只有 27 席", () => {
+    const { selection, notices } = applyChange(VENUES, dome("baseball", "120", 30, 30), { kind: "section", sectionId: "105" });
+    expect(selection).toEqual(dome("baseball", "105", 30, 27));
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("1–22");
+    expect(notices[0]).toContain("1–27");
     expect(errorCodeOf(selection)).toBeUndefined();
   });
 });
