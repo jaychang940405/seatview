@@ -10,6 +10,8 @@ export interface Panel {
 export interface PanelElements {
   /** 左上角的選位面板（可收合） */
   form: HTMLFormElement;
+  /** 右上角的場館選單（最外層：先選場館，再選場地與座位） */
+  venueSelect: HTMLSelectElement;
   /** 右上角的場地切換鈕 */
   layoutSwitch: HTMLElement;
 }
@@ -17,7 +19,7 @@ export interface PanelElements {
 /** 窄螢幕預設收合，免得面板蓋住太多畫面。 */
 const NARROW_SCREEN = "(max-width: 600px)";
 
-export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (change: Change) => void): Panel {
+export function createPanel({ form, venueSelect: venue, layoutSwitch }: PanelElements, onChange: (change: Change) => void): Panel {
   // 面板是一張票根：票頭（場館）、大字的區排號（收合時也看得到）、打孔虛線下面是控制項
   form.innerHTML = `
     <div class="ticket-head">
@@ -31,8 +33,6 @@ export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (ch
       <button type="button" id="panel-toggle" aria-controls="panel-body"></button>
     </div>
     <div id="panel-body" class="panel-body">
-      <label for="pick-venue">場館</label>
-      <select id="pick-venue"></select>
       <label for="pick-section">區</label>
       <select id="pick-section"></select>
       <label for="pick-row">排</label>
@@ -62,7 +62,6 @@ export function createPanel({ form, layoutSwitch }: PanelElements, onChange: (ch
     seat: part<HTMLElement>(form, "#ticket-seat"),
   };
   const body = part<HTMLDivElement>(form, "#panel-body");
-  const venue = part<HTMLSelectElement>(form, "#pick-venue");
   const section = part<HTMLSelectElement>(form, "#pick-section");
   const row = part<HTMLInputElement>(form, "#pick-row");
   const rowHint = part<HTMLSpanElement>(form, "#pick-row-hint");

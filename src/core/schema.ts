@@ -79,6 +79,8 @@ const OverlaySchema = z.discriminatedUnion("type", [
     /** 有給就從頂面往下長出這麼厚的柱體（例如投手丘）；沒給就是一片平面 */
     height: z.number().positive().optional(),
     color: z.string().optional(),
+    /** 地面材質：畫面依此加上程式產生的紋理（turf 草皮條紋、dirt 紅土顆粒）；沒寫就是單色 */
+    surface: z.enum(["turf", "dirt"]).optional(),
   }),
 ]);
 

@@ -221,11 +221,34 @@
         outline: 2px solid var(--accent-2);
       }
 
-      /* 右上：場地切換 */
-      #layout-switch {
+      /* 右上：場館與場地（最外層的選擇） */
+      #top-bar {
         position: fixed;
         top: 12px;
         right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        max-width: calc(100% - 24px);
+      }
+      #venue-pick {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 4px 4px 14px;
+        border-radius: 999px;
+        color: var(--soft);
+        font-weight: 700;
+      }
+      #venue-pick select {
+        min-height: 36px;
+        max-width: 60vw;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-weight: 700;
+      }
+      #layout-switch {
         padding: 4px;
         border-radius: 999px;
       }
@@ -391,9 +414,17 @@
         .hud {
           font-size: 13px;
         }
-        #layout-switch {
+        #top-bar {
           top: 8px;
           right: 8px;
+          gap: 6px;
+        }
+        #venue-pick {
+          padding-left: 10px;
+        }
+        #venue-pick select {
+          min-height: 32px;
+          max-width: 44vw;
         }
         #layout-switch label {
           min-height: 32px;
@@ -440,7 +471,11 @@
   <body>
     <div id="app"></div>
     <form id="panel" class="hud" aria-label="選擇座位"></form>
-    <div id="layout-switch" class="hud segmented"></div>
+    <!-- 最外層先選場館與場地，再到左邊的票根選座位 -->
+    <div id="top-bar">
+      <label id="venue-pick" class="hud"><span>場館</span><select id="pick-venue"></select></label>
+      <div id="layout-switch" class="hud segmented"></div>
+    </div>
     <div id="hud-bottom">
       <div id="hud-row">
         <div id="minimap" class="hud"></div>

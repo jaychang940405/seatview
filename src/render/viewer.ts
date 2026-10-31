@@ -47,8 +47,12 @@ export function createViewer(container: HTMLElement, opts: { fov?: number } = {}
   const baseFov = opts.fov ?? DEFAULT_FOV;
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  // 色調映射選色彩最忠實的 Neutral，不把畫面風格化
-  renderer.toneMapping = THREE.NeutralToneMapping;
+  // ACES 電影感色調：亮部收得比較柔，畫面不像平塗的動畫
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  // 陰影只在桌機開：手機（觸控為主）的 GPU 撐不住三萬多張椅子的陰影圖
+  renderer.shadowMap.enabled = !window.matchMedia("(pointer: coarse)").matches;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
   // three 內建的室內環境光照（程式產生，不是外部貼圖），讓面與面之間有自然的明暗
   const pmrem = new THREE.PMREMGenerator(renderer);

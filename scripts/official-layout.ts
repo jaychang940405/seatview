@@ -33,6 +33,11 @@ export interface OfficialParams {
   l2: { startRow: number; rows: Record<string, number>; defaultRows: number; rowRise: number; headroom: number };
   /** 靠界外桿那一區最多是鄰區平均寬的幾倍 */
   endCap: number;
+  /**
+   * 一三壘側第 1 排的弧半徑（m）：兩側不是直線，而是跟本壘後方的弧相切的大弧，
+   * 弧心在場內；越往界外桿，看台越靠近界外線，座位也越往本壘轉
+   */
+  sideRadius: number;
   /** 靠界外桿那一區的最後一排至少留多長（m） */
   farBackWidth: number;
   /** 最後一排要剛好幾席的區（票面標籤：201 第 15 排剛好 15 席） */
@@ -125,14 +130,54 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const poleDistance = Math.hypot(field.rightPole.x - plate.x, field.rightPole.z - plate.z);
   const inside = (p: PlanPoint) => signedDistance(outline, p) >= params.outlineMargin + ROUNDING_ALLOWANCE;
 
-  // side = +1：一壘側（+x）；−1：三壘側
-  const linePoint = (side: number, offset: number, s: number) => ({
-    x: plate.x + side * S45 * (s + offset),
-    z: plate.z + S45 * (offset - s),
-  });
-  const lineReachOn = (side: 1 | -1) => memo((offset: number) => reach((s) => inside(linePoint(side, offset, s)), poleDistance, 1));
-  const lineReaches = { 1: lineReachOn(1), [-1]: lineReachOn(-1) };
-  const lineReach = (side: 1 | -1, offset: number) => lineReaches[side](offset);
+  // ── 一三壘側的大弧（side = +1：一壘側（+x）；−1：三壘側）
+  // 弧心在本壘往 45°（135°）交接點那條線上、界外線的另一邊（場內），所以跟本壘後方的弧在交接處相切。
+  // 離界外線 offset 的那一排半徑 = sideRadius + (offset − foulOffset)：各排、各層同心，排與排保持平行。
+  // s 是那一排從交接處往界外桿走的弧長。
+  const sideCenter = (side: 1 | -1): PlanPoint => {
+    const k = foulOffset - params.sideRadius;
+    return { x: plate.x + k * side * S45, z: plate.z + k * S45 };
+  };
+  const sideRadiusAt = (offset: number) => params.sideRadius + (offset - foulOffset);
+  /** 弧上的角度（度）：一壘側從 45° 往界外桿遞減，三壘側從 135° 遞增 */
+  const sideDeg = (side: 1 | -1, phi: number) => (side === 1 ? 45 : 135) - (side * phi) / DEG;
+  const sidePoint = (side: 1 | -1, offset: number, s: number) => {
+    const c = sideCenter(side);
+    const rho = sideRadiusAt(offset);
+    const theta = sideDeg(side, s / rho) * DEG;
+    return { x: c.x + rho * Math.cos(theta), z: c.z + rho * Math.sin(theta) };
+  };
+  const sideReachOn = (side: 1 | -1) => memo((offset: number) => reach((s) => inside(sidePoint(side, offset, s)), poleDistance, 1));
+  const sideReaches = { 1: sideReachOn(1), [-1]: sideReachOn(-1) };
+  /** 這一排在外框內能走到的角度（弧度，從交接處算） */
+  const sidePhiReach = (side: 1 | -1, offset: number) => sideReaches[side](offset) / sideRadiusAt(offset);
+  /** 角度取到 1e-6°：弧半徑兩百多公尺，取到 0.001° 會差到 2 mm，可能讓剛好的最後一排少一席 */
+  const deg6 = (v: number) => Math.round(v * 1e6) / 1e6;
+  /** 一個側邊弧形區：[p0, p1] 是從交接處算的角度範圍（弧度），rows 排，第 r 排離界外線 offset(r) */
+  const sideSection = (side: 1 | -1, offset: (r: number) => number, rows: number, [p0, p1]: [number, number], id: string) => {
+    const seatsPerRow: number[] = [];
+    const rowSpans: [number, number][] = [];
+    for (let r = 1; r <= rows; r++) {
+      const rho = sideRadiusAt(offset(r));
+      const { seats, span } = centeredSpan([p0 * rho, Math.min(p1, sidePhiReach(side, offset(r))) * rho], pitch);
+      seatsPerRow.push(seats);
+      const [f0, f1] = [span[0] / rho, span[1] / rho];
+      // 座號慣例：面向場地時往左增加 → 一壘側從界外桿那端編起，三壘側從本壘那端編起
+      rowSpans.push(side === 1 ? [frac((p1 - f1) / (p1 - p0)), frac((p1 - f0) / (p1 - p0))] : [frac((f0 - p0) / (p1 - p0)), frac((f1 - p0) / (p1 - p0))]);
+    }
+    finish(id, seatsPerRow);
+    const c = sideCenter(side);
+    const [fromDeg, toDeg] = side === 1 ? [sideDeg(1, p1), sideDeg(1, p0)] : [sideDeg(-1, p0), sideDeg(-1, p1)];
+    return {
+      type: "arc" as const,
+      center: point(c.x, c.z),
+      innerRadius: mm(sideRadiusAt(offset(1))),
+      fromDeg: deg6(fromDeg),
+      toDeg: deg6(toDeg),
+      seatsPerRow,
+      rowSpans,
+    };
+  };
   const arcPoint = (radius: number, deg: number) => ({ x: plate.x + radius * Math.cos(deg * DEG), z: plate.z + radius * Math.sin(deg * DEG) });
   /** 本壘後方的弧：從 90° 往兩側在外框內的角度範圍（最多到 45°／135°） */
   const arcLow = memo((radius: number) => 90 - reach((d) => inside(arcPoint(radius, 90 - d)), 45, 1));
@@ -161,38 +206,24 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
     if (empty >= 0) throw new Error(`${id} 區第 ${empty + 1} 排放不下任何座位`);
   };
 
-  // ── 內野：直線區（每一層、每一側）
+  // ── 內野：一三壘側（每一層、每一側），區界是從弧心出發的放射線
   const lineStands = (layer: "b1" | "l2", side: 1 | -1, nearFromHome: string[], farId: string) => {
     const offset = (r: number) => layers[layer].firstOffset + (r - 1) * rowDepth;
-    const front = lineReach(side, offset(1));
     const farRows = rowsOf(farId, layer);
     const farBack = params.exactLastRow[farId] !== undefined ? params.exactLastRow[farId]! * pitch + pitch / 2 : params.farBackWidth;
-    const farStart = lineReach(side, offset(farRows)) - farBack;
-    const near = splitByMinWidth(nearFromHome, farStart, params.minWidth);
+    // 端區從「最後一排還留 farBack」的角度開始
+    const farStart = sidePhiReach(side, offset(farRows)) - farBack / sideRadiusAt(offset(farRows));
+    // 寬度在第 1 排的弧長上切分（後排半徑較大、比較長，所以票面標籤需要的寬度在後排一定夠）
+    const ref = sideRadiusAt(offset(1));
+    const near = splitByMinWidth(nearFromHome, farStart * ref, params.minWidth);
     const meanNear = farStart / nearFromHome.length;
-    const ranges: Record<string, [number, number]> = { ...near, [farId]: [farStart, Math.min(front, farStart + params.endCap * meanNear)] };
+    const ranges: Record<string, [number, number]> = {
+      ...Object.fromEntries(nearFromHome.map((id) => [id, [near[id]![0] / ref, near[id]![1] / ref]])),
+      [farId]: [farStart, Math.min(sidePhiReach(side, offset(1)), farStart + params.endCap * meanNear)],
+    };
     for (const id of [...nearFromHome, farId]) {
-      const [s0, s1] = ranges[id]!;
       const rows = rowsOf(id, layer);
-      const seatsPerRow: number[] = [];
-      const rowSpans: [number, number][] = [];
-      for (let r = 1; r <= rows; r++) {
-        const { seats, span } = centeredSpan([s0, Math.min(s1, lineReach(side, offset(r)))], pitch);
-        seatsPerRow.push(seats);
-        // 座號慣例：面向場地時往左增加 → 一壘側從界外桿那端（s1）編起，三壘側從本壘那端（s0）編起
-        rowSpans.push(side === 1 ? [frac((s1 - span[1]) / (s1 - s0)), frac((s1 - span[0]) / (s1 - s0))] : [frac((span[0] - s0) / (s1 - s0)), frac((span[1] - s0) / (s1 - s0))]);
-      }
-      finish(id, seatsPerRow);
-      const [from, to] = side === 1 ? [linePoint(side, offset(1), s1), linePoint(side, offset(1), s0)] : [linePoint(side, offset(1), s0), linePoint(side, offset(1), s1)];
-      sections.push({
-        ...base(id, layer, rows),
-        type: "linear",
-        from: point(from.x, from.z),
-        to: point(to.x, to.z),
-        facing: point(plate.x, plate.z),
-        seatsPerRow,
-        rowSpans,
-      });
+      sections.push({ ...base(id, layer, rows), ...sideSection(side, offset, rows, ranges[id]!, id) });
     }
   };
 
@@ -345,26 +376,8 @@ export function officialStands(field: Field, outline: PlanPoint[], params: Offic
   const upperOffset = (r: number) => layers.l2.firstOffset + (up.overL2Row - 1 + r - 1) * rowDepth;
   const overL2Height = layers.l2.baseHeight + (up.overL2Row - 1) * layers.l2.rowRise;
   const upperLine = (id: string, level: string, side: 1 | -1, baseHeight: number) => {
-    const reaches = Array.from({ length: up.rows }, (_, i) => lineReach(side, upperOffset(i + 1)));
-    const [s0, s1] = [0, Math.max(...reaches)];
-    const seatsPerRow: number[] = [];
-    const rowSpans: [number, number][] = [];
-    for (const r of reaches) {
-      const { seats, span } = centeredSpan([s0, r], pitch);
-      seatsPerRow.push(seats);
-      rowSpans.push(side === 1 ? [frac((s1 - span[1]) / (s1 - s0)), frac((s1 - span[0]) / (s1 - s0))] : [frac((span[0] - s0) / (s1 - s0)), frac((span[1] - s0) / (s1 - s0))]);
-    }
-    finish(id, seatsPerRow);
-    const [from, to] = side === 1 ? [linePoint(side, upperOffset(1), s1), linePoint(side, upperOffset(1), s0)] : [linePoint(side, upperOffset(1), s0), linePoint(side, upperOffset(1), s1)];
-    massing.push({
-      ...tierBase(id, level, up.rows, baseHeight),
-      type: "linear",
-      from: point(from.x, from.z),
-      to: point(to.x, to.z),
-      facing: point(plate.x, plate.z),
-      seatsPerRow,
-      rowSpans,
-    });
+    const reach = Math.max(...Array.from({ length: up.rows }, (_, i) => sidePhiReach(side, upperOffset(i + 1))));
+    massing.push({ ...tierBase(id, level, up.rows, baseHeight), ...sideSection(side, upperOffset, up.rows, [0, reach], id) });
   };
   const upperArc = (id: string, level: string, baseHeight: number) => {
     const seatsPerRow: number[] = [];

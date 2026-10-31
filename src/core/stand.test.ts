@@ -95,9 +95,9 @@ describe("sectionTreads：每一排的踏面", () => {
     }
   });
 
-  it(`折線點數：linear 是兩點直線；弧形每段不超過 ${ARC_STEP_DEG}°、段數取最少（113 區每排用到 5.7°–6.9° → 3 或 4 段）`, () => {
+  it(`折線點數：linear 是兩點直線（示範場館 B1）；弧形每段不超過 ${ARC_STEP_DEG}°、段數取最少（113 區每排用到 5.7°–6.9° → 3 或 4 段）`, () => {
     const venue = dome();
-    expect(sectionTreads(venue, "105").every((t) => t.front.length === 2 && t.back.length === 2)).toBe(true);
+    expect(sectionTreads(parseVenue(demoArenaJson), "B1").every((t) => t.front.length === 2 && t.back.length === 2)).toBe(true);
     const arc = venue.sections.find((s) => s.id === "113");
     if (arc?.type !== "arc" || !arc.rowSpans) throw new Error("113 區應該是有 rowSpans 的弧形區");
     const sweep = arc.toDeg - arc.fromDeg;

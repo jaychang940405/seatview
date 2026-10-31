@@ -163,12 +163,13 @@ export const K = {
       l2StartRow: 19,
       endCap: 1.5,
       farBackWidth: 2,
+      sideRadius: 300,
       eyeHalfDeg: 5,
       outfieldWidthRow: 9,
     },
     grade: "C",
     source:
-      "排數的下限來自球迷照片的票面標籤；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
+      "排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
   battersEye: {
@@ -287,6 +288,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
     headroom: K.headroom.value,
   },
   endCap: K.officialLayout.value.endCap,
+  sideRadius: K.officialLayout.value.sideRadius,
   farBackWidth: K.officialLayout.value.farBackWidth,
   exactLastRow: EXACT_LAST_ROW,
   minWidth: Object.fromEntries(
@@ -358,7 +360,14 @@ function toCircle(origin: PlanPoint, offsetDeg: number, center: PlanPoint, r: nu
 function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   const colors = K.fieldColors.value;
   const step = K.groundLayers.value.step;
-  const flat = (id: string, layer: number, color: string, points: PlanPoint[]) => ({ type: "polygon" as const, id, points, y: mm(step * layer), color });
+  const flat = (id: string, layer: number, color: string, points: PlanPoint[], surface: "turf" | "dirt") => ({
+    type: "polygon" as const,
+    id,
+    points,
+    y: mm(step * layer),
+    color,
+    surface,
+  });
 
   const pitcher = point(plate.x, plate.z - K.plateToPitcher.value);
 
@@ -374,15 +383,15 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
   };
 
   return [
-    flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z))),
-    flat("fair-grass", 2, colors.grass, [plate, ...wallArc]),
+    flat("field-dirt", 1, colors.dirt, superellipsePolygon(OUTLINE, 4).map((p) => point(p.x, p.z)), "dirt"),
+    flat("fair-grass", 2, colors.grass, [plate, ...wallArc], "turf"),
     flat("warning-track", 3, colors.track, [
       ...wallArc,
       ...arc(wallCenter, trackRadius, angleAt(wallCenter, trackRight), angleAt(wallCenter, trackLeft), K.wallSampleDeg.value),
-    ]),
-    flat("first-base-dirt", 4, colors.dirt, cutout(fromPlate(plate, K.basePath.value, 45))),
-    flat("third-base-dirt", 5, colors.dirt, cutout(fromPlate(plate, K.basePath.value, -45))),
-    flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value)),
+    ], "dirt"),
+    flat("first-base-dirt", 4, colors.dirt, cutout(fromPlate(plate, K.basePath.value, 45)), "dirt"),
+    flat("third-base-dirt", 5, colors.dirt, cutout(fromPlate(plate, K.basePath.value, -45)), "dirt"),
+    flat("home-circle", 6, colors.dirt, circle(plate, K.homeCircle.value), "dirt"),
     {
       type: "polygon" as const,
       id: "mound",
@@ -390,6 +399,7 @@ function fieldSurfaces(plate: PlanPoint, wallArc: PlanPoint[]) {
       y: K.moundHeight.value,
       height: K.moundHeight.value,
       color: colors.dirt,
+      surface: "dirt" as const,
     },
   ];
 }

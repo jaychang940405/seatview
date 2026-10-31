@@ -46,7 +46,7 @@ required<HTMLDivElement>("#zoom-presets").append(...zoomButtons);
 
 const viewer = createViewer(app);
 const onChange = (change: Change) => show(applyChange(VENUES, selection, change));
-const panel = createPanel({ form, layoutSwitch }, onChange);
+const panel = createPanel({ form, venueSelect: required<HTMLSelectElement>("#pick-venue"), layoutSwitch }, onChange);
 const minimap = createMinimap(required<HTMLDivElement>("#minimap"), onChange, (level) => {
   minimapLevel = level;
   updateMinimap();
