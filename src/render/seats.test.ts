@@ -197,7 +197,8 @@ describe("座椅混色（座位視角）：淺灰、白、深灰，依 (區、�
     }
   });
 
-  it("整個場館加起來三種顏色接近設定的比例 ± 1%", () => {
+  // 整個場館比較多席，固定界線收到 ±1%；示範場館只有 1,960 席，±1% 不到 1σ，所以同樣取 4σ 的較大者
+  it("整個場館加起來三種顏色接近設定的比例（±1%，席數少時用 4σ）", () => {
     for (const venue of VENUES) {
       const counts = [0, 0, 0];
       let total = 0;
@@ -207,7 +208,10 @@ describe("座椅混色（座位視角）：淺灰、白、深灰，依 (區、�
           total++;
         }
       }
-      counts.forEach((count, i) => expect(Math.abs(count / total - (SEAT_PALETTE_WEIGHTS[i] ?? NaN)), `${venue.id}：${counts.join("/")}`).toBeLessThanOrEqual(0.01));
+      counts.forEach((count, i) => {
+        const p = SEAT_PALETTE_WEIGHTS[i] ?? NaN;
+        expect(Math.abs(count / total - p), `${venue.id}：${counts.join("/")}`).toBeLessThanOrEqual(Math.max(0.01, 4 * Math.sqrt((p * (1 - p)) / total)));
+      });
     }
   });
 

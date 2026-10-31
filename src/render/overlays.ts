@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Overlay } from "../core/schema";
 import { planYawToRotationY, toVector3 } from "./convert";
+import { surfaceTexture } from "./textures";
 
 /** polyline 沒給 y 時稍微抬離地板，避免和地板重疊閃爍。 */
 const LINE_DEFAULT_Y = 0.01;
@@ -48,7 +49,13 @@ export function buildOverlay(overlay: Overlay, layer = 0): THREE.Object3D {
       const flat = overlay.height === undefined;
       // 平面地面圖層幾乎同高，遠處深度精度不夠會閃爍：改成不寫深度、依 layer 由下往上畫。
       // 場景裡沒有東西在地面以下，所以線條、看台、投手丘之後畫時一定蓋在地面上。
-      const material = new THREE.MeshStandardMaterial({ color: overlay.color ?? "#8a8a8a", roughness: 0.95, depthWrite: !flat });
+      const material = new THREE.MeshStandardMaterial({
+        color: overlay.color ?? "#8a8a8a",
+        roughness: 0.95,
+        depthWrite: !flat,
+        // ShapeGeometry 的 UV 就是平面上的公尺，紋理的 repeat 已經換算好
+        map: overlay.surface === undefined ? null : surfaceTexture(overlay.surface),
+      });
       const mesh = new THREE.Mesh(geometry, material);
       if (flat) mesh.renderOrder = GROUND_RENDER_ORDER + layer;
       mesh.name = `overlay:${overlay.id}`;
