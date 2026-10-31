@@ -589,6 +589,68 @@ describe("taipei-dome：座位排列", () => {
 
 });
 
+describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座位朝弧心）", () => {
+  const S45 = Math.SQRT1_2;
+  // 一壘側：u 是離開界外線、往看台的方向，d 是沿界外線往界外桿；三壘側左右相反
+  const SIDES = [
+    { name: "一壘側", ids: [...range(102, 106), ...range(201, 206)], u: { x: S45, z: S45 }, d: { x: S45, z: -S45 } },
+    { name: "三壘側", ids: [...range(120, 124), ...range(220, 225)], u: { x: -S45, z: S45 }, d: { x: -S45, z: -S45 } },
+  ];
+  const along = (p: PlanPoint, v: PlanPoint) => (p.x - PLATE.x) * v.x + (p.z - PLATE.z) * v.z;
+  const arcOf = (venue: Venue, id: string) => {
+    const section = venue.sections.find((x) => x.id === id);
+    if (section?.type !== "arc") throw new Error(`${id} 應該是弧形區`);
+    return section;
+  };
+
+  it("一三壘側的 B1 與 L2 都是弧形區；同一側共用一個弧心，弧心在場內（界外線的另一邊）", () => {
+    const venue = dome();
+    for (const side of SIDES) {
+      const centers = side.ids.map((id) => arcOf(venue, id).center);
+      for (const c of centers) expectWithin(planDistance(c, centers[0] ?? PLATE), 0, 0.01);
+      expect(along(centers[0] ?? PLATE, side.u), side.name).toBeLessThan(0);
+    }
+  });
+
+  it("跟本壘後方的弧相切：弧心在本壘往 45°（三壘側 135°）交接點那條線上，所以兩段弧在交接處方向一致", () => {
+    const venue = dome();
+    for (const side of SIDES) {
+      const c = arcOf(venue, side.ids[0] ?? "").center;
+      // 弧心相對本壘的位置沒有沿界外線的分量
+      expectWithin(along(c, side.d), 0, 0.01);
+    }
+  });
+
+  it("B1 看台前緣（第 1 排）離界外線：交接處約 18.3 m，往界外桿越來越近，最近仍有 7 m 以上", () => {
+    const venue = dome();
+    for (const side of SIDES) {
+      const front = side.ids
+        .filter((id) => id.startsWith("1"))
+        .flatMap((id) => sectionSeats(venue, id).filter((p) => p.row === 1))
+        .map((p) => ({ s: along(p.position, side.d), offset: along(p.position, side.u) }))
+        .sort((a, b) => a.s - b.s);
+      expect(front[0]?.offset ?? NaN, side.name).toBeGreaterThan(18.3 - 0.2);
+      for (let i = 1; i < front.length; i++) expect(front[i]?.offset ?? NaN, side.name).toBeLessThanOrEqual((front[i - 1]?.offset ?? NaN) + 1e-6);
+      expect(front.at(-1)?.offset ?? NaN, side.name).toBeLessThan(18.3 - 3);
+      expect(front.at(-1)?.offset ?? NaN, side.name).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it("座位朝弧心：越靠近界外桿越往本壘轉；102、124 最靠界外桿的那一席，比垂直界外線多轉 10° 以上", () => {
+    const venue = dome();
+    for (const [id, side] of [["102", SIDES[0]], ["124", SIDES[1]]] as const) {
+      if (!side) throw new Error("缺少一側");
+      const far = sectionSeats(venue, id).reduce((a, b) => (along(b.position, side.d) > along(a.position, side.d) ? b : a));
+      const facing = { x: Math.cos((far.yawDeg * Math.PI) / 180), z: Math.sin((far.yawDeg * Math.PI) / 180) };
+      const perpendicular = { x: -side.u.x, z: -side.u.z };
+      const turned = (Math.acos(facing.x * perpendicular.x + facing.z * perpendicular.z) * 180) / Math.PI;
+      expect(turned, id).toBeGreaterThan(10);
+      // 轉的方向是往本壘：面向的方向沿界外線的分量是負的（朝本壘那頭）
+      expect(facing.x * side.d.x + facing.z * side.d.z, id).toBeLessThan(0);
+    }
+  });
+});
+
 describe("taipei-dome：水平偏角正負號（baseball，0° = 本壘正後方）", () => {
   it("B1 內野：一壘側 102–112 全部 > 0、三壘側 114–124 全部 < 0；本壘正後方 113 第 1 排中央 ≈ 0", () => {
     const venue = dome();
