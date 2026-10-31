@@ -163,12 +163,13 @@ export const K = {
       l2StartRow: 19,
       endCap: 1.5,
       farBackWidth: 2,
+      sideRadius: 300,
       eyeHalfDeg: 5,
       outfieldWidthRow: 9,
     },
     grade: "C",
     source:
-      "排數的下限來自球迷照片的票面標籤；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
+      "排數的下限來自球迷照片的票面標籤；一三壘側是跟本壘後方的弧相切的大弧，第 1 排半徑 300 m（讀座位圖的相對形狀：越往界外桿越靠近界外線；300 m 時看台末端離界外線三壘側約 8.3 m、一壘側約 10.5 m；不描摹）；L2 從 B1 第 20 排正上方開始；靠界外桿的區保留最後一排、寬度最多是鄰區平均的 1.5 倍；有票面標籤的區至少要有標籤需要的寬度，其餘平分；打者之眼 ±5°",
   },
   concertClosed: { label: "演唱會時在舞台正後方、不開放的外野區", value: ["136", "137", "140", "141"], grade: "C", source: CONCERT },
   battersEye: {
@@ -287,6 +288,7 @@ export const DEFAULT_OFFICIAL: OfficialParams = {
     headroom: K.headroom.value,
   },
   endCap: K.officialLayout.value.endCap,
+  sideRadius: K.officialLayout.value.sideRadius,
   farBackWidth: K.officialLayout.value.farBackWidth,
   exactLastRow: EXACT_LAST_ROW,
   minWidth: Object.fromEntries(
