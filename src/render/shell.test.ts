@@ -28,7 +28,30 @@ describe("buildShell：穹頂外殼", () => {
   it("牆、牆面接縫、屋頂、屋頂格柵、屋頂邊緣的燈、大螢幕", () => {
     const group = buildShell(domeShell(), "baseball");
     expect(group.name).toBe("shell");
-    expect(group.children.map((c) => c.name).sort()).toEqual(["shell-lattice", "shell-lights", "shell-roof", "shell-screens", "shell-seams", "shell-wall"]);
+    expect(group.children.map((c) => c.name).sort()).toEqual(["shell-lattice", "shell-lights", "shell-roof", "shell-screens", "shell-seams", "shell-vents", "shell-wall"]);
+  });
+
+  it("牆上一圈圓形通風孔（現場照片；C 級）：貼著牆面、比所有座椅高、比牆頂低，每隔幾公尺一個", () => {
+    const shell = domeShell();
+    const vents = buildShell(shell, "baseball").getObjectByName("shell-vents");
+    if (!(vents instanceof THREE.InstancedMesh)) throw new Error("通風孔應該是 InstancedMesh");
+    const perimeter = shell.outline.reduce((sum, p, i) => {
+      const q = shell.outline[(i + 1) % shell.outline.length] ?? p;
+      return sum + Math.hypot(q.x - p.x, q.z - p.z);
+    }, 0);
+    expect(vents.count).toBeGreaterThan(perimeter / 10);
+    expect(vents.count).toBeLessThan(perimeter / 3);
+    const venue = dome();
+    const topSeat = Math.max(...venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((p) => p.position.y + CHAIR.backTop)));
+    const m = new THREE.Matrix4();
+    const p = new THREE.Vector3();
+    for (let i = 0; i < vents.count; i++) {
+      vents.getMatrixAt(i, m);
+      p.setFromMatrixPosition(m);
+      expect(p.y).toBeGreaterThan(topSeat);
+      expect(p.y).toBeLessThan(shell.wallHeight);
+      expect(pointInPolygon(shell.outline, { x: p.x, z: p.z })).toBe(true);
+    }
   });
 
   it("牆：從地面到牆頂，頂點都在底面輪廓上", () => {
