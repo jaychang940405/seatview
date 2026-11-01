@@ -6,16 +6,18 @@ import { isScreenOn, roofHeightAt, roofLattice, screenCorners, screenNormal, she
 // 顏色與間距依使用者照片目視估計（C）；圖案自己生成，不複製任何照片或網站的畫面。
 
 const COLORS = {
-  wall: "#c9cbcd",
+  wall: "#8f9678",
   seam: "#a6a9ad",
-  roof: "#2a2e35",
-  lattice: "#d5d9dd",
-  light: "#ffe9b8",
+  roof: "#34373c",
+  lattice: "#9aa092",
+  latticeGlow: "#7d8573",
+  light: "#dccba0",
   /** 螢幕亮的時候：中性的漸層色塊（不放文字、標誌、廣告或品牌色），下深上淺 */
   screenBottom: "#2b3f58",
   screenTop: "#86a7c4",
   screenOff: "#121418",
   screenFrame: "#1b1d21",
+  vent: "#5d6166",
 } as const;
 
 /** 螢幕外框比螢幕大多少、厚多少、退到螢幕後面多少（m）。 */
@@ -23,20 +25,25 @@ const FRAME = { margin: 0.3, depth: 0.4, back: 0.25 } as const;
 /** 螢幕網格的切分（給漸層用）。 */
 const SCREEN_GRID = { columns: 8, rows: 4 } as const;
 
-/** 格柵線間距、牆面接縫間距、屋頂邊緣燈的間距（m，C）。 */
-export const SHELL_SPACING = { lattice: 6, seam: 6, light: 5 } as const;
+/** 格柵線間距、牆面接縫間距（m，C）。 */
+export const SHELL_SPACING = { lattice: 6, seam: 6 } as const;
 /** 屋頂網格從中心到牆頂分幾圈。 */
 const ROOF_RINGS = 36;
 /** 接縫線與燈往內縮多少（m），避免和牆面重疊閃爍。 */
 const INSET = 0.05;
-const LIGHT_SIZE = { length: 1.6, height: 0.6, depth: 0.6 } as const;
+/** 屋頂梁的寬度（m）：校色規格要求 ≥ 0.25 m，不用 1 px 的線。 */
+export const LATTICE_WIDTH = 0.3;
+/** 屋頂邊緣的連續發光帶有多高（m）：校色規格要求 ≥ 0.6 m。 */
+const LIGHT_BAND_HEIGHT = 0.8;
 /** 燈離牆往內多少（m）：放在深色屋頂前面才看得出來。 */
 const LIGHT_INSET = 2.5;
+/** 牆上一圈圓形通風孔（現場照片；高度、間距、大小是目視估計，C）：離牆頂 below 公尺，每隔 spacing 公尺一個。 */
+const VENTS = { below: 3, spacing: 6, radius: 0.6 } as const;
 
 export function buildShell(shell: Shell, layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "shell";
-  group.add(buildWall(shell), buildSeams(shell), buildRoof(shell), buildLattice(shell), buildLights(shell), buildScreens(shell, layoutId));
+  group.add(buildWall(shell), buildSeams(shell), buildVents(shell), buildRoof(shell), buildLattice(shell), buildLights(shell), buildScreens(shell, layoutId));
   return group;
 }
 
@@ -143,6 +150,32 @@ function buildSeams(shell: Shell): THREE.LineSegments {
   return lines;
 }
 
+/** 牆上的圓形通風孔：深灰色圓片，貼在牆內側、面朝場內；跟接縫錯開半個間距。 */
+function buildVents(shell: Shell): THREE.InstancedMesh {
+  // 相鄰兩個接縫點的中點：輪廓是凸的，中點一定在輪廓內
+  const seams = alongOutline(shell.outline, VENTS.spacing).map((s) => s.point);
+  const spots = seams.map((a, i) => {
+    const b = seams[(i + 1) % seams.length] ?? a;
+    return { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+  });
+  const geometry = new THREE.CircleGeometry(VENTS.radius, 16);
+  const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshStandardMaterial({ color: COLORS.vent, roughness: 0.8 }), spots.length);
+  const transform = new THREE.Object3D();
+  const y = shell.wallHeight - VENTS.below;
+  const center = shellCenter(shell);
+  spots.forEach((spot, i) => {
+    const p = inward(shell, spot, INSET * 2);
+    transform.position.set(p.x, y, p.z);
+    // 圓片預設面朝 +z；轉到面朝形心
+    transform.lookAt(center.x, y, center.z);
+    transform.updateMatrix();
+    mesh.setMatrixAt(i, transform.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.name = "shell-vents";
+  return mesh;
+}
+
 /** 屋頂：從形心往每個輪廓頂點拉放射線，分 ROOF_RINGS 圈；每個頂點都在殼面上。 */
 function buildRoof(shell: Shell): THREE.Mesh {
   const center = shellCenter(shell);
@@ -179,35 +212,73 @@ function buildRoof(shell: Shell): THREE.Mesh {
   return mesh;
 }
 
-function buildLattice(shell: Shell): THREE.LineSegments {
+/** 點在不在多邊形內（射線法）：屋頂梁靠牆的那一側要留在輪廓內。 */
+function insideOutline(outline: PlanPoint[], p: PlanPoint): boolean {
+  let inside = false;
+  for (const [a, b] of edges(outline)) {
+    if (a.z > p.z !== b.z > p.z && p.x < ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** 屋頂梁：每段格柵線畫成寬 LATTICE_WIDTH 的帶子，兩側的點都投影回殼面；靠牆時整段往形心移，留在輪廓內。 */
+function buildLattice(shell: Shell): THREE.Mesh {
   const positions: number[] = [];
+  const onRoof = (q: PlanPoint) => [q.x, roofHeightAt(shell, q), q.z] as const;
+  /** 一個端點的左右兩點；有一點跑出輪廓時，兩點一起往形心移（寬度不變） */
+  const pair = (p: PlanPoint, side: PlanPoint) => {
+    let [l, r] = [
+      { x: p.x + side.x, z: p.z + side.z },
+      { x: p.x - side.x, z: p.z - side.z },
+    ];
+    if (!insideOutline(shell.outline, l) || !insideOutline(shell.outline, r)) {
+      const m = inward(shell, p, LATTICE_WIDTH);
+      const [dx, dz] = [m.x - p.x, m.z - p.z];
+      [l, r] = [
+        { x: l.x + dx, z: l.z + dz },
+        { x: r.x + dx, z: r.z + dz },
+      ];
+    }
+    return [onRoof(l), onRoof(r)] as const;
+  };
   for (const line of roofLattice(shell, SHELL_SPACING.lattice)) {
     for (let i = 1; i < line.length; i++) {
       const [a, b] = [line[i - 1], line[i]];
-      if (a && b) positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      if (!a || !b) continue;
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      if (length === 0) continue;
+      const side = { x: (-(b.z - a.z) / length) * (LATTICE_WIDTH / 2), z: ((b.x - a.x) / length) * (LATTICE_WIDTH / 2) };
+      const [[al, ar], [bl, br]] = [pair(a, side), pair(b, side)];
+      // 4 個頂點一段（起點左右、終點左右），用 index 拼成兩個三角形
+      positions.push(...al, ...ar, ...bl, ...br);
     }
+  }
+  const indices: number[] = [];
+  for (let k = 0; k < positions.length / 12; k++) indices.push(4 * k, 4 * k + 1, 4 * k + 2, 4 * k + 1, 4 * k + 3, 4 * k + 2);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  // 梁的下面幾乎照不到場景光：加一點自發光（latticeGlow），亮度對齊參考照片的屋頂梁取樣值
+  const material = new THREE.MeshStandardMaterial({ color: COLORS.lattice, emissive: COLORS.latticeGlow, roughness: 0.6, metalness: 0.2, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = "shell-lattice";
+  return mesh;
+}
+
+/** 屋頂邊緣一圈連續的發光帶：自己發光（MeshBasicMaterial 不受光線影響），沿牆頂往內一點、殼面下方繞一整圈。 */
+function buildLights(shell: Shell): THREE.Mesh {
+  const positions: number[] = [];
+  const top = (p: PlanPoint) => roofHeightAt(shell, p) - 0.2;
+  for (const [a, b] of edges(shell.outline)) {
+    const [p, q] = [inward(shell, a, LIGHT_INSET), inward(shell, b, LIGHT_INSET)];
+    const [pt, qt] = [top(p), top(q)];
+    const [pb, qb] = [pt - LIGHT_BAND_HEIGHT, qt - LIGHT_BAND_HEIGHT];
+    positions.push(p.x, pb, p.z, q.x, qb, q.z, q.x, qt, q.z, p.x, pb, p.z, q.x, qt, q.z, p.x, pt, p.z);
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: COLORS.lattice }));
-  lines.name = "shell-lattice";
-  return lines;
-}
-
-/** 屋頂邊緣一圈燈：自己發光（MeshBasicMaterial 不受光線影響），掛在牆頂往內一點、殼面下方。 */
-function buildLights(shell: Shell): THREE.InstancedMesh {
-  const spots = alongOutline(shell.outline, SHELL_SPACING.light);
-  const geometry = new THREE.BoxGeometry(LIGHT_SIZE.length, LIGHT_SIZE.height, LIGHT_SIZE.depth);
-  const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial({ color: COLORS.light }), spots.length);
-  const transform = new THREE.Object3D();
-  spots.forEach(({ point, tangent }, i) => {
-    const p = inward(shell, point, LIGHT_INSET);
-    transform.position.set(p.x, roofHeightAt(shell, p) - LIGHT_SIZE.height, p.z);
-    transform.rotation.set(0, -Math.atan2(tangent.z, tangent.x), 0);
-    transform.updateMatrix();
-    mesh.setMatrixAt(i, transform.matrix);
-  });
-  mesh.instanceMatrix.needsUpdate = true;
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: COLORS.light, side: THREE.DoubleSide }));
   mesh.name = "shell-lights";
   return mesh;
 }

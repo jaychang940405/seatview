@@ -47,13 +47,13 @@ describe("buildVenueScene：場景內容", () => {
     for (let i = 0; i < mesh.count; i++) expectColorClose(colorAt(mesh, i), new THREE.Color("#16181b"));
   });
 
-  it("室內的薄霧：指數霧，200 m 外大約淡 10%（不會把遠處蓋掉）", () => {
+  it("室內的薄霧：指數霧，density 0.003–0.004、顏色是參考照片的牆面取樣值（校色規格，docs/look-targets.md）", () => {
     const { scene } = buildVenueScene(demo(), "concert");
     const fog = scene.fog;
     if (!(fog instanceof THREE.FogExp2)) throw new Error("沒有 FogExp2");
-    const at = (d: number) => 1 - Math.exp(-((fog.density * d) ** 2));
-    expect(at(200)).toBeGreaterThan(0.05);
-    expect(at(200)).toBeLessThan(0.15);
+    expect(fog.density).toBeGreaterThanOrEqual(0.003);
+    expect(fog.density).toBeLessThanOrEqual(0.004);
+    expect(`#${fog.color.getHexString()}`).toBe("#767c66");
   });
 
   it("focus 來自 layout", () => {

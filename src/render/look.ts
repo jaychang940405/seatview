@@ -5,8 +5,8 @@ import { verticalFovFor } from "./camera";
 /** 從座位轉頭的範圍與倍數。 */
 export const LOOK_LIMITS = { yawDeg: 120, minPitchDeg: -45, maxPitchDeg: 60, minZoom: 0.5, maxZoom: 4 } as const;
 
-/** 預設倍數：0.5× ≈ 等效 13 mm 廣角。 */
-export const DEFAULT_ZOOM = 0.5;
+/** 預設倍數：1×（0.5× ≈ 等效 13 mm 廣角保留為按鈕）。 */
+export const DEFAULT_ZOOM = 1;
 /** 「人眼」那一檔：約 1.7×（C 級，等效約 44 mm 的標準鏡頭量級，不是量測值）。 */
 export const HUMAN_EYE_ZOOM = 1.7;
 export const ZOOM_PRESETS = [

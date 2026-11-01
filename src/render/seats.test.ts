@@ -163,8 +163,9 @@ describe("buildSectionMesh", () => {
 });
 
 describe("座椅混色（座位視角）：淺灰、白、深灰，依 (區、排、號) 雜湊決定（比例是 C 級）", () => {
-  it("以淺灰、白為主：比例 50%、35%、15%，加起來是 1；淺灰與白比深灰亮", () => {
-    expect(SEAT_PALETTE_WEIGHTS).toEqual([0.5, 0.35, 0.15]);
+  it("中灰、淺灰、深灰各約 1/3（校色任務規格：1/3 ± 5%），加起來是 1；淺灰比中灰亮、中灰比深灰亮", () => {
+    for (const w of SEAT_PALETTE_WEIGHTS) expect(Math.abs(w - 1 / 3)).toBeLessThanOrEqual(0.05);
+    expect(SEAT_PALETTE_WEIGHTS.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 9);
     const luminance = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
     const [grey, white, dark] = SEAT_PALETTE.map(luminance) as [number, number, number];
     expect(white).toBeGreaterThan(grey);

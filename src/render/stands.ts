@@ -10,7 +10,7 @@ import { displaySections } from "../core/view";
 export const PARAPET = { height: 0.8, opacity: 0.3 } as const;
 
 /** 踏面（朝上的面）與踢面、牆面、底面的顏色：淺灰與深灰，不靠陰影也看得出一階一階。 */
-export const STAND_COLORS = { tread: new THREE.Color("#8f949c"), side: new THREE.Color("#5f646c") } as const;
+export const STAND_COLORS = { tread: new THREE.Color("#7d7e77"), side: new THREE.Color("#5c5e58") } as const;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);

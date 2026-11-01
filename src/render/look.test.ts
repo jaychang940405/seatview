@@ -125,8 +125,8 @@ describe("倍數（FOV）：tan(fov/2) = tan(base/2) / zoom，1× = 垂直 50°�
     expect(zoomedFov(DEFAULT_FOV, zoom)).toBeCloseTo(fov, 1);
   });
 
-  it("預設 0.5×（約等效 13 mm）；預設按鈕 0.5×、1×、人眼（約 1.7×，C 級）", () => {
-    expect(DEFAULT_ZOOM).toBe(0.5);
+  it("預設 1×（2026-11-01 規格變更，原本 0.5×）；預設按鈕 0.5×、1×、人眼（約 1.7×，C 級）", () => {
+    expect(DEFAULT_ZOOM).toBe(1);
     expect(LOOK_AHEAD.zoom).toBe(DEFAULT_ZOOM);
     expect(HUMAN_EYE_ZOOM).toBeCloseTo(1.7);
     expect(ZOOM_PRESETS.map((p) => p.zoom)).toEqual([0.5, 1, HUMAN_EYE_ZOOM]);

@@ -33,7 +33,8 @@ export function buildOverlay(overlay: Overlay, layer = 0): THREE.Object3D {
       const geometry = new THREE.BufferGeometry().setFromPoints(
         overlay.points.map((p) => new THREE.Vector3(p.x, y, p.z)),
       );
-      const material = new THREE.LineBasicMaterial({ color: overlay.color ?? "#ffffff" });
+      // 預設線色不用純白：校色規格要求任何材質亮度 ≤ sRGB 約 215
+      const material = new THREE.LineBasicMaterial({ color: overlay.color ?? "#d6d6d6" });
       const line = overlay.closed ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
       line.name = `overlay:${overlay.id}`;
       return line;
