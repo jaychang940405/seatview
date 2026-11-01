@@ -9,8 +9,8 @@ const COLORS = {
   wall: "#cfccc6",
   seam: "#a6a9ad",
   roof: "#2a2e35",
-  lattice: "#eef0f2",
-  light: "#ffe9b8",
+  lattice: "#d0d3cc",
+  light: "#dccba0",
   /** 螢幕亮的時候：中性的漸層色塊（不放文字、標誌、廣告或品牌色），下深上淺 */
   screenBottom: "#2b3f58",
   screenTop: "#86a7c4",

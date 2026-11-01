@@ -12,6 +12,11 @@ interface SurfaceSpec {
   tileMeters: number;
   /** 第 (x, y) 個像素的亮度倍數，約 0.9–1.05 */
   shade: (x: number, y: number, size: number, random: () => number) => number;
+  /**
+   * 校色用的各通道倍數（可以 > 1，所以紋理用半精度浮點），乘在亮度上：
+   * polygon 的顏色不動，畫面對齊參考照片的取樣值（docs/look-targets.md）
+   */
+  tint: readonly [number, number, number];
 }
 
 const SIZE = 64;
@@ -21,11 +26,13 @@ const SPECS: Record<Surface, SurfaceSpec> = {
   turf: {
     tileMeters: 12,
     shade: (_x, y, size, random) => (y < size / 2 ? 1 : 0.92) + (random() - 0.5) * 0.06,
+    tint: [1.9, 1.3, 1.8],
   },
   // 紅土：一張 4 m 的細顆粒，亮度 ±6%，沒有條紋
   dirt: {
     tileMeters: 4,
     shade: (_x, _y, _size, random) => 0.97 + (random() - 0.5) * 0.12,
+    tint: [1.075, 0.71, 1.26],
   },
 };
 
@@ -45,14 +52,14 @@ function rng(seed: number): () => number {
 export function surfaceTexture(surface: Surface): THREE.DataTexture {
   const spec = SPECS[surface];
   const random = rng(surface === "turf" ? 20261101 : 20261102);
-  const data = new Uint8Array(SIZE * SIZE * 4);
+  const data = new Uint16Array(SIZE * SIZE * 4);
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const v = Math.round(Math.min(1, Math.max(0, spec.shade(x, y, SIZE, random))) * 255);
-      data.set([v, v, v, 255], (y * SIZE + x) * 4);
+      const v = Math.min(1, Math.max(0, spec.shade(x, y, SIZE, random)));
+      data.set([...spec.tint.map((t) => THREE.DataUtils.toHalfFloat(v * t)), THREE.DataUtils.toHalfFloat(1)], (y * SIZE + x) * 4);
     }
   }
-  const texture = new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat);
+  const texture = new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat, THREE.HalfFloatType);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1 / spec.tileMeters, 1 / spec.tileMeters);
