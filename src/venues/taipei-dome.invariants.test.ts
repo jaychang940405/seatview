@@ -695,12 +695,13 @@ describe("taipei-dome：內外野在界外桿角落相連（官方座位圖 102�
     }
   });
 
-  it(`角落的兩區接在一起：最近兩席只隔一條階梯走道（${AISLE} m + 一個座位寬 ≤ 距離 ≤ 3 m）`, () => {
+  // 4 m：使用者決定。界外桿附近內野第 1 排離界外線約 1.7 m、外野第 1 排在全壘打牆後 3 m，外框中心掃過 247 組最近約 3.7 m
+  it(`角落的兩區接在一起：最近兩席只隔一條走道（${AISLE} m + 一個座位寬 ≤ 距離 ≤ 4 m）`, () => {
     const venue = dome();
     for (const [a, b] of [["102", "146"], ["124", "131"]] as const) {
       const gap = nearest(venue, a, b);
       expect(gap, `${a}｜${b}`).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
-      expect(gap, `${a}｜${b}`).toBeLessThanOrEqual(3);
+      expect(gap, `${a}｜${b}`).toBeLessThanOrEqual(4);
     }
   });
 });
