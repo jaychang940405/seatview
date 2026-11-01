@@ -439,9 +439,10 @@ describe("taipei-dome：界外桿後方的混凝土塔（現場照片：塔面�
     }
   });
 
-  it("塔在界外桿正後方（離界外桿 ≤ 12 m、比界外桿離本壘遠），整座在穹頂底面輪廓內，而且不壓到任何座位（多留 0.3 m）", () => {
+  it("塔在界外桿正後方（離界外桿 ≤ 12 m、比界外桿離本壘遠），整座在穹頂底面輪廓內、不在界內（全壘打牆以內），而且不壓到任何座位（多留 0.3 m）", () => {
     const venue = dome();
     const outline = venue.shell?.outline ?? [];
+    const fair = [PLATE, ...polyline(venue, "outfield-wall")];
     const seats = venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((p) => p.position));
     for (const [id, side] of TOWERS) {
       const t = towerOf(venue, "baseball", id);
@@ -449,6 +450,7 @@ describe("taipei-dome：界外桿後方的混凝土塔（現場照片：塔面�
       expect(planDistance(t.center, pole), id).toBeLessThanOrEqual(12);
       expect(planDistance(t.center, PLATE), id).toBeGreaterThan(FOUL_POLE);
       for (const c of footprint(t)) expect(pointInPolygon(outline, c), id).toBe(true);
+      for (const c of footprint(t, 0.3)) expect(pointInPolygon(fair, c), `${id} 在界內`).toBe(false);
       const area = footprint(t, 0.3);
       expect(seats.filter((p) => pointInPolygon(area, p)).length, id).toBe(0);
     }
