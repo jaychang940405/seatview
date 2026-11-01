@@ -83,6 +83,7 @@ const THIRD_BASE = { b1: range(114, 124), l2: range(214, 225), outfield: range(1
 const CONCERT_CLOSED = ["136", "137", "140", "141"];
 const SEAT_SPACING = { min: 0.45, max: 0.65 };
 const WALL_CLEARANCE = 3;
+const POLE_CLEARANCE = 1.5; // 界外桿旁的座位（C）：照片上內野看台排到界外桿旁
 const HEADROOM = 2.5; // 上下兩層座位之間的垂直淨空門檻（C）
 const ROOF_HEIGHT = 74.5; // 球場面到屋頂外側：地面以上 64 m（OSM）＋地下 10.5 m（B，TVBS）；室內淨高 72 m
 // 外框摘要：OSM 圓頂分件（way 1304278778）兩種本壘方位交集的內接超橢圓，最大內縮差距 0.95 m。
@@ -545,16 +546,21 @@ describe("taipei-dome：座位排列", () => {
     expect([...new Set(overlaps)]).toEqual([]);
   });
 
-  it("每個座位距外野牆任一頂點 ≥ 3 m（平面距離）", () => {
+  it(`每個座位距外野牆的頂點 ≥ ${WALL_CLEARANCE} m；兩端的界外桿 ≥ ${POLE_CLEARANCE} m（照片：內野看台一路排到界外桿旁，跟外野看台接上）`, () => {
     const venue = dome();
     const wall = polyline(venue, "outfield-wall");
+    const poles = [wall[0], wall.at(-1)].filter((p): p is PlanPoint => p !== undefined);
+    const inner = wall.slice(1, -1);
     let closest = Infinity;
+    let closestPole = Infinity;
     for (const { id } of venue.sections) {
       for (const { position } of sectionSeats(venue, id)) {
-        for (const vertex of wall) closest = Math.min(closest, planDistance(position, vertex));
+        for (const vertex of inner) closest = Math.min(closest, planDistance(position, vertex));
+        for (const pole of poles) closestPole = Math.min(closestPole, planDistance(position, pole));
       }
     }
     expect(closest).toBeGreaterThanOrEqual(WALL_CLEARANCE);
+    expect(closestPole).toBeGreaterThanOrEqual(POLE_CLEARANCE);
   });
 
   it(`穹頂外殼：室內最高 72 m（≤ 屋頂外側 74.5 m）、牆頂 ${WALL_HEIGHT} m 高於最高的座椅（含示意量體）；所有座位在底面輪廓內`, () => {
@@ -663,12 +669,9 @@ describe("taipei-dome：階梯走道與出入口（依臺北市都發局 104 年
   });
 });
 
-describe("taipei-dome：界外桿角落（官方座位圖上 102↔146、124↔131 相鄰）", () => {
+describe("taipei-dome：內外野在界外桿角落相連（官方座位圖 102↔146、124↔131 相鄰；照片上看台一路接到界外桿）", () => {
   const AISLE = 1.2;
   const PITCH = 0.5;
-  const FOUL_CLEARANCE = 7; // 內野看台離界外線至少 7 m（同「兩側弧形看台」的前緣不變量）
-  // 加這條規則前（端區最多是鄰區平均寬的 1.5 倍）的角落缺口，m
-  const GAP_BEFORE = { "102|146": 45.85, "124|131": 53 };
   /** 離界外線延長線多遠（m）：界外側為正。side = 1 一壘側、−1 三壘側 */
   const foulSide = (side: 1 | -1, p: PlanPoint) => {
     const d = { x: side * Math.SQRT1_2, z: -Math.SQRT1_2 }; // 本壘 → 界外桿
@@ -681,24 +684,23 @@ describe("taipei-dome：界外桿角落（官方座位圖上 102↔146、124↔1
     return min;
   };
 
-  it(`以離界外線 ${FOUL_CLEARANCE} m 的平行線為界：內野區的座位都在線的外側（離界外線延長線 ≥ ${FOUL_CLEARANCE} m），外野區的座位都在線的場內側`, () => {
+  it("以界外線延長線為界：內野區的座位都在界外側，外野區的座位都在界內側", () => {
     const venue = dome();
     for (const [side, infield, outfield] of [
       [1, [...range(102, 106), ...range(201, 206)], range(140, 146)],
       [-1, [...range(120, 124), ...range(220, 225)], range(131, 137)],
     ] as const) {
-      for (const id of infield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeGreaterThanOrEqual(FOUL_CLEARANCE);
-      for (const id of outfield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeLessThanOrEqual(FOUL_CLEARANCE);
+      for (const id of infield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeGreaterThanOrEqual(0);
+      for (const id of outfield) for (const { position } of sectionSeats(venue, id)) expect(foulSide(side, position), id).toBeLessThanOrEqual(0);
     }
   });
 
-  it("角落的兩區不重疊，缺口比加這條規則前小一半以上（接不上是已知限制：內野要離界外線 7 m、外野被外框截斷，見 docs/venue-taipei-dome.md）", () => {
+  it(`角落的兩區接在一起：最近兩席只隔一條階梯走道（${AISLE} m + 一個座位寬 ≤ 距離 ≤ 3 m）`, () => {
     const venue = dome();
-    for (const [key, before] of Object.entries(GAP_BEFORE)) {
-      const [a, b] = key.split("|") as [string, string];
+    for (const [a, b] of [["102", "146"], ["124", "131"]] as const) {
       const gap = nearest(venue, a, b);
-      expect(gap, key).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
-      expect(gap, key).toBeLessThan(before / 2);
+      expect(gap, `${a}｜${b}`).toBeGreaterThanOrEqual(AISLE + PITCH - 0.02);
+      expect(gap, `${a}｜${b}`).toBeLessThanOrEqual(3);
     }
   });
 });
@@ -758,7 +760,7 @@ describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座�
   });
 
 
-  it("B1 看台前緣（第 1 排）離界外線：交接處至少 18.3 m，往界外桿越來越近，最近仍有 7 m 以上", () => {
+  it("B1 看台前緣（第 1 排）離界外線：交接處至少 18.3 m，往界外桿越來越近，到界外桿附近不到 7 m、但不進場內（照片：界外區越往界外桿越窄）", () => {
     const venue = dome();
     for (const side of SIDES) {
       const front = side.ids
@@ -769,7 +771,8 @@ describe("taipei-dome：兩側弧形看台（跟本壘後方的弧相切，座�
       expect(front[0]?.offset ?? NaN, side.name).toBeGreaterThan(18.3 - 0.2);
       for (let i = 1; i < front.length; i++) expect(front[i]?.offset ?? NaN, side.name).toBeLessThanOrEqual((front[i - 1]?.offset ?? NaN) + 1e-6);
       expect(front.at(-1)?.offset ?? NaN, side.name).toBeLessThan(18.3 - 3);
-      expect(front.at(-1)?.offset ?? NaN, side.name).toBeGreaterThanOrEqual(7);
+      expect(front.at(-1)?.offset ?? NaN, side.name).toBeLessThan(7);
+      expect(front.at(-1)?.offset ?? NaN, side.name).toBeGreaterThan(0);
     }
   });
 
