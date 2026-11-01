@@ -2,7 +2,7 @@
 
 輸入「區、排、號」，看從該座位望向舞台（演唱會）或本壘板（棒球）的 3D 視野，並顯示距離、俯角與水平偏角。核心計算是與 three.js 無關的純函式，網頁與 MCP server 共用同一套算式。
 
-線上 demo：（部署後在此貼上網址）
+線上 demo：https://benevolent-sfogliatella-3ed179.netlify.app
 
 ![棒球 layout，113 區 38 排 7 號](docs/screenshots/theme-01-baseball.jpg)
 ![演唱會 layout](docs/screenshots/theme-02-concert.jpg)
