@@ -400,6 +400,79 @@ describe("taipei-dome：全壘打牆與界外桿（baseball 的 box overlays）"
   });
 });
 
+describe("taipei-dome：界外桿後方的混凝土塔（現場照片：塔面上有角落小螢幕；C 級，只畫外觀）", () => {
+  type Box = Extract<Overlay, { type: "box" }>;
+  const towerOf = (venue: Venue, layoutId: string, id: string) => {
+    const box = venue.layouts[layoutId]?.overlays?.find((o) => o.id === id);
+    if (box?.type !== "box") throw new Error(`${layoutId} 應該有 ${id}`);
+    return box;
+  };
+  /** 平面上的四個角：size.x 沿 yawDeg 方向，size.z 垂直它 */
+  const footprint = (b: Box, grow = 0): PlanPoint[] => {
+    const yaw = ((b.yawDeg ?? 0) * Math.PI) / 180;
+    const u = { x: Math.cos(yaw), z: Math.sin(yaw) };
+    const w = { x: -u.z, z: u.x };
+    const [hx, hz] = [b.size.x / 2 + grow, b.size.z / 2 + grow];
+    return [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([i, j]) => ({ x: b.center.x + (i ?? 0) * hx * u.x + (j ?? 0) * hz * w.x, z: b.center.z + (i ?? 0) * hx * u.z + (j ?? 0) * hz * w.z }));
+  };
+  const TOWERS = [
+    ["corner-tower-right", 1],
+    ["corner-tower-left", -1],
+  ] as const;
+  const poleOf = (side: 1 | -1): PlanPoint => ({ x: PLATE.x + side * FOUL_POLE * Math.SQRT1_2, z: PLATE.z - FOUL_POLE * Math.SQRT1_2 });
+
+  it("棒球與演唱會都有兩座塔（建築本體，跟 layout 無關），從地面蓋起，比 B1 外野最高的座位高、比牆頂低", () => {
+    const venue = dome();
+    const b1Top = Math.max(...range(131, 146).filter((id) => id !== "138" && id !== "139").flatMap((id) => sectionSeats(venue, id).map((p) => p.position.y)));
+    for (const layoutId of ["baseball", "concert"]) {
+      for (const [id] of TOWERS) {
+        const t = towerOf(venue, layoutId, id);
+        expectWithin(t.center.y - t.size.y / 2, 0, 1e-6);
+        expect(t.center.y + t.size.y / 2, id).toBeGreaterThan(b1Top);
+        expect(t.center.y + t.size.y / 2, id).toBeLessThan(venue.shell?.wallHeight ?? 0);
+      }
+    }
+  });
+
+  it("塔在界外桿正後方（離界外桿 ≤ 12 m、比界外桿離本壘遠），整座在穹頂底面輪廓內，而且不壓到任何座位（多留 0.3 m）", () => {
+    const venue = dome();
+    const outline = venue.shell?.outline ?? [];
+    const seats = venue.sections.flatMap((s) => sectionSeats(venue, s.id).map((p) => p.position));
+    for (const [id, side] of TOWERS) {
+      const t = towerOf(venue, "baseball", id);
+      const pole = poleOf(side);
+      expect(planDistance(t.center, pole), id).toBeLessThanOrEqual(12);
+      expect(planDistance(t.center, PLATE), id).toBeGreaterThan(FOUL_POLE);
+      for (const c of footprint(t)) expect(pointInPolygon(outline, c), id).toBe(true);
+      const area = footprint(t, 0.3);
+      expect(seats.filter((p) => pointInPolygon(area, p)).length, id).toBe(0);
+    }
+  });
+
+  it("角落小螢幕掛在塔朝本壘那一面：螢幕中心離那一面的中心 ≤ 1 m（平面），上下都在塔的高度內", () => {
+    const venue = dome();
+    for (const [id, side] of TOWERS) {
+      const t = towerOf(venue, "baseball", id);
+      const screen = venue.shell?.screens?.find((s) => s.id === (side === 1 ? "right-corner" : "left-corner"));
+      if (!screen) throw new Error("缺角落螢幕");
+      // 塔四個面的中心裡，離本壘最近的那一面
+      const faces = footprint(t).map((c, i, all) => {
+        const n = all[(i + 1) % all.length] ?? c;
+        return { x: (c.x + n.x) / 2, z: (c.z + n.z) / 2 };
+      });
+      const front = faces.reduce((a, b) => (planDistance(b, PLATE) < planDistance(a, PLATE) ? b : a));
+      expect(planDistance(screen.center, front), id).toBeLessThanOrEqual(1);
+      expect(screen.center.y - screen.height / 2, id).toBeGreaterThan(0);
+      expect(screen.center.y + screen.height / 2, id).toBeLessThan(t.center.y + t.size.y / 2);
+    }
+  });
+});
+
 describe("taipei-dome：示意量體（只畫外觀，不能查詢）", () => {
   const massing = () => dome().sections.filter((s) => s.massing === true);
 
