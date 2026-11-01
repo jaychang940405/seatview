@@ -92,8 +92,8 @@ describe("buildMinimapModel：小地圖（取代鳥瞰的選位功能）", () =>
 describe("buildMinimapModel：樓層圖層（L2 懸挑在 B1 後段上方，平面上會重疊，所以一次只畫一層）", () => {
   const ids = (model: ReturnType<typeof buildMinimapModel>) => model.sections.map((s) => s.id);
 
-  it("大巨蛋有 B1、L2 兩層（依資料順序）；示範場館沒有樓層 → 不分圖層、全部都畫", () => {
-    expect(buildMinimapModel(dome(), "baseball", null).levels).toEqual(["B1", "L2"]);
+  it("大巨蛋有 B1、L2，加上只有示意量體的 L3–L5（依資料順序）；示範場館沒有樓層 → 不分圖層、全部都畫", () => {
+    expect(buildMinimapModel(dome(), "baseball", null).levels).toEqual(["B1", "L2", "L3", "L4", "L5"]);
     const demo = buildMinimapModel(parseVenue(demoArenaJson), "concert", null);
     expect(demo.levels).toEqual([]);
     expect(demo.level).toBeNull();
@@ -126,6 +126,23 @@ describe("buildMinimapModel：樓層圖層（L2 懸挑在 B1 後段上方，平�
   });
 
   it("切換圖層時 viewBox 不變（畫面不會跳）", () => {
-    expect(buildMinimapModel(dome(), "baseball", null, "L2").viewBox).toBe(buildMinimapModel(dome(), "baseball", null, "B1").viewBox);
+    const b1 = buildMinimapModel(dome(), "baseball", null, "B1").viewBox;
+    for (const level of ["L2", "L3", "L4", "L5"]) expect(buildMinimapModel(dome(), "baseball", null, level).viewBox, level).toBe(b1);
+  });
+
+  it("示意量體（L3–L5、L2 外野、打者之眼）畫在自己那一層，只能看、不能點：不在 sections 裡，輪廓閉合", () => {
+    const at = (level: string) => buildMinimapModel(dome(), "baseball", null, level);
+    expect(at("L4").sections).toEqual([]);
+    expect(at("L4").massing.map((m) => m.id)).toEqual(expect.arrayContaining(["upper-L4-1b", "upper-L4-home", "upper-L4-3b"]));
+    expect(at("L3").massing.map((m) => m.id)).not.toContain("upper-L3-home"); // L3 本壘後方是包廂
+    expect(at("L2").massing.map((m) => m.id)).toEqual(expect.arrayContaining(["upper-L2-outfield-left", "upper-L2-outfield-right"]));
+    expect(at("B1").massing.map((m) => m.id)).toEqual(["batters-eye"]);
+    for (const level of ["B1", "L2", "L3", "L4", "L5"]) {
+      for (const m of at(level).massing) {
+        expect(m.path, m.id).toMatch(/^M .* Z$/);
+        expect(at(level).sections.map((s) => s.id), m.id).not.toContain(m.id);
+      }
+    }
+    expect(buildMinimapModel(parseVenue(demoArenaJson), "concert", null).massing).toEqual([]);
   });
 });
