@@ -65,7 +65,7 @@ export function buildVenueScene(venue: Venue, layoutId: string): VenueScene {
   // 室內的薄霧（C）：200 m 外約淡 10%，遠近才有空氣感；不會把遠處蓋掉
   scene.fog = new THREE.FogExp2("#2b2f37", 0.0016);
   // 室內場館：屋頂燈光從上方均勻照下。半球光給整體漫射，平行光讓踏面比踢面亮；不開陰影（燈光分散、也太吃效能）
-  scene.add(new THREE.HemisphereLight("#e6ecf5", "#2a2c33", 1.2));
+  scene.add(new THREE.HemisphereLight("#eef2f7", "#3a3c42", 1.4));
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(30, 80, 20);
   scene.add(sun, sun.target);

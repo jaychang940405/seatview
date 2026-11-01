@@ -6,10 +6,10 @@ import { isScreenOn, roofHeightAt, roofLattice, screenCorners, screenNormal, she
 // 顏色與間距依使用者照片目視估計（C）；圖案自己生成，不複製任何照片或網站的畫面。
 
 const COLORS = {
-  wall: "#c9cbcd",
+  wall: "#cfccc6",
   seam: "#a6a9ad",
   roof: "#2a2e35",
-  lattice: "#d5d9dd",
+  lattice: "#eef0f2",
   light: "#ffe9b8",
   /** 螢幕亮的時候：中性的漸層色塊（不放文字、標誌、廣告或品牌色），下深上淺 */
   screenBottom: "#2b3f58",

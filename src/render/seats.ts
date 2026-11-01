@@ -25,10 +25,10 @@ export const SEAT_NEUTRAL = new THREE.Color("#3b4d61");
 
 /**
  * 座位視角的椅子顏色：淺灰、白為主，夾雜少量深灰，不規則配置。
- * 顏色與比例（50%、35%、15%）都是依照片目視估計的 C 級，不是官方配色或量測值。
+ * 顏色與比例（淺灰 35%、白 50%、深灰 15%）都是依現場照片目視估計的 C 級，不是官方配色或量測值。
  */
-export const SEAT_PALETTE = [new THREE.Color("#b9bdc3"), new THREE.Color("#e6e7e9"), new THREE.Color("#2a2c30")] as const;
-export const SEAT_PALETTE_WEIGHTS = [0.5, 0.35, 0.15] as const;
+export const SEAT_PALETTE = [new THREE.Color("#b9bdc3"), new THREE.Color("#eeeff1"), new THREE.Color("#2a2c30")] as const;
+export const SEAT_PALETTE_WEIGHTS = [0.35, 0.5, 0.15] as const;
 
 /** 這一席在 SEAT_PALETTE 裡的顏色：由 (區、排、號) 雜湊決定，每次都一樣。 */
 export function seatPaletteIndex(sectionId: string, row: number, seat: number): number {
