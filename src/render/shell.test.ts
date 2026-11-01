@@ -9,7 +9,7 @@ import demoArenaJson from "../venues/demo-arena.json";
 import taipeiDomeJson from "../venues/taipei-dome.json";
 import { buildVenueScene } from "./scene";
 import { CHAIR } from "./seats";
-import { buildShell } from "./shell";
+import { buildShell, LATTICE_WIDTH } from "./shell";
 
 const dome = () => parseVenue(taipeiDomeJson);
 const domeShell = () => {
@@ -73,6 +73,20 @@ describe("buildShell：穹頂外殼", () => {
     expect(Math.max(...roof.map((v) => v.y))).toBeCloseTo(shell.roofHeight, 2);
   });
 
+  it(`屋頂梁有寬度（≥ 0.25 m，校色規格）：每段是一條帶子，兩側的邊相距 ${LATTICE_WIDTH} m`, () => {
+    expect(LATTICE_WIDTH).toBeGreaterThanOrEqual(0.25);
+    const lattice = buildShell(domeShell(), "baseball").getObjectByName("shell-lattice");
+    if (!(lattice instanceof THREE.Mesh)) throw new Error("屋頂梁應該是 Mesh（帶子），不是 1 px 的線");
+    const v = vertices(lattice);
+    // 每段 4 個頂點：起點左右、終點左右
+    for (let i = 0; i + 1 < Math.min(v.length, 400); i += 4) {
+      const [a, b] = [v[i], v[i + 1]];
+      if (!a || !b) continue;
+      expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(LATTICE_WIDTH * 0.9);
+      expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeLessThan(LATTICE_WIDTH * 1.1);
+    }
+  });
+
   it("格柵：每個頂點都在殼面上（容差 1 cm），而且在底面輪廓內", () => {
     const shell = domeShell();
     const lattice = vertices(buildShell(shell, "baseball").getObjectByName("shell-lattice"));
@@ -83,11 +97,17 @@ describe("buildShell：穹頂外殼", () => {
     }
   });
 
-  it("屋頂邊緣的燈會自己發光（不受場景光線影響）", () => {
-    const lights = buildShell(domeShell(), "baseball").getObjectByName("shell-lights");
-    expect(lights).toBeInstanceOf(THREE.InstancedMesh);
-    expect((lights as THREE.InstancedMesh).material).toBeInstanceOf(THREE.MeshBasicMaterial);
-    expect((lights as THREE.InstancedMesh).count).toBeGreaterThan(20);
+  it(`屋頂邊緣的燈是一圈連續的發光帶（高 ≥ 0.6 m，校色規格），自己發光、不受場景光線影響`, () => {
+    const shell = domeShell();
+    const lights = buildShell(shell, "baseball").getObjectByName("shell-lights");
+    if (!(lights instanceof THREE.Mesh) || lights instanceof THREE.InstancedMesh) throw new Error("燈應該是一整條連續的 Mesh");
+    expect(lights.material).toBeInstanceOf(THREE.MeshBasicMaterial);
+    const v = vertices(lights);
+    // 每個輪廓邊一段（兩個三角形、6 個頂點），繞一整圈
+    expect(v.length).toBe(shell.outline.length * 6);
+    const ys = v.map((p) => p.y);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(0.6);
+    for (const p of v) expect(pointInPolygon(shell.outline, { x: p.x, z: p.z })).toBe(true);
   });
 
   it("所有座位都在底面輪廓內", () => {
@@ -136,7 +156,8 @@ describe("buildVenueScene 與 shell", () => {
     // 牆、接縫、屋頂、格柵各 (geometry + material)，燈是 InstancedMesh + geometry + material，
     // 三塊螢幕各有螢幕面與外框 (geometry + material)
     // 通風孔也是 InstancedMesh + geometry + material
-    expect(spies).toHaveLength(4 * 2 + 3 + 3 + 3 * 2 * 2);
+    // 燈改成一條連續的帶子：geometry + material
+    expect(spies).toHaveLength(4 * 2 + 2 + 3 + 3 * 2 * 2);
     venueScene.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalled();
   });
