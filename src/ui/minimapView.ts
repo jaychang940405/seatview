@@ -2,7 +2,8 @@ import type { MinimapModel } from "./minimap";
 import type { Change } from "./selection";
 
 // 小地圖的 DOM：把 buildMinimapModel 的結果畫成 SVG；點一區（或聚焦後按 Enter）就跳到那一區的中央座位。
-// 場館有兩層以上時，左上角有樓層切換鈕（B1／L2），切換後由 onLevel 通知外面重建 model。
+// 場館有兩層以上時，左上角有樓層切換鈕（B1／L2／L3–L5），切換後由 onLevel 通知外面重建 model。
+// 示意量體（上層看台、打者之眼）畫成灰色虛線，不能點。
 
 export interface MinimapView {
   update(model: MinimapModel): void;
@@ -21,9 +22,10 @@ function svgElement<K extends keyof SVGElementTagNameMap>(tag: K, attributes: Re
 export function createMinimap(container: HTMLElement, onChange: (change: Change) => void, onLevel: (level: string) => void): MinimapView {
   const svg = svgElement("svg", { role: "group", "aria-label": "小地圖：點一區跳到該區中央座位" });
   const lines = svgElement("g", { class: "lines" });
+  const massing = svgElement("g", { class: "massing", "aria-hidden": "true" });
   const sections = svgElement("g", { class: "sections" });
   const dot = svgElement("circle", { class: "seat-dot", r: String(DOT_RADIUS) });
-  svg.append(lines, sections, dot);
+  svg.append(lines, massing, sections, dot);
   const levels = document.createElement("div");
   levels.className = "segmented levels";
   levels.setAttribute("role", "radiogroup");
@@ -37,11 +39,12 @@ export function createMinimap(container: HTMLElement, onChange: (change: Change)
   return {
     update(model) {
       // 區的形狀沒變就不重建，避免用鍵盤點選後焦點跑掉
-      const key = `${model.viewBox}|${model.sections.map((s) => s.id).join(",")}`;
+      const key = `${model.viewBox}|${model.sections.map((s) => s.id).join(",")}|${model.massing.map((m) => m.id).join(",")}`;
       if (key !== shapeKey) {
         shapeKey = key;
         svg.setAttribute("viewBox", model.viewBox);
         lines.replaceChildren(...model.lines.map((line) => svgElement("path", { d: line.path, "vector-effect": "non-scaling-stroke" })));
+        massing.replaceChildren(...model.massing.map((m) => svgElement("path", { d: m.path, "vector-effect": "non-scaling-stroke" })));
         paths.clear();
         sections.replaceChildren(
           ...model.sections.map((section) => {
@@ -74,7 +77,7 @@ export function createMinimap(container: HTMLElement, onChange: (change: Change)
         levels.replaceChildren(
           ...model.levels.map((level) => {
             const label = document.createElement("label");
-            label.title = `小地圖只畫 ${level} 的區`;
+            label.title = `小地圖只畫 ${level}（灰色虛線是示意量體，不能選位）`;
             const input = document.createElement("input");
             input.type = "radio";
             input.name = "minimap-level";

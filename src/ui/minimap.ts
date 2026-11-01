@@ -2,7 +2,7 @@ import { SeatViewError } from "../core/errors";
 import type { PlanPoint, Venue } from "../core/schema";
 import { seatPosition } from "../core/seat";
 import { sectionOutline } from "../core/stand";
-import { findLayout, listSections } from "../core/view";
+import { displaySections, findLayout, listSections } from "../core/view";
 import { sectionLabel } from "./selection";
 
 /*
@@ -30,6 +30,8 @@ export interface MinimapModel {
   level: string | null;
   /** 這一層的區，加上不屬於任何樓層的區 */
   sections: MinimapSection[];
+  /** 這一層的示意量體（上層看台、打者之眼…）：只畫外觀，不能點 */
+  massing: { id: string; path: string }[];
   /** layout 的折線 overlay（界外線、外野牆…），只當方位參考 */
   lines: { id: string; path: string }[];
   selected: { sectionId: string; point: PlanPoint } | null;
@@ -61,13 +63,17 @@ export function buildMinimapModel(
     const section: MinimapSection = { id: summary.id, label: sectionLabel(summary.id, summary.name), points, path: pathOf(points, true), target: { row, seat } };
     return { section, level: summary.level };
   });
-  const levels = [...new Set(all.flatMap((s) => (s.level === undefined ? [] : [s.level])))];
+  // 示意量體不能查詢，listSections 不會列出；只有示意量體的樓層（L3–L5）也要能切過去看
+  const massing = displaySections(venue, layoutId)
+    .filter((s) => s.massing)
+    .map((s) => ({ id: s.id, level: s.level, points: sectionOutline(venue, s.id) }));
+  const levels = [...new Set([...all, ...massing].flatMap((s) => (s.level === undefined ? [] : [s.level])))];
   const selectedLevel = all.find((s) => s.section.id === selected?.sectionId)?.level;
   const level = requestedLevel !== null && levels.includes(requestedLevel) ? requestedLevel : (selectedLevel ?? levels[0] ?? null);
   const sections = all.filter((s) => s.level === undefined || s.level === level).map((s) => s.section);
   const polylines = (layout.overlays ?? []).flatMap((overlay) => (overlay.type === "polyline" ? [overlay] : []));
 
-  const bounds = [...all.flatMap((s) => s.section.points), ...polylines.flatMap((l) => l.points)];
+  const bounds = [...all.flatMap((s) => s.section.points), ...massing.flatMap((m) => m.points), ...polylines.flatMap((l) => l.points)];
   const xs = bounds.map((p) => p.x);
   const zs = bounds.map((p) => p.z);
   const minX = Math.min(...xs) - MARGIN;
@@ -79,6 +85,7 @@ export function buildMinimapModel(
     levels,
     level,
     sections,
+    massing: massing.filter((m) => m.level === undefined || m.level === level).map((m) => ({ id: m.id, path: pathOf(m.points, true) })),
     lines: polylines.map((l) => ({ id: l.id, path: pathOf(l.points, l.closed ?? false) })),
     selected: selectedPoint(venue, sections, selected),
   };
