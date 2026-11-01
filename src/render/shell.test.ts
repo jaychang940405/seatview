@@ -135,7 +135,8 @@ describe("buildVenueScene 與 shell", () => {
     });
     // 牆、接縫、屋頂、格柵各 (geometry + material)，燈是 InstancedMesh + geometry + material，
     // 三塊螢幕各有螢幕面與外框 (geometry + material)
-    expect(spies).toHaveLength(4 * 2 + 3 + 3 * 2 * 2);
+    // 通風孔也是 InstancedMesh + geometry + material
+    expect(spies).toHaveLength(4 * 2 + 3 + 3 + 3 * 2 * 2);
     venueScene.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalled();
   });

@@ -16,6 +16,7 @@ const COLORS = {
   screenTop: "#86a7c4",
   screenOff: "#121418",
   screenFrame: "#1b1d21",
+  vent: "#5d6166",
 } as const;
 
 /** 螢幕外框比螢幕大多少、厚多少、退到螢幕後面多少（m）。 */
@@ -32,11 +33,13 @@ const INSET = 0.05;
 const LIGHT_SIZE = { length: 1.6, height: 0.6, depth: 0.6 } as const;
 /** 燈離牆往內多少（m）：放在深色屋頂前面才看得出來。 */
 const LIGHT_INSET = 2.5;
+/** 牆上一圈圓形通風孔（現場照片；高度、間距、大小是目視估計，C）：離牆頂 below 公尺，每隔 spacing 公尺一個。 */
+const VENTS = { below: 3, spacing: 6, radius: 0.6 } as const;
 
 export function buildShell(shell: Shell, layoutId: string): THREE.Group {
   const group = new THREE.Group();
   group.name = "shell";
-  group.add(buildWall(shell), buildSeams(shell), buildRoof(shell), buildLattice(shell), buildLights(shell), buildScreens(shell, layoutId));
+  group.add(buildWall(shell), buildSeams(shell), buildVents(shell), buildRoof(shell), buildLattice(shell), buildLights(shell), buildScreens(shell, layoutId));
   return group;
 }
 
@@ -141,6 +144,32 @@ function buildSeams(shell: Shell): THREE.LineSegments {
   const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: COLORS.seam }));
   lines.name = "shell-seams";
   return lines;
+}
+
+/** 牆上的圓形通風孔：深灰色圓片，貼在牆內側、面朝場內；跟接縫錯開半個間距。 */
+function buildVents(shell: Shell): THREE.InstancedMesh {
+  // 相鄰兩個接縫點的中點：輪廓是凸的，中點一定在輪廓內
+  const seams = alongOutline(shell.outline, VENTS.spacing).map((s) => s.point);
+  const spots = seams.map((a, i) => {
+    const b = seams[(i + 1) % seams.length] ?? a;
+    return { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+  });
+  const geometry = new THREE.CircleGeometry(VENTS.radius, 16);
+  const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshStandardMaterial({ color: COLORS.vent, roughness: 0.8 }), spots.length);
+  const transform = new THREE.Object3D();
+  const y = shell.wallHeight - VENTS.below;
+  const center = shellCenter(shell);
+  spots.forEach((spot, i) => {
+    const p = inward(shell, spot, INSET * 2);
+    transform.position.set(p.x, y, p.z);
+    // 圓片預設面朝 +z；轉到面朝形心
+    transform.lookAt(center.x, y, center.z);
+    transform.updateMatrix();
+    mesh.setMatrixAt(i, transform.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.name = "shell-vents";
+  return mesh;
 }
 
 /** 屋頂：從形心往每個輪廓頂點拉放射線，分 ROOF_RINGS 圈；每個頂點都在殼面上。 */
