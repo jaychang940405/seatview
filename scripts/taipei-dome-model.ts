@@ -12,7 +12,8 @@
  * 原點 = 本壘到中外野牆連線的中點；本壘在 +z 側，中外野在 −z 側。
  */
 import { circleThrough, fieldGeometry } from "./dome-field.ts";
-import type { Screen, Section } from "../src/core/schema.ts";
+import type { Screen, Section, Venue } from "../src/core/schema.ts";
+import { sectionSeats } from "../src/core/seat.ts";
 import { officialStands, type OfficialParams } from "./official-layout.ts";
 import { screenCorners } from "../src/core/shell.ts";
 import { pointInPolygon, signedDistance, superellipsePolygon, type PlanPoint, type Superellipse } from "./outline.ts";
@@ -247,12 +248,19 @@ export const K = {
     label: "牆上的大螢幕（依拍照目視估計，非量測值）",
     value: {
       centerField: { width: 28, height: 9, bottom: 20 },
-      corners: { width: 9, height: 5, bottom: 16, offsetDeg: 40 },
+      corners: { width: 9, height: 5, bottom: 16 },
       wallMargin: 0.6,
       litOn: ["baseball"],
     },
     grade: "C",
-    source: `${PHOTO}；演唱會時全部熄滅`,
+    source: `${PHOTO}；角落兩塊掛在界外桿後方混凝土塔朝本壘的那一面（使用者提供的現場照片）；演唱會時全部熄滅`,
+  },
+  cornerTower: {
+    label: "界外桿後方的混凝土塔（只畫外觀）",
+    value: { width: 6, depth: 2, height: 30, color: "#a7a49d", clearance: 0.3, startBehindPole: 2 },
+    grade: "C",
+    source:
+      "使用者提供的現場照片（只讀事實、不描摹、不放進 repo）：界外桿正後方有一座灰色混凝土塔，從場地高到上層看台頂，塔面上有角落小螢幕；尺寸是目視估計。位置：沿本壘→界外桿方向、在界外桿後面、靠界外區那一側，往外找第一個不壓到座位（留 clearance）、整座在穹頂輪廓內的位置",
   },
   shellOutlineStepDeg: { label: "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）", value: 2, unit: "°", grade: "C", source: "建模選擇" },
   baseCutout: {
@@ -535,6 +543,74 @@ function wallScreen(id: string, plate: PlanPoint, outline: PlanPoint[], offsetDe
   throw new Error(`${id} 螢幕放不進穹頂輪廓`);
 }
 
+/**
+ * 界外桿後方的混凝土塔：沿本壘→界外桿方向，從界外桿後 startBehindPole 往外找，
+ * 找「整座在穹頂輪廓內、不在界內、不壓到任何座位（留 clearance）」而且離界外桿最近的位置；看台排到外框留空處，所以塔多半貼著穹頂牆。
+ * size.x 沿本壘→界外桿方向（深）、size.z 是寬。
+ */
+function cornerTower(id: string, plate: PlanPoint, pole: PlanPoint, outline: PlanPoint[], seats: { x: number; z: number }[], fair: PlanPoint[]) {
+  const { width, depth, height, color, clearance, startBehindPole } = K.cornerTower.value;
+  const length = Math.hypot(pole.x - plate.x, pole.z - plate.z);
+  const d = { x: (pole.x - plate.x) / length, z: (pole.z - plate.z) / length };
+  // 界外區那一側：一壘側（x > 0）是 (−d.z, d.x)，三壘側相反
+  const side = pole.x > plate.x ? 1 : -1;
+  const n = { x: -d.z * side, z: d.x * side };
+  const corners = (c: PlanPoint, grow: number) =>
+    [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([i, j]) => ({
+      x: c.x + (i ?? 0) * (depth / 2 + grow) * d.x + (j ?? 0) * (width / 2 + grow) * n.x,
+      z: c.z + (i ?? 0) * (depth / 2 + grow) * d.z + (j ?? 0) * (width / 2 + grow) * n.z,
+    }));
+  // 候選位置：塔的中心在界外桿後 startBehindPole 以外，左右可以跨過界外線延長線；取離界外桿最近的那一個
+  let best: PlanPoint | null = null;
+  for (let along = startBehindPole; along < 20; along += 0.25) {
+    for (let lateral = -width; lateral <= width; lateral += 0.25) {
+      const c = { x: pole.x + d.x * (along + depth / 2) + n.x * lateral, z: pole.z + d.z * (along + depth / 2) + n.z * lateral };
+      if (best && Math.hypot(c.x - pole.x, c.z - pole.z) >= Math.hypot(best.x - pole.x, best.z - pole.z)) continue;
+      if (!corners(c, 0).every((p) => signedDistance(outline, p) >= 0)) continue;
+      // 不能蓋在界內（全壘打牆以內）
+      if (corners(c, clearance).some((p) => pointInPolygon(fair, p))) continue;
+      const area = corners(c, clearance);
+      if (seats.some((p) => pointInPolygon(area, p))) continue;
+      best = c;
+    }
+  }
+  if (best) {
+    const c = best;
+    {
+      return {
+        type: "box" as const,
+        id,
+        center: { x: mm(c.x), y: height / 2, z: mm(c.z) },
+        size: { x: depth, y: height, z: width },
+        yawDeg: mm(Math.atan2(d.z, d.x) / DEG),
+        color,
+      };
+    }
+  }
+  throw new Error(`${id} 放不進界外桿後方`);
+}
+
+/** 角落螢幕：掛在塔朝本壘那一面的正中央，往外凸 0.3 m，面朝本壘。 */
+function towerScreen(id: string, plate: PlanPoint, tower: ReturnType<typeof cornerTower>, size: { width: number; height: number; bottom: number }): Screen {
+  const yaw = tower.yawDeg * DEG;
+  const d = { x: Math.cos(yaw), z: Math.sin(yaw) };
+  const back = tower.size.x / 2 + 0.3;
+  const center = point(tower.center.x - d.x * back, tower.center.z - d.z * back);
+  return {
+    id,
+    center: { x: center.x, y: mm(size.bottom + size.height / 2), z: center.z },
+    width: size.width,
+    height: size.height,
+    facingYawDeg: Math.round((Math.atan2(plate.z - center.z, plate.x - center.x) / DEG) * 100) / 100,
+    onLayouts: [...K.screens.value.litOn],
+  };
+}
+
 /** 每排的隱含座位間距（這一排實際用的長度 ÷ 席數）必須合理，否則報錯。 */
 function checkSpacing(section: Section): void {
   const rowLength = (row: number) => {
@@ -614,6 +690,12 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
     floorSection("F3", "搖滾區 3", f3z),
   ];
   sections.forEach(checkSpacing);
+  const seats = sections.flatMap((s) => sectionSeats({ sections } as Venue, s.id).map((p) => p.position));
+  const fair = [plate, ...wallArc];
+  const towers = {
+    left: cornerTower("corner-tower-left", plate, leftPole, shellOutline, seats, fair),
+    right: cornerTower("corner-tower-right", plate, rightPole, shellOutline, seats, fair),
+  };
 
   return {
     schemaVersion: 1,
@@ -636,8 +718,8 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
       roofHeight: K.shellRoofHeight.value,
       screens: [
         wallScreen("center-field", plate, shellOutline, 0, K.screens.value.centerField),
-        wallScreen("left-corner", plate, shellOutline, -K.screens.value.corners.offsetDeg, K.screens.value.corners),
-        wallScreen("right-corner", plate, shellOutline, K.screens.value.corners.offsetDeg, K.screens.value.corners),
+        towerScreen("left-corner", plate, towers.left, K.screens.value.corners),
+        towerScreen("right-corner", plate, towers.right, K.screens.value.corners),
       ],
     },
     layouts: {
@@ -652,6 +734,8 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
           { type: "polyline", id: "outfield-wall", points: wallArc, y: lineY },
           infieldArcLine(plate),
           ...fenceAndPoles(wallArc),
+          towers.left,
+          towers.right,
           {
             type: "polyline",
             id: "infield",
@@ -670,7 +754,7 @@ export function buildTaipeiDome(params: ModelParams = DEFAULT_PARAMS) {
         name: "演唱會（暫定假設：外野端台）",
         // 舞台面朝 +z（朝內野看台）；位置、尺寸、高度都是假設，之後只改這裡與 F 區
         focus: { position: K.concertFocus.value, facingDeg: 90 },
-        overlays: [{ type: "box", id: "stage", ...K.stage.value }],
+        overlays: [{ type: "box", id: "stage", ...K.stage.value }, towers.left, towers.right],
       },
     },
   };

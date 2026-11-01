@@ -45,7 +45,8 @@
       { "key": "foulPoleMarker", "value": "界外桿（黃色）：{\"height\":18,\"width\":0.4,\"color\":\"#f0c419\"}", "grade": "C", "source": "使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）" },
       { "key": "shellWallHeight", "value": "穹頂牆頂高度（屋頂起拱處）：44 m", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；原本估 38 m，加上 L5 示意量體（最高一排約 39.5 m）後調高，使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）" },
       { "key": "upperMassing", "value": "上層看台示意量體（只畫外觀、不能查詢）：{\"levels\":[\"L3\",\"L4\",\"L5\"],\"noHomeArc\":[\"L3\"],\"overL2Row\":14,\"rows\":6,\"rowRise\":0.5,\"floorGap\":4,\"outfieldOverRow\":8,\"outfieldRows\":10}", "grade": "C", "source": "樓層與區號（L2 外野 233–244、L3 301–317、L4 401–417、L5 503–515）見 https://waihann.tw/1136/taipeidome-seatview/ ；L4 只有 6 排見 https://www.nownews.com/news/6534334 ；L3 中央是包廂見 https://uptogo.com.tw/?p=1729172 。外框留空讓本壘後方沒有水平空間，所以 L3–L5 疊在 L2 後段正上方；L3、L5 的排數、層間距、L2 外野的位置與排數都是估算" },
-      { "key": "screens", "value": "牆上的大螢幕（依拍照目視估計，非量測值）：{\"centerField\":{\"width\":28,\"height\":9,\"bottom\":20},\"corners\":{\"width\":9,\"height\":5,\"bottom\":16,\"offsetDeg\":40},\"wallMargin\":0.6,\"litOn\":[\"baseball\"]}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；演唱會時全部熄滅" },
+      { "key": "screens", "value": "牆上的大螢幕（依拍照目視估計，非量測值）：{\"centerField\":{\"width\":28,\"height\":9,\"bottom\":20},\"corners\":{\"width\":9,\"height\":5,\"bottom\":16},\"wallMargin\":0.6,\"litOn\":[\"baseball\"]}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；角落兩塊掛在界外桿後方混凝土塔朝本壘的那一面（使用者提供的現場照片）；演唱會時全部熄滅" },
+      { "key": "cornerTower", "value": "界外桿後方的混凝土塔（只畫外觀）：{\"width\":6,\"depth\":2,\"height\":30,\"color\":\"#a7a49d\",\"clearance\":0.3,\"startBehindPole\":2}", "grade": "C", "source": "使用者提供的現場照片（只讀事實、不描摹、不放進 repo）：界外桿正後方有一座灰色混凝土塔，從場地高到上層看台頂，塔面上有角落小螢幕；尺寸是目視估計。位置：沿本壘→界外桿方向、在界外桿後面、靠界外區那一側，往外找第一個不壓到座位（留 clearance）、整座在穹頂輪廓內的位置" },
       { "key": "shellOutlineStepDeg", "value": "穹頂底面輪廓取樣間隔（沿用外框摘要的超橢圓）：2 °", "grade": "C", "source": "建模選擇" },
       { "key": "baseCutout", "value": "一壘、三壘紅土方塊邊長（內野其餘是人工草皮；二壘在參考照片裡被打擊練習網擋住，不畫）：4.5 m", "grade": "C", "source": "使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值）" },
       { "key": "fieldColors", "value": "球場地面與線條顏色：{\"grass\":\"#5a9a3a\",\"dirt\":\"#c9652b\",\"track\":\"#c25f2a\",\"line\":\"#f2f2f2\"}", "grade": "C", "source": "依使用者自己拍攝的照片目視估計（照片不在 repo，非量測值）；橘色依 使用者提供的大巨蛋內部全景照片（只做目視比較，不在 repo、不描摹；非量測值） 調亮" },
@@ -3270,18 +3271,18 @@
       },
       {
         "id": "left-corner",
-        "center": { "x": -73.296, "y": 18.5, "z": -26.401 },
+        "center": { "x": -75.173, "y": 18.5, "z": -10.688 },
         "width": 9,
         "height": 5,
-        "facingYawDeg": 50,
+        "facingYawDeg": 43.62,
         "onLayouts": ["baseball"]
       },
       {
         "id": "right-corner",
-        "center": { "x": 74.119, "y": 18.5, "z": -27.381 },
+        "center": { "x": 75.173, "y": 18.5, "z": -10.688 },
         "width": 9,
         "height": 5,
-        "facingYawDeg": 130,
+        "facingYawDeg": 136.38,
         "onLayouts": ["baseball"]
       }
     ]
@@ -3990,6 +3991,22 @@
           "color": "#f0c419"
         },
         {
+          "type": "box",
+          "id": "corner-tower-left",
+          "center": { "x": -76.092, "y": 15, "z": -11.607 },
+          "size": { "x": 2, "y": 30, "z": 6 },
+          "yawDeg": -135,
+          "color": "#a7a49d"
+        },
+        {
+          "type": "box",
+          "id": "corner-tower-right",
+          "center": { "x": 76.092, "y": 15, "z": -11.607 },
+          "size": { "x": 2, "y": 30, "z": 6 },
+          "yawDeg": -45,
+          "color": "#a7a49d"
+        },
+        {
           "type": "polyline",
           "id": "infield",
           "closed": true,
@@ -4015,6 +4032,22 @@
           "id": "stage",
           "center": { "x": 0, "y": 1, "z": -50 },
           "size": { "x": 40, "y": 2, "z": 16 }
+        },
+        {
+          "type": "box",
+          "id": "corner-tower-left",
+          "center": { "x": -76.092, "y": 15, "z": -11.607 },
+          "size": { "x": 2, "y": 30, "z": 6 },
+          "yawDeg": -135,
+          "color": "#a7a49d"
+        },
+        {
+          "type": "box",
+          "id": "corner-tower-right",
+          "center": { "x": 76.092, "y": 15, "z": -11.607 },
+          "size": { "x": 2, "y": 30, "z": 6 },
+          "yawDeg": -45,
+          "color": "#a7a49d"
         }
       ]
     }
